@@ -122,6 +122,9 @@ button.add-btn:hover{background:#d4eddb}
     </div>
     <div class="section-body">
       <select id="furnSelect">
+        <option value="besta_3x">BESTÅ skap (3×60cm)</option>
+        <option value="soderhamn">Söderhamn hjørnesofa 3-s</option>
+        <option value="cana_tv">Bolia Cana + Frame 50" TV</option>
         <option value="sofa_3">Sofa (3-seter)</option>
         <option value="sofa_2">Sofa (2-seter)</option>
         <option value="stol">Lenestol</option>
@@ -194,6 +197,9 @@ function swingRadius(heightCm, clubLen) {
 
 // ─── FURNITURE CATALOG ───
 const FURNITURE_CATALOG = {
+  besta_3x:    { name: 'BESTÅ skap (3×)', w: 1.80, h: 1.92, d: 0.40, color: 0x3B3B3B, custom: 'besta' },
+  soderhamn:   { name: 'Söderhamn hjørne 3-s', w: 1.92, h: 0.83, d: 1.92, color: 0x8B8B8B, custom: 'soderhamn' },
+  cana_tv:     { name: 'Bolia Cana + Frame TV', w: 1.28, h: 1.11, d: 0.40, color: 0xC4A87C, custom: 'cana_tv' },
   sofa_3:      { name: 'Sofa (3-seter)', w: 2.1, h: 0.85, d: 0.9, color: 0x6B4C3B },
   sofa_2:      { name: 'Sofa (2-seter)', w: 1.5, h: 0.85, d: 0.9, color: 0x6B4C3B },
   stol:        { name: 'Lenestol', w: 0.85, h: 0.85, d: 0.85, color: 0x7B5C4B },
@@ -482,41 +488,351 @@ function setVal(id, val, unit) {
 }
 
 // ─── FURNITURE SYSTEM ───
+
+function addEdges(mesh, group) {
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(mesh.geometry),
+    new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 })
+  );
+  edges.position.copy(mesh.position);
+  edges.rotation.copy(mesh.rotation);
+  group.add(edges);
+}
+
+function addLabel(name, h, group) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(0, 0, 512, 64);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 26px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(name, 256, 40);
+  const tex = new THREE.CanvasTexture(canvas);
+  const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
+  const sprite = new THREE.Sprite(spriteMat);
+  sprite.scale.set(1.6, 0.2, 1);
+  sprite.position.y = h + 0.25;
+  group.add(sprite);
+}
+
+// ─── BESTÅ skap (3×60cm = 180cm breed, 40cm dyp, 192cm høy) ───
+function createBesta(group) {
+  const W = 1.80, H = 1.92, D = 0.40;
+  const frameW = 0.60, wallT = 0.018;
+  const cabinetMat = new THREE.MeshLambertMaterial({ color: 0x2B2B2B });
+  const doorMat = new THREE.MeshLambertMaterial({ color: 0x3C3C3C });
+  const handleMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+  const shelfMat = new THREE.MeshLambertMaterial({ color: 0x2B2B2B });
+
+  for (let i = 0; i < 3; i++) {
+    const offsetX = -W/2 + frameW/2 + i * frameW;
+    const cabinetGroup = new THREE.Group();
+
+    // Back panel
+    const back = new THREE.Mesh(new THREE.BoxGeometry(frameW, H, wallT), cabinetMat);
+    back.position.set(0, H/2, -D/2 + wallT/2);
+    cabinetGroup.add(back);
+
+    // Top
+    const top = new THREE.Mesh(new THREE.BoxGeometry(frameW, wallT, D), cabinetMat);
+    top.position.set(0, H - wallT/2, 0);
+    cabinetGroup.add(top);
+
+    // Bottom
+    const bottom = new THREE.Mesh(new THREE.BoxGeometry(frameW, wallT, D), cabinetMat);
+    bottom.position.set(0, wallT/2, 0);
+    cabinetGroup.add(bottom);
+
+    // Left side
+    const left = new THREE.Mesh(new THREE.BoxGeometry(wallT, H, D), cabinetMat);
+    left.position.set(-frameW/2 + wallT/2, H/2, 0);
+    cabinetGroup.add(left);
+
+    // Right side
+    const right = new THREE.Mesh(new THREE.BoxGeometry(wallT, H, D), cabinetMat);
+    right.position.set(frameW/2 - wallT/2, H/2, 0);
+    cabinetGroup.add(right);
+
+    // 4 shelves inside
+    for (let s = 1; s <= 4; s++) {
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(frameW - 2*wallT, wallT, D - wallT), shelfMat);
+      shelf.position.set(0, s * (H / 5), wallT/2);
+      cabinetGroup.add(shelf);
+    }
+
+    // Door (front panel, slightly protruding)
+    const doorH = H - 0.004;
+    const door = new THREE.Mesh(new THREE.BoxGeometry(frameW - 0.004, doorH, 0.02), doorMat);
+    door.position.set(0, H/2, D/2 - 0.008);
+    cabinetGroup.add(door);
+    addEdges(door, cabinetGroup);
+
+    // Handle (vertical bar)
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.14, 0.025), handleMat);
+    handle.position.set(frameW/2 - 0.06, H * 0.55, D/2 + 0.005);
+    cabinetGroup.add(handle);
+
+    cabinetGroup.position.x = offsetX;
+    group.add(cabinetGroup);
+  }
+
+  // Dividing lines between cabinets (vertical gap lines)
+  const lineMat = new THREE.LineBasicMaterial({ color: 0x111111 });
+  for (let i = 1; i < 3; i++) {
+    const x = -W/2 + i * frameW;
+    const lineGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(x, 0, D/2), new THREE.Vector3(x, H, D/2)
+    ]);
+    group.add(new THREE.Line(lineGeo, lineMat));
+  }
+
+  // Outer wireframe for bounding box (for selection raycasting)
+  const boundingBox = new THREE.Mesh(
+    new THREE.BoxGeometry(W, H, D),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  boundingBox.position.y = H/2;
+  group.add(boundingBox);
+  // Move bounding box to first child for selection (children[0])
+  group.children.splice(group.children.indexOf(boundingBox), 1);
+  group.children.unshift(boundingBox);
+}
+
+// ─── Söderhamn hjørnesofa 3-seter (L-form ~192×192cm, h=83cm) ───
+function createSoderhamn(group) {
+  const seatH = 0.40, backH = 0.83, seatD = 0.99;
+  const cushionT = 0.18; // seat cushion thickness
+  const backCushionT = 0.20;
+  const armW = 0.06;
+  const sectionW = 0.93; // width of each sitting section
+  const cornerW = 0.99;
+  const totalArm1 = cornerW + sectionW; // 1.92m
+  const totalArm2 = cornerW + sectionW; // 1.92m
+  const legH = 0.14;
+
+  const frameMat = new THREE.MeshLambertMaterial({ color: 0x6E6E6E });
+  const cushionMat = new THREE.MeshLambertMaterial({ color: 0x8E8E8E });
+  const backMat = new THREE.MeshLambertMaterial({ color: 0x7E7E7E });
+  const legMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+
+  // Bounding box for raycasting (children[0])
+  const boundingBox = new THREE.Mesh(
+    new THREE.BoxGeometry(totalArm1, backH, totalArm2),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  boundingBox.position.set(0, backH/2, 0);
+  group.add(boundingBox);
+
+  // Helper: create a sofa segment (seat base + cushion + back cushion)
+  function sofaSegment(w, d, x, z, backSide) {
+    // Seat base/frame
+    const base = new THREE.Mesh(new THREE.BoxGeometry(w, seatH - cushionT - legH, d), frameMat);
+    base.position.set(x, legH + (seatH - cushionT - legH)/2, z);
+    group.add(base);
+
+    // Seat cushion
+    const cushion = new THREE.Mesh(new THREE.BoxGeometry(w - 0.04, cushionT, d - 0.04), cushionMat);
+    cushion.position.set(x, seatH - cushionT/2, z);
+    group.add(cushion);
+
+    // Back cushion
+    if (backSide === 'z-') {
+      const bc = new THREE.Mesh(new THREE.BoxGeometry(w, backH - seatH, backCushionT), backMat);
+      bc.position.set(x, seatH + (backH - seatH)/2, z - d/2 + backCushionT/2);
+      group.add(bc);
+    } else if (backSide === 'x-') {
+      const bc = new THREE.Mesh(new THREE.BoxGeometry(backCushionT, backH - seatH, d), backMat);
+      bc.position.set(x - w/2 + backCushionT/2, seatH + (backH - seatH)/2, z);
+      group.add(bc);
+    } else if (backSide === 'both') {
+      const bc1 = new THREE.Mesh(new THREE.BoxGeometry(w, backH - seatH, backCushionT), backMat);
+      bc1.position.set(x, seatH + (backH - seatH)/2, z - d/2 + backCushionT/2);
+      group.add(bc1);
+      const bc2 = new THREE.Mesh(new THREE.BoxGeometry(backCushionT, backH - seatH, d), backMat);
+      bc2.position.set(x - w/2 + backCushionT/2, seatH + (backH - seatH)/2, z);
+      group.add(bc2);
+    }
+
+    // Legs (4 small cylinders under base)
+    const legR = 0.02;
+    const positions = [
+      [x - w/2 + 0.06, z - d/2 + 0.06],
+      [x + w/2 - 0.06, z - d/2 + 0.06],
+      [x - w/2 + 0.06, z + d/2 - 0.06],
+      [x + w/2 - 0.06, z + d/2 - 0.06],
+    ];
+    for (const [lx, lz] of positions) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(legR, legR, legH, 6), legMat);
+      leg.position.set(lx, legH/2, lz);
+      group.add(leg);
+    }
+  }
+
+  // L-shape layout (origin at center of bounding box)
+  // Corner piece at the inner corner (-x, -z)
+  const cx = -totalArm1/2 + cornerW/2;
+  const cz = -totalArm2/2 + cornerW/2;
+  sofaSegment(cornerW, cornerW, cx, cz, 'both');
+
+  // Arm 1: extends along +X from corner (back along -Z)
+  const arm1x = -totalArm1/2 + cornerW + sectionW/2;
+  const arm1z = -totalArm2/2 + seatD/2;
+  sofaSegment(sectionW, seatD, arm1x, arm1z, 'z-');
+
+  // Arm 2: extends along +Z from corner (back along -X)
+  const arm2x = -totalArm1/2 + seatD/2;
+  const arm2z = -totalArm2/2 + cornerW + sectionW/2;
+  sofaSegment(seatD, sectionW, arm2x, arm2z, 'x-');
+}
+
+// ─── Bolia Cana HiFi-møbel (128×46×40cm) + Samsung The Frame 50" ───
+function createCanaTv(group) {
+  // Cana bench dimensions
+  const benchW = 1.28, benchH = 0.46, benchD = 0.40;
+  const legH = 0.12, legR = 0.015;
+  const bodyH = benchH - legH;
+
+  const oakMat = new THREE.MeshLambertMaterial({ color: 0xC4A87C }); // light oak
+  const frontMat = new THREE.MeshLambertMaterial({ color: 0xB89B6A }); // woven front
+  const legMat = new THREE.MeshLambertMaterial({ color: 0x8B7355 });
+  const tvMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+  const screenMat = new THREE.MeshLambertMaterial({ color: 0x222233 });
+
+  // Bounding box for raycasting (children[0])
+  const totalH = benchH + 0.645; // bench + TV
+  const boundingBox = new THREE.Mesh(
+    new THREE.BoxGeometry(benchW, totalH, benchD),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  boundingBox.position.y = totalH/2;
+  group.add(boundingBox);
+
+  // Bench body (top plate + sides)
+  const topPlate = new THREE.Mesh(new THREE.BoxGeometry(benchW, 0.025, benchD), oakMat);
+  topPlate.position.set(0, benchH - 0.0125, 0);
+  group.add(topPlate);
+
+  // Left side panel
+  const sideH = bodyH - 0.025;
+  const leftSide = new THREE.Mesh(new THREE.BoxGeometry(0.02, sideH, benchD), oakMat);
+  leftSide.position.set(-benchW/2 + 0.01, legH + sideH/2, 0);
+  group.add(leftSide);
+
+  // Right side panel
+  const rightSide = new THREE.Mesh(new THREE.BoxGeometry(0.02, sideH, benchD), oakMat);
+  rightSide.position.set(benchW/2 - 0.01, legH + sideH/2, 0);
+  group.add(rightSide);
+
+  // Center divider
+  const divider = new THREE.Mesh(new THREE.BoxGeometry(0.02, sideH, benchD - 0.04), oakMat);
+  divider.position.set(0, legH + sideH/2, 0);
+  group.add(divider);
+
+  // Front panels (woven texture effect - two doors)
+  const doorW = (benchW - 0.06) / 2;
+  for (let i = 0; i < 2; i++) {
+    const dx = -benchW/2 + 0.03 + doorW/2 + i * (doorW + 0.02);
+    const frontPanel = new THREE.Mesh(new THREE.BoxGeometry(doorW, sideH - 0.02, 0.015), frontMat);
+    frontPanel.position.set(dx, legH + sideH/2, benchD/2 - 0.007);
+    group.add(frontPanel);
+    addEdges(frontPanel, group);
+
+    // Horizontal lines to simulate woven pattern
+    const lineMatW = new THREE.LineBasicMaterial({ color: 0x9B8060, transparent: true, opacity: 0.5 });
+    for (let j = 1; j <= 6; j++) {
+      const ly = legH + j * (sideH / 7);
+      const lineGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(dx - doorW/2 + 0.01, ly, benchD/2 + 0.001),
+        new THREE.Vector3(dx + doorW/2 - 0.01, ly, benchD/2 + 0.001),
+      ]);
+      group.add(new THREE.Line(lineGeo, lineMatW));
+    }
+  }
+
+  // Back panel
+  const backPanel = new THREE.Mesh(new THREE.BoxGeometry(benchW - 0.04, sideH, 0.012), oakMat);
+  backPanel.position.set(0, legH + sideH/2, -benchD/2 + 0.006);
+  group.add(backPanel);
+
+  // Bottom shelf
+  const bottomShelf = new THREE.Mesh(new THREE.BoxGeometry(benchW - 0.04, 0.015, benchD - 0.04), oakMat);
+  bottomShelf.position.set(0, legH + 0.0075, 0);
+  group.add(bottomShelf);
+
+  // 4 legs (tapered wooden legs)
+  const legPositions = [
+    [-benchW/2 + 0.04, -benchD/2 + 0.04],
+    [benchW/2 - 0.04, -benchD/2 + 0.04],
+    [-benchW/2 + 0.04, benchD/2 - 0.04],
+    [benchW/2 - 0.04, benchD/2 - 0.04],
+  ];
+  for (const [lx, lz] of legPositions) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(legR, legR * 1.3, legH, 6), legMat);
+    leg.position.set(lx, legH/2, lz);
+    group.add(leg);
+  }
+
+  // ─── Samsung The Frame 50" TV ───
+  // 112.52 × 64.52 × 2.54 cm
+  const tvW = 1.1252, tvH = 0.6452, tvD = 0.0254;
+  const frameT = 0.025; // frame border thickness
+
+  // TV frame (outer)
+  const tvFrame = new THREE.Mesh(new THREE.BoxGeometry(tvW, tvH, tvD), tvMat);
+  tvFrame.position.set(0, benchH + tvH/2 + 0.005, 0);
+  group.add(tvFrame);
+  addEdges(tvFrame, group);
+
+  // Screen (slightly recessed)
+  const screenW = tvW - 2 * frameT;
+  const screenH2 = tvH - 2 * frameT;
+  const screen = new THREE.Mesh(new THREE.BoxGeometry(screenW, screenH2, 0.003), screenMat);
+  screen.position.set(0, benchH + tvH/2 + 0.005, tvD/2 + 0.001);
+  group.add(screen);
+
+  // "The Frame" label effect - subtle art frame look
+  const frameBorderMat = new THREE.LineBasicMaterial({ color: 0x444444 });
+  const by = benchH + 0.005;
+  const frameLineGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-screenW/2, by + frameT, tvD/2 + 0.002),
+    new THREE.Vector3(screenW/2, by + frameT, tvD/2 + 0.002),
+    new THREE.Vector3(screenW/2, by + tvH - frameT, tvD/2 + 0.002),
+    new THREE.Vector3(-screenW/2, by + tvH - frameT, tvD/2 + 0.002),
+    new THREE.Vector3(-screenW/2, by + frameT, tvD/2 + 0.002),
+  ]);
+  group.add(new THREE.Line(frameLineGeo, frameBorderMat));
+}
+
 function createFurnitureMesh(type) {
   const cat = FURNITURE_CATALOG[type];
   const group = new THREE.Group();
 
-  // Main box
-  const geo = new THREE.BoxGeometry(cat.w, cat.h, cat.d);
-  const mat = new THREE.MeshLambertMaterial({ color: cat.color });
-  const box = new THREE.Mesh(geo, mat);
-  box.position.y = cat.h / 2;
-  group.add(box);
+  if (cat.custom === 'besta') {
+    createBesta(group);
+  } else if (cat.custom === 'soderhamn') {
+    createSoderhamn(group);
+  } else if (cat.custom === 'cana_tv') {
+    createCanaTv(group);
+  } else {
+    // Default simple box
+    const geo = new THREE.BoxGeometry(cat.w, cat.h, cat.d);
+    const mat = new THREE.MeshLambertMaterial({ color: cat.color });
+    const box = new THREE.Mesh(geo, mat);
+    box.position.y = cat.h / 2;
+    group.add(box);
 
-  // Wireframe
-  const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(geo),
-    new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 })
-  );
-  edges.position.y = cat.h / 2;
-  group.add(edges);
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(geo),
+      new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 })
+    );
+    edges.position.y = cat.h / 2;
+    group.add(edges);
+  }
 
-  // Label sprite
-  const canvas = document.createElement('canvas');
-  canvas.width = 256; canvas.height = 64;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  ctx.fillRect(0, 0, 256, 64);
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 28px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(cat.name, 128, 40);
-  const tex = new THREE.CanvasTexture(canvas);
-  const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
-  const sprite = new THREE.Sprite(spriteMat);
-  sprite.scale.set(1.2, 0.3, 1);
-  sprite.position.y = cat.h + 0.25;
-  group.add(sprite);
+  // Label
+  addLabel(cat.name, cat.h, group);
 
   group.userData.type = type;
   return group;
