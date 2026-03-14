@@ -197,7 +197,7 @@ function swingRadius(heightCm, clubLen) {
 
 // ─── FURNITURE CATALOG ───
 const FURNITURE_CATALOG = {
-  besta_3x:    { name: 'BESTÅ skap (3×)', w: 1.80, h: 1.92, d: 0.40, color: 0x3B3B3B, custom: 'besta' },
+  besta_3x:    { name: 'BESTÅ skap (3×)', w: 1.80, h: 1.928, d: 0.40, color: 0x3B3B3B, custom: 'besta' },
   soderhamn:   { name: 'Söderhamn hjørne 3-s', w: 1.92, h: 0.83, d: 1.92, color: 0x8B8B8B, custom: 'soderhamn' },
   cana_tv:     { name: 'Bolia Cana + Frame TV', w: 1.28, h: 1.11, d: 0.40, color: 0xC4A87C, custom: 'cana_tv' },
   sofa_3:      { name: 'Sofa (3-seter)', w: 2.1, h: 0.85, d: 0.9, color: 0x6B4C3B },
@@ -577,6 +577,22 @@ function createBesta(group) {
     cabinetGroup.position.x = offsetX;
     group.add(cabinetGroup);
   }
+
+  // Top panel (glass topplate 180×40cm, ~8mm thick)
+  const topPanelT = 0.008;
+  const topPanelMat = new THREE.MeshLambertMaterial({
+    color: 0x445566, transparent: true, opacity: 0.5
+  });
+  const topPanel = new THREE.Mesh(new THREE.BoxGeometry(W + 0.01, topPanelT, D + 0.005), topPanelMat);
+  topPanel.position.set(0, H + topPanelT/2, 0);
+  group.add(topPanel);
+  // Glass edge highlight
+  const topEdges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(topPanel.geometry),
+    new THREE.LineBasicMaterial({ color: 0x667788, transparent: true, opacity: 0.6 })
+  );
+  topEdges.position.copy(topPanel.position);
+  group.add(topEdges);
 
   // Dividing lines between cabinets (vertical gap lines)
   const lineMat = new THREE.LineBasicMaterial({ color: 0x111111 });
