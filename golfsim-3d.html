@@ -6,9 +6,8 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:system-ui,-apple-system,sans-serif;display:flex;height:100vh;overflow:hidden;background:#1a1a1a}
-#sidebar{width:290px;background:#fff;border-right:1px solid #ddd;padding:16px;overflow-y:auto;flex-shrink:0}
+#sidebar{width:300px;background:#fff;border-right:1px solid #ddd;overflow-y:auto;flex-shrink:0}
 #sidebar h2{font-size:15px;margin-bottom:8px;color:#333}
-.sep{border-top:1px solid #eee;margin:12px 0}
 #canvas-wrap{flex:1;position:relative}
 canvas{display:block;width:100%;height:100%}
 label{display:block;font-size:12px;color:#555;margin-bottom:2px}
@@ -23,57 +22,122 @@ button.view-btn:hover{background:#e8e8e8}
 .val.ok{color:#2a7}
 .val.tight{color:#c80}
 .val.bad{color:#c22}
-#status{font-size:11px;color:#888;margin-top:8px}
+#status{font-size:11px;color:#888;margin-top:8px;padding:0 16px 12px}
 .radio-group{display:flex;gap:8px;margin-bottom:8px}
 .radio-group label{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px}
+
+/* Collapsible sections */
+.section{border-bottom:1px solid #eee}
+.section-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;background:#fafafa;border-bottom:1px solid #eee;user-select:none}
+.section-header:hover{background:#f0f0f0}
+.section-header h3{font-size:13px;font-weight:600;color:#333;margin:0}
+.section-header .arrow{font-size:10px;color:#888;transition:transform 0.2s}
+.section-body{padding:12px 16px}
+.section.collapsed .section-body{display:none}
+.section.collapsed .arrow{transform:rotate(-90deg)}
+
+/* Furniture list */
+.furn-item{background:#f8f8f8;border:1px solid #e0e0e0;border-radius:5px;padding:8px 10px;margin-bottom:6px;font-size:12px}
+.furn-item.selected{border-color:#4488cc;background:#eef4ff}
+.furn-item-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.furn-item-header span{font-weight:600;cursor:pointer;color:#333}
+.furn-item-header span:hover{color:#4488cc}
+.btn-del{background:none;border:none;color:#c44;cursor:pointer;font-size:16px;line-height:1;padding:0 4px}
+.btn-del:hover{color:#f00}
+.furn-controls{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px}
+.furn-controls label{font-size:11px;margin-bottom:0}
+.furn-controls input[type=range]{margin:0 0 4px}
+
+button.add-btn{width:100%;padding:7px;font-size:12px;cursor:pointer;border:1px solid #4a8;border-radius:4px;background:#e8f5ee;color:#2a6;font-weight:600;margin-top:4px}
+button.add-btn:hover{background:#d4eddb}
 </style>
 </head>
 <body>
 
 <div id="sidebar">
-  <h2>Golfsimulator Planlegger</h2>
 
-  <button class="view-btn" onclick="setTopDown()">Ovenfra</button>
-  <button class="view-btn" onclick="set3DView()">3D-visning</button>
-  <button class="view-btn" onclick="setFrontView()">Front (fra vindu)</button>
-  <button class="view-btn" onclick="setSideView()">Sidevisning</button>
-
-  <div class="sep"></div>
-
-  <label><b>Spillerhøyde:</b> <span id="hVal">180</span> cm</label>
-  <input type="range" id="hSlider" min="160" max="205" value="180" step="1">
-
-  <label><b>Klubb:</b></label>
-  <select id="clubSelect">
-    <option value="1.143">Driver (45")</option>
-    <option value="1.016">3-wood (40")</option>
-    <option value="0.978">Hybrid (38.5")</option>
-    <option value="0.940" selected>7-jern (37")</option>
-    <option value="0.914">9-jern (36")</option>
-    <option value="0.889">Wedge (35")</option>
-  </select>
-
-  <label><b>Retning:</b></label>
-  <div class="radio-group">
-    <label><input type="radio" name="dir" value="window" checked> Mot vindu</label>
-    <label><input type="radio" name="dir" value="along"> Langs rommet</label>
+  <!-- Visning -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h3>Visning</h3><span class="arrow">▾</span>
+    </div>
+    <div class="section-body">
+      <button class="view-btn" onclick="setTopDown()">Ovenfra</button>
+      <button class="view-btn" onclick="set3DView()">3D-visning</button>
+      <button class="view-btn" onclick="setFrontView()">Front (fra vindu)</button>
+      <button class="view-btn" onclick="setSideView()">Sidevisning</button>
+    </div>
   </div>
 
-  <label><b>Posisjon langs stue:</b> <span id="posVal">0.0</span>m</label>
-  <input type="range" id="posSlider" min="0" max="5" value="2.5" step="0.05">
+  <!-- Golfsimulator -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h3>Golfsimulator</h3><span class="arrow">▾</span>
+    </div>
+    <div class="section-body">
+      <label><input type="checkbox" id="simToggle" checked> Vis simulator</label>
+      <div id="simControls">
+        <label><b>Spillerhøyde:</b> <span id="hVal">180</span> cm</label>
+        <input type="range" id="hSlider" min="160" max="205" value="180" step="1">
 
-  <div class="sep"></div>
-  <h2>Klaringer</h2>
-  <div class="info-grid">
-    <span class="lbl">Tak-klaring:</span><span class="val" id="cCeil">–</span>
-    <span class="lbl">Hemskant-avst:</span><span class="val" id="cHems">–</span>
-    <span class="lbl">Sideklaring V:</span><span class="val" id="cSideL">–</span>
-    <span class="lbl">Sideklaring H:</span><span class="val" id="cSideR">–</span>
-    <span class="lbl">Skjerm-avstand:</span><span class="val" id="cScreen">–</span>
-    <span class="lbl">Svingradius:</span><span class="val" id="cSwing">–</span>
+        <label><b>Klubb:</b></label>
+        <select id="clubSelect">
+          <option value="1.143">Driver (45")</option>
+          <option value="1.016">3-wood (40")</option>
+          <option value="0.978">Hybrid (38.5")</option>
+          <option value="0.940" selected>7-jern (37")</option>
+          <option value="0.914">9-jern (36")</option>
+          <option value="0.889">Wedge (35")</option>
+        </select>
+
+        <label><b>Retning:</b></label>
+        <div class="radio-group">
+          <label><input type="radio" name="dir" value="window" checked> Mot vindu</label>
+          <label><input type="radio" name="dir" value="along"> Langs rommet</label>
+        </div>
+
+        <label><b>Sim posisjon X:</b> <span id="simXVal">2.5</span>m</label>
+        <input type="range" id="simXSlider" min="-4" max="4" value="2.5" step="0.05">
+
+        <label><b>Sim posisjon Z:</b> <span id="simZVal">0.5</span>m</label>
+        <input type="range" id="simZSlider" min="-2.5" max="2.5" value="0.5" step="0.05">
+
+        <h2 style="margin-top:8px">Klaringer</h2>
+        <div class="info-grid">
+          <span class="lbl">Tak-klaring:</span><span class="val" id="cCeil">–</span>
+          <span class="lbl">Hemskant-avst:</span><span class="val" id="cHems">–</span>
+          <span class="lbl">Sideklaring V:</span><span class="val" id="cSideL">–</span>
+          <span class="lbl">Sideklaring H:</span><span class="val" id="cSideR">–</span>
+          <span class="lbl">Skjerm-avstand:</span><span class="val" id="cScreen">–</span>
+          <span class="lbl">Svingradius:</span><span class="val" id="cSwing">–</span>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="sep"></div>
+  <!-- Møbler -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h3>Møbler</h3><span class="arrow">▾</span>
+    </div>
+    <div class="section-body">
+      <select id="furnSelect">
+        <option value="sofa_3">Sofa (3-seter)</option>
+        <option value="sofa_2">Sofa (2-seter)</option>
+        <option value="stol">Lenestol</option>
+        <option value="sofabord">Sofabord</option>
+        <option value="spisebord">Spisebord</option>
+        <option value="tv_benk">TV-benk</option>
+        <option value="bokhylle">Bokhylle</option>
+        <option value="gulvlampe">Gulvlampe</option>
+        <option value="kjokkenbenk">Kjøkkenbenk</option>
+        <option value="spisestol">Spisestol</option>
+      </select>
+      <button class="add-btn" onclick="addFurniture()">+ Legg til møbel</button>
+      <div id="furnList" style="margin-top:10px"></div>
+    </div>
+  </div>
+
   <div id="status">Laster...</div>
 </div>
 
@@ -94,29 +158,21 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
 // ─── CEILING & SWING CONSTANTS ───
-// OBJ coordinate system (after scale 0.1, Y shifted +1.22 so floor=0):
-//   X: -4.46 to 4.46 (width ~8.9m)
-//   Y: 0 to 2.44 (ground floor height)
-//   Z: -2.58 to 2.58 (depth ~5.2m)
-// Window wall is at Z_min (-2.50 inner face)
-// Stue area: roughly X from 0.7 to 4.38, Z from -2.50 to 2.50
-
 const CEIL = {
-  windowZ: -2.50,      // Z of window wall (inner face)
-  backZ: 2.50,         // Z of back wall
-  hemskantDist: 3.10,  // distance from window to hemskant
-  ceilWindow: 2.214,   // ceiling height at window
-  ceilHemskant: 3.822, // ceiling height at hemskant
-  ceilUnderHems: 2.25, // flat ceiling under hems
-  hemsDepth: 1.90,     // depth of hems platform
-  roomMinX: -4.38,     // inner left wall
-  roomMaxX: 4.38,      // inner right wall
+  windowZ: -2.50,
+  backZ: 2.50,
+  hemskantDist: 3.10,
+  ceilWindow: 2.214,
+  ceilHemskant: 3.822,
+  ceilUnderHems: 2.25,
+  hemsDepth: 1.90,
+  roomMinX: -4.38,
+  roomMaxX: 4.38,
 };
-CEIL.hemskantZ = CEIL.windowZ + CEIL.hemskantDist; // Z = 0.60
+CEIL.hemskantZ = CEIL.windowZ + CEIL.hemskantDist;
 
-// Ceiling height at given Z position
 function ceilAt(z) {
-  const d = z - CEIL.windowZ; // distance from window
+  const d = z - CEIL.windowZ;
   if (d <= 0) return CEIL.ceilWindow;
   if (d <= CEIL.hemskantDist) {
     return CEIL.ceilWindow + d * (CEIL.ceilHemskant - CEIL.ceilWindow) / CEIL.hemskantDist;
@@ -135,6 +191,24 @@ function swingRadius(heightCm, clubLen) {
   const armLen = (heightCm / 100) * 0.36;
   return armLen + clubLen;
 }
+
+// ─── FURNITURE CATALOG ───
+const FURNITURE_CATALOG = {
+  sofa_3:      { name: 'Sofa (3-seter)', w: 2.1, h: 0.85, d: 0.9, color: 0x6B4C3B },
+  sofa_2:      { name: 'Sofa (2-seter)', w: 1.5, h: 0.85, d: 0.9, color: 0x6B4C3B },
+  stol:        { name: 'Lenestol', w: 0.85, h: 0.85, d: 0.85, color: 0x7B5C4B },
+  sofabord:    { name: 'Sofabord', w: 1.2, h: 0.45, d: 0.6, color: 0x8B7355 },
+  spisebord:   { name: 'Spisebord', w: 1.6, h: 0.75, d: 0.9, color: 0x8B7355 },
+  tv_benk:     { name: 'TV-benk', w: 1.8, h: 0.5, d: 0.4, color: 0x444444 },
+  bokhylle:    { name: 'Bokhylle', w: 1.0, h: 1.8, d: 0.35, color: 0x9B8365 },
+  gulvlampe:   { name: 'Gulvlampe', w: 0.3, h: 1.6, d: 0.3, color: 0xCCCCCC },
+  kjokkenbenk: { name: 'Kjøkkenbenk', w: 2.5, h: 0.9, d: 0.6, color: 0xEEEEEE },
+  spisestol:   { name: 'Spisestol', w: 0.45, h: 0.9, d: 0.45, color: 0x8B7355 },
+};
+
+const placedItems = [];
+let selectedItemId = null;
+let nextItemId = 1;
 
 // ─── THREE.JS SETUP ───
 const wrap = document.getElementById('canvas-wrap');
@@ -161,14 +235,12 @@ scene.add(dirLight);
 const grid = new THREE.GridHelper(15, 30, 0x444444, 0x333333);
 scene.add(grid);
 
-// ─── OBJ bounds (known from analysis) ───
 let objCenter = new THREE.Vector3(0, 1.22, 0);
 let objSize = new THREE.Vector3(8.92, 2.44, 5.16);
 
-// ─── CEILING GEOMETRY (5th floor sloped roof) ───
+// ─── CEILING GEOMETRY ───
 const ceilGroup = new THREE.Group();
 
-// Sloped ceiling: from window wall to hemskant
 const slopeGeo = new THREE.BufferGeometry();
 const xL = CEIL.roomMinX, xR = CEIL.roomMaxX;
 const zW = CEIL.windowZ, zH = CEIL.hemskantZ;
@@ -178,16 +250,12 @@ slopeGeo.setAttribute('position', new THREE.Float32BufferAttribute([
   xL, yW, zW,  xR, yH, zH,  xL, yH, zH,
 ], 3));
 slopeGeo.computeVertexNormals();
-const slopeMat = new THREE.MeshLambertMaterial({
+ceilGroup.add(new THREE.Mesh(slopeGeo, new THREE.MeshLambertMaterial({
   color: 0x6688AA, transparent: true, opacity: 0.25, side: THREE.DoubleSide
-});
-ceilGroup.add(new THREE.Mesh(slopeGeo, slopeMat));
+})));
+ceilGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(slopeGeo),
+  new THREE.LineBasicMaterial({ color: 0x5577AA, opacity: 0.5, transparent: true })));
 
-// Wireframe edge for slope
-const slopeEdges = new THREE.EdgesGeometry(slopeGeo);
-ceilGroup.add(new THREE.LineSegments(slopeEdges, new THREE.LineBasicMaterial({ color: 0x5577AA, opacity: 0.5, transparent: true })));
-
-// Flat ceiling under hems
 const flatGeo = new THREE.BufferGeometry();
 const zB = CEIL.backZ;
 flatGeo.setAttribute('position', new THREE.Float32BufferAttribute([
@@ -195,73 +263,54 @@ flatGeo.setAttribute('position', new THREE.Float32BufferAttribute([
   xL, CEIL.ceilUnderHems, zH,  xR, CEIL.ceilUnderHems, zB,  xL, CEIL.ceilUnderHems, zB,
 ], 3));
 flatGeo.computeVertexNormals();
-const flatMat = new THREE.MeshLambertMaterial({
+ceilGroup.add(new THREE.Mesh(flatGeo, new THREE.MeshLambertMaterial({
   color: 0xAA8866, transparent: true, opacity: 0.25, side: THREE.DoubleSide
-});
-ceilGroup.add(new THREE.Mesh(flatGeo, flatMat));
+})));
 
-// Hemskant vertical face (the drop from sloped to flat)
 const kantGeo = new THREE.BufferGeometry();
 kantGeo.setAttribute('position', new THREE.Float32BufferAttribute([
   xL, yH, zH,  xR, yH, zH,  xR, CEIL.ceilUnderHems, zH,
   xL, yH, zH,  xR, CEIL.ceilUnderHems, zH,  xL, CEIL.ceilUnderHems, zH,
 ], 3));
 kantGeo.computeVertexNormals();
-const kantMat = new THREE.MeshLambertMaterial({
+ceilGroup.add(new THREE.Mesh(kantGeo, new THREE.MeshLambertMaterial({
   color: 0xCC4444, transparent: true, opacity: 0.4, side: THREE.DoubleSide
-});
-ceilGroup.add(new THREE.Mesh(kantGeo, kantMat));
-
-// Hemskant line (visible edge)
-const kantLine = new THREE.Line(
+})));
+ceilGroup.add(new THREE.Line(
   new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(xL, yH, zH),
-    new THREE.Vector3(xR, yH, zH),
+    new THREE.Vector3(xL, yH, zH), new THREE.Vector3(xR, yH, zH),
   ]),
   new THREE.LineBasicMaterial({ color: 0xFF4444, linewidth: 2 })
-);
-ceilGroup.add(kantLine);
-
+));
 scene.add(ceilGroup);
 
 // ─── SIMULATOR GROUP ───
 const simGroup = new THREE.Group();
 
-// Screen (2.5m × 2.0m)
 const screenW = 2.5, screenH = 2.0;
 const screenGeo = new THREE.PlaneGeometry(screenW, screenH);
-const screenMat = new THREE.MeshLambertMaterial({ color: 0x333333, side: THREE.DoubleSide });
-const screenMesh = new THREE.Mesh(screenGeo, screenMat);
-// Screen frame
-const frameGeo = new THREE.EdgesGeometry(screenGeo);
-const frameMesh = new THREE.LineSegments(frameGeo, new THREE.LineBasicMaterial({ color: 0x666666 }));
-screenMesh.add(frameMesh);
+const screenMesh = new THREE.Mesh(screenGeo, new THREE.MeshLambertMaterial({ color: 0x333333, side: THREE.DoubleSide }));
+screenMesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(screenGeo), new THREE.LineBasicMaterial({ color: 0x666666 })));
 simGroup.add(screenMesh);
 
-// Mat (1.5m × 1.2m)
 const matW = 1.5, matD = 1.2;
-const matGeo = new THREE.BoxGeometry(matW, 0.02, matD);
-const matMat = new THREE.MeshLambertMaterial({ color: 0x2D7A2D });
-const matMesh = new THREE.Mesh(matGeo, matMat);
+const matMesh = new THREE.Mesh(
+  new THREE.BoxGeometry(matW, 0.02, matD),
+  new THREE.MeshLambertMaterial({ color: 0x2D7A2D })
+);
 matMesh.position.y = 0.01;
 simGroup.add(matMesh);
 
-// Golfer stick figure
 const golferGroup = new THREE.Group();
-// Body
-const bodyGeo = new THREE.CylinderGeometry(0.08, 0.10, 0.9, 8);
 const bodyMat = new THREE.MeshLambertMaterial({ color: 0x4466AA });
-const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.10, 0.9, 8), bodyMat);
 bodyMesh.position.y = 0.9;
 golferGroup.add(bodyMesh);
-// Head
-const headGeo = new THREE.SphereGeometry(0.12, 8, 8);
-const headMesh = new THREE.Mesh(headGeo, bodyMat);
+const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), bodyMat);
 headMesh.position.y = 1.5;
 golferGroup.add(headMesh);
 simGroup.add(golferGroup);
 
-// Swing arc — use TubeGeometry for visibility (rebuilt each update)
 let arcMesh = null;
 let bsMesh = null;
 const arcMatGreen = new THREE.MeshBasicMaterial({ color: 0x00FF66, depthTest: false });
@@ -269,9 +318,10 @@ const arcMatRed = new THREE.MeshBasicMaterial({ color: 0xFF3333, depthTest: fals
 const bsMatOrange = new THREE.MeshBasicMaterial({ color: 0xFFAA00, depthTest: false });
 const bsMatRed = new THREE.MeshBasicMaterial({ color: 0xFF3333, depthTest: false });
 
-// Also add a ball marker at impact point
-const ballGeo = new THREE.SphereGeometry(0.03, 8, 8);
-const ballMesh = new THREE.Mesh(ballGeo, new THREE.MeshBasicMaterial({ color: 0xFFFFFF }));
+const ballMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.03, 8, 8),
+  new THREE.MeshBasicMaterial({ color: 0xFFFFFF })
+);
 simGroup.add(ballMesh);
 
 scene.add(simGroup);
@@ -292,7 +342,6 @@ loader.load(
         } else if (name.startsWith('ExternalWalls')) {
           child.material = new THREE.MeshLambertMaterial({ color: 0x8899AA, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
         } else if (name.startsWith('FloorFillerTop')) {
-          // Hide ground floor ceiling — we have our own sloped ceiling
           child.visible = false;
         } else if (name.startsWith('InnerSide')) {
           child.material = new THREE.MeshLambertMaterial({ color: 0xC4B8A8, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
@@ -312,65 +361,55 @@ loader.load(
     camera.position.set(objCenter.x + 6, objCenter.y + 5, objCenter.z + 8);
     controls.update();
 
-    document.getElementById('status').textContent = 'OBJ lastet. Juster kontrollene over.';
+    document.getElementById('status').textContent = 'OBJ lastet. Juster kontrollene i sidepanelet.';
     updateSimulator();
   },
   null,
   (err) => { document.getElementById('status').textContent = 'Feil: ' + err.message; }
 );
 
-// ─── UPDATE SIMULATOR PLACEMENT ───
+// ─── SIMULATOR TOGGLE ───
+document.getElementById('simToggle').addEventListener('change', (e) => {
+  simGroup.visible = e.target.checked;
+  document.getElementById('simControls').style.display = e.target.checked ? '' : 'none';
+});
+
+// ─── UPDATE SIMULATOR ───
 function updateSimulator() {
   const heightCm = parseInt(document.getElementById('hSlider').value);
   const clubLen = parseFloat(document.getElementById('clubSelect').value);
   const dir = document.querySelector('input[name="dir"]:checked').value;
-  const pos = parseFloat(document.getElementById('posSlider').value);
+  const simX = parseFloat(document.getElementById('simXSlider').value);
+  const simZ = parseFloat(document.getElementById('simZSlider').value);
 
   document.getElementById('hVal').textContent = heightCm;
-  document.getElementById('posVal').textContent = pos.toFixed(1);
+  document.getElementById('simXVal').textContent = simX.toFixed(1);
+  document.getElementById('simZVal').textContent = simZ.toFixed(1);
 
   const heightM = heightCm / 100;
   const sR = swingRadius(heightCm, clubLen);
   const sH = swingHeight(heightCm, clubLen);
-  const bsOff = backswingOffset(clubLen);
 
-  // Golfer position in OBJ coords
-  // Stue area: X from ~0.7 to 4.38, Z from -2.50 to 2.50
-  let golferX, golferZ, screenX, screenZ;
-  let screenRotY = 0;
+  let golferX = simX, golferZ = simZ;
+  let screenX, screenZ, screenRotY = 0;
 
   if (dir === 'window') {
-    // Hitting toward window (negative Z direction)
-    // Golfer stands somewhere in the stue, screen near window wall
-    golferX = 0.7 + pos; // slide along X axis
-    golferZ = 0.5;       // a bit back from hemskant
     screenX = golferX;
-    screenZ = CEIL.windowZ + 0.3; // screen near window wall
-    screenRotY = 0; // facing Z direction
+    screenZ = CEIL.windowZ + 0.3;
+    screenRotY = 0;
   } else {
-    // Hitting along the room (positive X direction)
-    golferX = -1.0;      // near the inner wall side
-    golferZ = CEIL.windowZ + 1.0 + pos * 0.6; // slide along Z
     screenX = CEIL.roomMaxX - 0.3;
     screenZ = golferZ;
     screenRotY = Math.PI / 2;
   }
 
-  // Clamp golfer X within stue
-  golferX = Math.max(-3.5, Math.min(4.0, golferX));
-
-  // Position golfer
   golferGroup.position.set(golferX, 0, golferZ);
-  golferGroup.scale.y = heightM / 1.80; // scale to height
-
-  // Position mat
+  golferGroup.scale.y = heightM / 1.80;
   matMesh.position.set(golferX, 0.01, golferZ);
-
-  // Position screen
   screenMesh.position.set(screenX, screenH / 2 + 0.1, screenZ);
   screenMesh.rotation.y = screenRotY;
 
-  // ─── Clearance calculations (needed before swing arc coloring) ───
+  // Clearances
   const ceilH = ceilAt(golferZ);
   const ceilClearance = ceilH - sH;
   const hemsDist = CEIL.hemskantZ - golferZ;
@@ -380,66 +419,23 @@ function updateSimulator() {
     ? Math.abs(golferZ - screenZ) - 0.5
     : Math.abs(golferX - screenX) - 0.5;
 
-  // ─── Swing arc ───
-  // Golf swing: club head traces arc in a tilted plane
-  // Swing plane angle from horizontal: ~60° (driver) to ~75° (wedge)
-  // At impact (bottom of arc): club head at ground level, near ball
-  // Backswing: club goes UP and BEHIND golfer (away from screen)
-  // Follow-through: club goes UP and TOWARD screen
-  //
-  // We model the swing as a circle of radius sR in a tilted plane.
-  // The plane is tilted so it's steep (nearly vertical) but leaning
-  // toward the target. The "bottom" of the circle is at impact.
-  //
-  // theta = 0: impact (club at ball, y ≈ 0)
-  // theta = +PI: top of backswing (club high, behind golfer)
-  // theta = -PI/3: end of follow-through (club high, toward target)
-
-  const swingPlaneAngle = 70 * Math.PI / 180; // from horizontal
-  // Pivot point (approximately at golfer's belt/hands)
+  // Swing arc
+  const swingPlaneAngle = 70 * Math.PI / 180;
   const pivotY = heightM * 0.55;
 
-  // At impact, club head should be at ground level.
-  // Club head Y at theta: pivotY - sR * cos(theta) * sin(swingPlaneAngle)
-  // At theta=0: pivotY - sR * sin(swingPlaneAngle) ≈ pivotY - sR * 0.94
-  // For 180cm golfer with 7-iron (sR≈1.59): 0.99 - 1.49 = -0.50 → clamped to 0 ✓
-  // At theta=PI (top): pivotY + sR * sin(swingPlaneAngle) ≈ 0.99 + 1.49 = 2.48 ✓ (max height)
-
   function clubPos(theta) {
-    // Height: low at impact (theta=0), high at backswing/follow-through
     const y = pivotY - sR * Math.cos(theta) * Math.sin(swingPlaneAngle);
-
-    // Along target direction: club head moves toward target for negative theta
-    // At theta=0: no offset. theta>0: behind (backswing). theta<0: toward target.
     const alongTarget = sR * Math.sin(theta) * Math.cos(swingPlaneAngle);
-
-    // Lateral: slight side movement from swing plane tilt (toe/heel path)
     const lateral = sR * Math.sin(theta) * 0.15;
-
     if (dir === 'window') {
-      // Target = -Z direction (toward window/screen)
-      // Backswing (theta>0, alongTarget>0) → +Z (away from screen) ✓
-      // Follow-through (theta<0, alongTarget<0) → -Z (toward screen) ✓
-      return new THREE.Vector3(
-        golferX + lateral,
-        Math.max(0, y),
-        golferZ + alongTarget
-      );
+      return new THREE.Vector3(golferX + lateral, Math.max(0, y), golferZ + alongTarget);
     } else {
-      // Target = +X direction
-      return new THREE.Vector3(
-        golferX - alongTarget,
-        Math.max(0, y),
-        golferZ + lateral
-      );
+      return new THREE.Vector3(golferX - alongTarget, Math.max(0, y), golferZ + lateral);
     }
   }
 
-  // Ball position at impact
   ballMesh.position.copy(clubPos(0));
 
-  // Full swing arc (green): from top-of-backswing through impact to follow-through
-  // theta from +150° (backswing top) → 0 (impact) → -70° (follow-through)
   const dsPoints = [];
   for (let i = 0; i <= 40; i++) {
     const t = i / 40;
@@ -456,11 +452,10 @@ function updateSimulator() {
     simGroup.add(arcMesh);
   }
 
-  // Backswing path (orange): from address up to top
   const bsArcPoints = [];
   for (let i = 0; i <= 20; i++) {
     const t = i / 20;
-    const theta = t * (150 * Math.PI / 180); // 0° → 150°
+    const theta = t * (150 * Math.PI / 180);
     bsArcPoints.push(clubPos(theta));
   }
 
@@ -472,7 +467,6 @@ function updateSimulator() {
     simGroup.add(bsMesh);
   }
 
-  // ─── Update UI ───
   setVal('cCeil', ceilClearance, 'm');
   setVal('cHems', hemsDist, 'm');
   setVal('cSideL', sideL, 'm');
@@ -487,11 +481,174 @@ function setVal(id, val, unit) {
   el.className = 'val ' + (val > 0.3 ? 'ok' : val > 0.05 ? 'tight' : 'bad');
 }
 
+// ─── FURNITURE SYSTEM ───
+function createFurnitureMesh(type) {
+  const cat = FURNITURE_CATALOG[type];
+  const group = new THREE.Group();
+
+  // Main box
+  const geo = new THREE.BoxGeometry(cat.w, cat.h, cat.d);
+  const mat = new THREE.MeshLambertMaterial({ color: cat.color });
+  const box = new THREE.Mesh(geo, mat);
+  box.position.y = cat.h / 2;
+  group.add(box);
+
+  // Wireframe
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 })
+  );
+  edges.position.y = cat.h / 2;
+  group.add(edges);
+
+  // Label sprite
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(0, 0, 256, 64);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(cat.name, 128, 40);
+  const tex = new THREE.CanvasTexture(canvas);
+  const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
+  const sprite = new THREE.Sprite(spriteMat);
+  sprite.scale.set(1.2, 0.3, 1);
+  sprite.position.y = cat.h + 0.25;
+  group.add(sprite);
+
+  group.userData.type = type;
+  return group;
+}
+
+window.addFurniture = function(type) {
+  if (!type) type = document.getElementById('furnSelect').value;
+  const cat = FURNITURE_CATALOG[type];
+  if (!cat) return;
+
+  const id = nextItemId++;
+  const mesh = createFurnitureMesh(type);
+
+  // Place near center of room, offset by item count to avoid stacking
+  const offsetX = (placedItems.length % 3) * 1.5;
+  const offsetZ = Math.floor(placedItems.length / 3) * 1.2;
+  const x = -1 + offsetX;
+  const z = -0.5 + offsetZ;
+  mesh.position.set(x, 0, z);
+
+  scene.add(mesh);
+  const item = { id, type, x, z, rotation: 0, mesh };
+  placedItems.push(item);
+  selectFurniture(id);
+  renderFurnitureList();
+};
+
+function selectFurniture(id) {
+  // Deselect previous
+  if (selectedItemId !== null) {
+    const prev = placedItems.find(i => i.id === selectedItemId);
+    if (prev) {
+      const cat = FURNITURE_CATALOG[prev.type];
+      prev.mesh.children[0].material.color.setHex(cat.color);
+    }
+  }
+  selectedItemId = id;
+  // Highlight selected
+  if (id !== null) {
+    const item = placedItems.find(i => i.id === id);
+    if (item) {
+      item.mesh.children[0].material.color.setHex(0x66AADD);
+    }
+  }
+  renderFurnitureList();
+}
+
+window.removeFurniture = function(id) {
+  const idx = placedItems.findIndex(i => i.id === id);
+  if (idx === -1) return;
+  scene.remove(placedItems[idx].mesh);
+  placedItems.splice(idx, 1);
+  if (selectedItemId === id) selectedItemId = null;
+  renderFurnitureList();
+};
+
+window.updateFurnPos = function(id) {
+  const item = placedItems.find(i => i.id === id);
+  if (!item) return;
+  const xEl = document.getElementById('fx_' + id);
+  const zEl = document.getElementById('fz_' + id);
+  const rEl = document.getElementById('fr_' + id);
+  if (xEl) { item.x = parseFloat(xEl.value); document.getElementById('fxv_' + id).textContent = item.x.toFixed(1); }
+  if (zEl) { item.z = parseFloat(zEl.value); document.getElementById('fzv_' + id).textContent = item.z.toFixed(1); }
+  if (rEl) { item.rotation = parseFloat(rEl.value); document.getElementById('frv_' + id).textContent = item.rotation + '°'; }
+  item.mesh.position.set(item.x, 0, item.z);
+  item.mesh.rotation.y = item.rotation * Math.PI / 180;
+};
+
+function renderFurnitureList() {
+  const list = document.getElementById('furnList');
+  list.innerHTML = '';
+  for (const item of placedItems) {
+    const cat = FURNITURE_CATALOG[item.type];
+    const sel = item.id === selectedItemId;
+    const div = document.createElement('div');
+    div.className = 'furn-item' + (sel ? ' selected' : '');
+    div.innerHTML = `
+      <div class="furn-item-header">
+        <span onclick="selectFurniture(${item.id})">${cat.name}</span>
+        <button class="btn-del" onclick="removeFurniture(${item.id})" title="Slett">&times;</button>
+      </div>
+      <div class="furn-controls">
+        <label>X: <span id="fxv_${item.id}">${item.x.toFixed(1)}</span>m</label>
+        <label>Z: <span id="fzv_${item.id}">${item.z.toFixed(1)}</span>m</label>
+        <input type="range" id="fx_${item.id}" min="-4.5" max="4.5" step="0.05" value="${item.x}" oninput="updateFurnPos(${item.id})">
+        <input type="range" id="fz_${item.id}" min="-2.6" max="2.6" step="0.05" value="${item.z}" oninput="updateFurnPos(${item.id})">
+        <label>Rot: <span id="frv_${item.id}">${item.rotation}°</span></label>
+        <div></div>
+        <input type="range" id="fr_${item.id}" min="0" max="360" step="5" value="${item.rotation}" oninput="updateFurnPos(${item.id})" style="grid-column:1/3">
+      </div>
+    `;
+    list.appendChild(div);
+  }
+}
+window.selectFurniture = selectFurniture;
+
+// ─── CLICK TO SELECT FURNITURE (Raycaster) ───
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+renderer.domElement.addEventListener('click', (e) => {
+  mouse.x = (e.offsetX / renderer.domElement.clientWidth) * 2 - 1;
+  mouse.y = -(e.offsetY / renderer.domElement.clientHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+
+  // Check furniture meshes
+  const furnMeshes = placedItems.map(i => i.mesh.children[0]); // the box mesh
+  const hits = raycaster.intersectObjects(furnMeshes);
+  if (hits.length > 0) {
+    const hitMesh = hits[0].object;
+    const item = placedItems.find(i => i.mesh.children[0] === hitMesh);
+    if (item) {
+      selectFurniture(item.id);
+      return;
+    }
+  }
+  // Click on empty space deselects
+  selectFurniture(null);
+});
+
 // ─── CONTROL WIRING ───
 document.getElementById('hSlider').addEventListener('input', updateSimulator);
 document.getElementById('clubSelect').addEventListener('change', updateSimulator);
 document.querySelectorAll('input[name="dir"]').forEach(r => r.addEventListener('change', updateSimulator));
-document.getElementById('posSlider').addEventListener('input', updateSimulator);
+document.getElementById('simXSlider').addEventListener('input', updateSimulator);
+document.getElementById('simZSlider').addEventListener('input', updateSimulator);
+
+// ─── SECTION TOGGLE ───
+window.toggleSection = function(header) {
+  header.parentElement.classList.toggle('collapsed');
+};
 
 // ─── ANIMATION LOOP ───
 function animate() {
@@ -530,7 +687,6 @@ window.setFrontView = function() {
 };
 
 window.setSideView = function() {
-  // View from the side (along X axis), focused on stue area
   camera.position.set(10, 2.0, 0);
   controls.target.set(0, 1.0, 0);
   camera.up.set(0, 1, 0);
