@@ -6,38 +6,75 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:system-ui,-apple-system,sans-serif;display:flex;height:100vh;overflow:hidden;background:#1a1a1a}
-#sidebar{width:280px;background:#fff;border-right:1px solid #ddd;padding:16px;overflow-y:auto;flex-shrink:0}
-#sidebar h2{font-size:15px;margin-bottom:12px;color:#333}
-.sep{border-top:1px solid #eee;margin:14px 0}
+#sidebar{width:290px;background:#fff;border-right:1px solid #ddd;padding:16px;overflow-y:auto;flex-shrink:0}
+#sidebar h2{font-size:15px;margin-bottom:8px;color:#333}
+.sep{border-top:1px solid #eee;margin:12px 0}
 #canvas-wrap{flex:1;position:relative}
 canvas{display:block;width:100%;height:100%}
-.dim-info{font-size:12px;color:#555;margin-bottom:4px;line-height:1.5}
-.dim-info b{color:#333}
-button.view-btn{width:100%;padding:8px;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#f5f5f5;margin-bottom:6px}
+label{display:block;font-size:12px;color:#555;margin-bottom:2px}
+label b{color:#333}
+input[type=range]{width:100%;margin:2px 0 8px}
+select{width:100%;padding:4px;margin-bottom:8px;font-size:13px}
+button.view-btn{width:100%;padding:7px;font-size:12px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#f5f5f5;margin-bottom:5px}
 button.view-btn:hover{background:#e8e8e8}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:12px}
+.info-grid .lbl{color:#888}
+.info-grid .val{color:#333;font-weight:600}
+.val.ok{color:#2a7}
+.val.tight{color:#c80}
+.val.bad{color:#c22}
 #status{font-size:11px;color:#888;margin-top:8px}
+.radio-group{display:flex;gap:8px;margin-bottom:8px}
+.radio-group label{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px}
 </style>
 </head>
 <body>
 
 <div id="sidebar">
-  <h2>Golfsimulator Romplanlegger</h2>
-  <p style="font-size:12px;color:#888;margin-bottom:12px">3D-modell fra OBJ (Vibes gate 20)</p>
+  <h2>Golfsimulator Planlegger</h2>
 
-  <button class="view-btn" onclick="setTopDown()">Ovenfra-visning</button>
+  <button class="view-btn" onclick="setTopDown()">Ovenfra</button>
   <button class="view-btn" onclick="set3DView()">3D-visning</button>
-  <button class="view-btn" onclick="setFrontView()">Frontvisning (fra vindu)</button>
+  <button class="view-btn" onclick="setFrontView()">Front (fra vindu)</button>
+  <button class="view-btn" onclick="setSideView()">Sidevisning</button>
 
   <div class="sep"></div>
 
-  <div class="dim-info">
-    <b>Modell:</b> Vibes Gate 20 - Ground Floor<br>
-    <b>Størrelse:</b> ~8.9m × 5.2m × 2.4m<br>
-    <b>Skala:</b> 1 OBJ-enhet = 0.1m
+  <label><b>Spillerhøyde:</b> <span id="hVal">180</span> cm</label>
+  <input type="range" id="hSlider" min="160" max="205" value="180" step="1">
+
+  <label><b>Klubb:</b></label>
+  <select id="clubSelect">
+    <option value="1.143">Driver (45")</option>
+    <option value="1.016">3-wood (40")</option>
+    <option value="0.978">Hybrid (38.5")</option>
+    <option value="0.940" selected>7-jern (37")</option>
+    <option value="0.914">9-jern (36")</option>
+    <option value="0.889">Wedge (35")</option>
+  </select>
+
+  <label><b>Retning:</b></label>
+  <div class="radio-group">
+    <label><input type="radio" name="dir" value="window" checked> Mot vindu</label>
+    <label><input type="radio" name="dir" value="along"> Langs rommet</label>
+  </div>
+
+  <label><b>Posisjon langs stue:</b> <span id="posVal">0.0</span>m</label>
+  <input type="range" id="posSlider" min="0" max="5" value="2.5" step="0.05">
+
+  <div class="sep"></div>
+  <h2>Klaringer</h2>
+  <div class="info-grid">
+    <span class="lbl">Tak-klaring:</span><span class="val" id="cCeil">–</span>
+    <span class="lbl">Hemskant-avst:</span><span class="val" id="cHems">–</span>
+    <span class="lbl">Sideklaring V:</span><span class="val" id="cSideL">–</span>
+    <span class="lbl">Sideklaring H:</span><span class="val" id="cSideR">–</span>
+    <span class="lbl">Skjerm-avstand:</span><span class="val" id="cScreen">–</span>
+    <span class="lbl">Svingradius:</span><span class="val" id="cSwing">–</span>
   </div>
 
   <div class="sep"></div>
-  <div id="status">Laster OBJ-modell...</div>
+  <div id="status">Laster...</div>
 </div>
 
 <div id="canvas-wrap"></div>
@@ -56,14 +93,48 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
-// ─── ROOM CONSTANTS (for ceiling, simulator later) ───
-const ROOM = {
-  ceilWindow: 2.214,
-  ceilHemskant: 3.822,
-  ceilUnderHems: 2.25,
-  hemsDepth: 1.90,
-  hemskantDist: 3.10,
+// ─── CEILING & SWING CONSTANTS ───
+// OBJ coordinate system (after scale 0.1, Y shifted +1.22 so floor=0):
+//   X: -4.46 to 4.46 (width ~8.9m)
+//   Y: 0 to 2.44 (ground floor height)
+//   Z: -2.58 to 2.58 (depth ~5.2m)
+// Window wall is at Z_min (-2.50 inner face)
+// Stue area: roughly X from 0.7 to 4.38, Z from -2.50 to 2.50
+
+const CEIL = {
+  windowZ: -2.50,      // Z of window wall (inner face)
+  backZ: 2.50,         // Z of back wall
+  hemskantDist: 3.10,  // distance from window to hemskant
+  ceilWindow: 2.214,   // ceiling height at window
+  ceilHemskant: 3.822, // ceiling height at hemskant
+  ceilUnderHems: 2.25, // flat ceiling under hems
+  hemsDepth: 1.90,     // depth of hems platform
+  roomMinX: -4.38,     // inner left wall
+  roomMaxX: 4.38,      // inner right wall
 };
+CEIL.hemskantZ = CEIL.windowZ + CEIL.hemskantDist; // Z = 0.60
+
+// Ceiling height at given Z position
+function ceilAt(z) {
+  const d = z - CEIL.windowZ; // distance from window
+  if (d <= 0) return CEIL.ceilWindow;
+  if (d <= CEIL.hemskantDist) {
+    return CEIL.ceilWindow + d * (CEIL.ceilHemskant - CEIL.ceilWindow) / CEIL.hemskantDist;
+  }
+  return CEIL.ceilUnderHems;
+}
+
+// ─── SWING FORMULAS ───
+function swingHeight(heightCm, clubLen) {
+  return (heightCm / 100) * 0.80 + clubLen * Math.sin(75 * Math.PI / 180);
+}
+function backswingOffset(clubLen) {
+  return clubLen * 0.4;
+}
+function swingRadius(heightCm, clubLen) {
+  const armLen = (heightCm / 100) * 0.36;
+  return armLen + clubLen;
+}
 
 // ─── THREE.JS SETUP ───
 const wrap = document.getElementById('canvas-wrap');
@@ -71,7 +142,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x2a2a2a);
 
 const camera = new THREE.PerspectiveCamera(50, wrap.clientWidth / wrap.clientHeight, 0.1, 100);
-camera.position.set(5, 8, 10);
+camera.position.set(8, 6, 10);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(wrap.clientWidth, wrap.clientHeight);
@@ -82,21 +153,128 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 
-// Lights
 scene.add(new THREE.AmbientLight(0xffffff, 0.7));
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
 dirLight.position.set(8, 12, 5);
 scene.add(dirLight);
 
-// Subtle grid
 const grid = new THREE.GridHelper(15, 30, 0x444444, 0x333333);
 scene.add(grid);
 
-// ─── OBJ MODEL CENTER (from analysis) ───
-// OBJ scaled by 0.1: X: -4.46 to 4.46, Y: -1.22 to 1.22, Z: -2.58 to 2.58
-// We shift so floor is at Y=0 (add 1.22 to Y)
-let objCenter = new THREE.Vector3(0, 0, 0);
+// ─── OBJ bounds (known from analysis) ───
+let objCenter = new THREE.Vector3(0, 1.22, 0);
 let objSize = new THREE.Vector3(8.92, 2.44, 5.16);
+
+// ─── CEILING GEOMETRY (5th floor sloped roof) ───
+const ceilGroup = new THREE.Group();
+
+// Sloped ceiling: from window wall to hemskant
+const slopeGeo = new THREE.BufferGeometry();
+const xL = CEIL.roomMinX, xR = CEIL.roomMaxX;
+const zW = CEIL.windowZ, zH = CEIL.hemskantZ;
+const yW = CEIL.ceilWindow, yH = CEIL.ceilHemskant;
+slopeGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+  xL, yW, zW,  xR, yW, zW,  xR, yH, zH,
+  xL, yW, zW,  xR, yH, zH,  xL, yH, zH,
+], 3));
+slopeGeo.computeVertexNormals();
+const slopeMat = new THREE.MeshLambertMaterial({
+  color: 0x6688AA, transparent: true, opacity: 0.25, side: THREE.DoubleSide
+});
+ceilGroup.add(new THREE.Mesh(slopeGeo, slopeMat));
+
+// Wireframe edge for slope
+const slopeEdges = new THREE.EdgesGeometry(slopeGeo);
+ceilGroup.add(new THREE.LineSegments(slopeEdges, new THREE.LineBasicMaterial({ color: 0x5577AA, opacity: 0.5, transparent: true })));
+
+// Flat ceiling under hems
+const flatGeo = new THREE.BufferGeometry();
+const zB = CEIL.backZ;
+flatGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+  xL, CEIL.ceilUnderHems, zH,  xR, CEIL.ceilUnderHems, zH,  xR, CEIL.ceilUnderHems, zB,
+  xL, CEIL.ceilUnderHems, zH,  xR, CEIL.ceilUnderHems, zB,  xL, CEIL.ceilUnderHems, zB,
+], 3));
+flatGeo.computeVertexNormals();
+const flatMat = new THREE.MeshLambertMaterial({
+  color: 0xAA8866, transparent: true, opacity: 0.25, side: THREE.DoubleSide
+});
+ceilGroup.add(new THREE.Mesh(flatGeo, flatMat));
+
+// Hemskant vertical face (the drop from sloped to flat)
+const kantGeo = new THREE.BufferGeometry();
+kantGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+  xL, yH, zH,  xR, yH, zH,  xR, CEIL.ceilUnderHems, zH,
+  xL, yH, zH,  xR, CEIL.ceilUnderHems, zH,  xL, CEIL.ceilUnderHems, zH,
+], 3));
+kantGeo.computeVertexNormals();
+const kantMat = new THREE.MeshLambertMaterial({
+  color: 0xCC4444, transparent: true, opacity: 0.4, side: THREE.DoubleSide
+});
+ceilGroup.add(new THREE.Mesh(kantGeo, kantMat));
+
+// Hemskant line (visible edge)
+const kantLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(xL, yH, zH),
+    new THREE.Vector3(xR, yH, zH),
+  ]),
+  new THREE.LineBasicMaterial({ color: 0xFF4444, linewidth: 2 })
+);
+ceilGroup.add(kantLine);
+
+scene.add(ceilGroup);
+
+// ─── SIMULATOR GROUP ───
+const simGroup = new THREE.Group();
+
+// Screen (2.5m × 2.0m)
+const screenW = 2.5, screenH = 2.0;
+const screenGeo = new THREE.PlaneGeometry(screenW, screenH);
+const screenMat = new THREE.MeshLambertMaterial({ color: 0x333333, side: THREE.DoubleSide });
+const screenMesh = new THREE.Mesh(screenGeo, screenMat);
+// Screen frame
+const frameGeo = new THREE.EdgesGeometry(screenGeo);
+const frameMesh = new THREE.LineSegments(frameGeo, new THREE.LineBasicMaterial({ color: 0x666666 }));
+screenMesh.add(frameMesh);
+simGroup.add(screenMesh);
+
+// Mat (1.5m × 1.2m)
+const matW = 1.5, matD = 1.2;
+const matGeo = new THREE.BoxGeometry(matW, 0.02, matD);
+const matMat = new THREE.MeshLambertMaterial({ color: 0x2D7A2D });
+const matMesh = new THREE.Mesh(matGeo, matMat);
+matMesh.position.y = 0.01;
+simGroup.add(matMesh);
+
+// Golfer stick figure
+const golferGroup = new THREE.Group();
+// Body
+const bodyGeo = new THREE.CylinderGeometry(0.08, 0.10, 0.9, 8);
+const bodyMat = new THREE.MeshLambertMaterial({ color: 0x4466AA });
+const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+bodyMesh.position.y = 0.9;
+golferGroup.add(bodyMesh);
+// Head
+const headGeo = new THREE.SphereGeometry(0.12, 8, 8);
+const headMesh = new THREE.Mesh(headGeo, bodyMat);
+headMesh.position.y = 1.5;
+golferGroup.add(headMesh);
+simGroup.add(golferGroup);
+
+// Swing arc — use TubeGeometry for visibility (rebuilt each update)
+let arcMesh = null;
+let bsMesh = null;
+const arcMatGreen = new THREE.MeshBasicMaterial({ color: 0x00FF66, depthTest: false });
+const arcMatRed = new THREE.MeshBasicMaterial({ color: 0xFF3333, depthTest: false });
+const bsMatOrange = new THREE.MeshBasicMaterial({ color: 0xFFAA00, depthTest: false });
+const bsMatRed = new THREE.MeshBasicMaterial({ color: 0xFF3333, depthTest: false });
+
+// Also add a ball marker at impact point
+const ballGeo = new THREE.SphereGeometry(0.03, 8, 8);
+const ballMesh = new THREE.Mesh(ballGeo, new THREE.MeshBasicMaterial({ color: 0xFFFFFF }));
+simGroup.add(ballMesh);
+
+scene.add(simGroup);
 
 // ─── LOAD OBJ ───
 const loader = new OBJLoader();
@@ -104,76 +282,216 @@ loader.load(
   'Vibes%20Gate%2020%20-%20Ground%20Floor.obj',
   (obj) => {
     obj.scale.set(0.1, 0.1, 0.1);
-
-    // Shift so floor is at Y=0
     obj.position.y = 1.22;
 
-    // Style meshes
     obj.traverse((child) => {
       if (child.isMesh) {
         const name = child.name || '';
-
         if (name.startsWith('WholeFloor')) {
-          child.material = new THREE.MeshLambertMaterial({
-            color: 0xD4C8B8,
-            side: THREE.DoubleSide,
-          });
+          child.material = new THREE.MeshLambertMaterial({ color: 0xD4C8B8, side: THREE.DoubleSide });
         } else if (name.startsWith('ExternalWalls')) {
-          child.material = new THREE.MeshLambertMaterial({
-            color: 0x8899AA,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.5,
-          });
+          child.material = new THREE.MeshLambertMaterial({ color: 0x8899AA, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
         } else if (name.startsWith('FloorFillerTop')) {
-          child.material = new THREE.MeshLambertMaterial({
-            color: 0xBBBBBB,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.3,
-          });
+          // Hide ground floor ceiling — we have our own sloped ceiling
+          child.visible = false;
         } else if (name.startsWith('InnerSide')) {
-          child.material = new THREE.MeshLambertMaterial({
-            color: 0xC4B8A8,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.7,
-          });
+          child.material = new THREE.MeshLambertMaterial({ color: 0xC4B8A8, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
         } else {
-          child.material = new THREE.MeshLambertMaterial({
-            color: 0xAAAAAA,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.5,
-          });
+          child.material = new THREE.MeshLambertMaterial({ color: 0xAAAAAA, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
         }
       }
     });
 
     scene.add(obj);
 
-    // Compute bounds for camera
     const box = new THREE.Box3().setFromObject(obj);
     objCenter = box.getCenter(new THREE.Vector3());
     objSize = box.getSize(new THREE.Vector3());
 
-    // Default 3D view
     controls.target.copy(objCenter);
-    camera.position.set(
-      objCenter.x + objSize.x * 0.8,
-      objCenter.y + objSize.y * 2.5,
-      objCenter.z + objSize.z * 1.2
-    );
+    camera.position.set(objCenter.x + 6, objCenter.y + 5, objCenter.z + 8);
     controls.update();
 
-    document.getElementById('status').textContent =
-      `OBJ lastet: ${objSize.x.toFixed(1)}m × ${objSize.y.toFixed(1)}m × ${objSize.z.toFixed(1)}m`;
+    document.getElementById('status').textContent = 'OBJ lastet. Juster kontrollene over.';
+    updateSimulator();
   },
   null,
-  (err) => {
-    document.getElementById('status').textContent = 'Feil ved lasting: ' + err.message;
-  }
+  (err) => { document.getElementById('status').textContent = 'Feil: ' + err.message; }
 );
+
+// ─── UPDATE SIMULATOR PLACEMENT ───
+function updateSimulator() {
+  const heightCm = parseInt(document.getElementById('hSlider').value);
+  const clubLen = parseFloat(document.getElementById('clubSelect').value);
+  const dir = document.querySelector('input[name="dir"]:checked').value;
+  const pos = parseFloat(document.getElementById('posSlider').value);
+
+  document.getElementById('hVal').textContent = heightCm;
+  document.getElementById('posVal').textContent = pos.toFixed(1);
+
+  const heightM = heightCm / 100;
+  const sR = swingRadius(heightCm, clubLen);
+  const sH = swingHeight(heightCm, clubLen);
+  const bsOff = backswingOffset(clubLen);
+
+  // Golfer position in OBJ coords
+  // Stue area: X from ~0.7 to 4.38, Z from -2.50 to 2.50
+  let golferX, golferZ, screenX, screenZ;
+  let screenRotY = 0;
+
+  if (dir === 'window') {
+    // Hitting toward window (negative Z direction)
+    // Golfer stands somewhere in the stue, screen near window wall
+    golferX = 0.7 + pos; // slide along X axis
+    golferZ = 0.5;       // a bit back from hemskant
+    screenX = golferX;
+    screenZ = CEIL.windowZ + 0.3; // screen near window wall
+    screenRotY = 0; // facing Z direction
+  } else {
+    // Hitting along the room (positive X direction)
+    golferX = -1.0;      // near the inner wall side
+    golferZ = CEIL.windowZ + 1.0 + pos * 0.6; // slide along Z
+    screenX = CEIL.roomMaxX - 0.3;
+    screenZ = golferZ;
+    screenRotY = Math.PI / 2;
+  }
+
+  // Clamp golfer X within stue
+  golferX = Math.max(-3.5, Math.min(4.0, golferX));
+
+  // Position golfer
+  golferGroup.position.set(golferX, 0, golferZ);
+  golferGroup.scale.y = heightM / 1.80; // scale to height
+
+  // Position mat
+  matMesh.position.set(golferX, 0.01, golferZ);
+
+  // Position screen
+  screenMesh.position.set(screenX, screenH / 2 + 0.1, screenZ);
+  screenMesh.rotation.y = screenRotY;
+
+  // ─── Clearance calculations (needed before swing arc coloring) ───
+  const ceilH = ceilAt(golferZ);
+  const ceilClearance = ceilH - sH;
+  const hemsDist = CEIL.hemskantZ - golferZ;
+  const sideL = golferX - CEIL.roomMinX;
+  const sideR = CEIL.roomMaxX - golferX;
+  const screenDist = dir === 'window'
+    ? Math.abs(golferZ - screenZ) - 0.5
+    : Math.abs(golferX - screenX) - 0.5;
+
+  // ─── Swing arc ───
+  // Golf swing: club head traces arc in a tilted plane
+  // Swing plane angle from horizontal: ~60° (driver) to ~75° (wedge)
+  // At impact (bottom of arc): club head at ground level, near ball
+  // Backswing: club goes UP and BEHIND golfer (away from screen)
+  // Follow-through: club goes UP and TOWARD screen
+  //
+  // We model the swing as a circle of radius sR in a tilted plane.
+  // The plane is tilted so it's steep (nearly vertical) but leaning
+  // toward the target. The "bottom" of the circle is at impact.
+  //
+  // theta = 0: impact (club at ball, y ≈ 0)
+  // theta = +PI: top of backswing (club high, behind golfer)
+  // theta = -PI/3: end of follow-through (club high, toward target)
+
+  const swingPlaneAngle = 70 * Math.PI / 180; // from horizontal
+  // Pivot point (approximately at golfer's belt/hands)
+  const pivotY = heightM * 0.55;
+
+  // At impact, club head should be at ground level.
+  // Club head Y at theta: pivotY - sR * cos(theta) * sin(swingPlaneAngle)
+  // At theta=0: pivotY - sR * sin(swingPlaneAngle) ≈ pivotY - sR * 0.94
+  // For 180cm golfer with 7-iron (sR≈1.59): 0.99 - 1.49 = -0.50 → clamped to 0 ✓
+  // At theta=PI (top): pivotY + sR * sin(swingPlaneAngle) ≈ 0.99 + 1.49 = 2.48 ✓ (max height)
+
+  function clubPos(theta) {
+    // Height: low at impact (theta=0), high at backswing/follow-through
+    const y = pivotY - sR * Math.cos(theta) * Math.sin(swingPlaneAngle);
+
+    // Along target direction: club head moves toward target for negative theta
+    // At theta=0: no offset. theta>0: behind (backswing). theta<0: toward target.
+    const alongTarget = sR * Math.sin(theta) * Math.cos(swingPlaneAngle);
+
+    // Lateral: slight side movement from swing plane tilt (toe/heel path)
+    const lateral = sR * Math.sin(theta) * 0.15;
+
+    if (dir === 'window') {
+      // Target = -Z direction (toward window/screen)
+      // Backswing (theta>0, alongTarget>0) → +Z (away from screen) ✓
+      // Follow-through (theta<0, alongTarget<0) → -Z (toward screen) ✓
+      return new THREE.Vector3(
+        golferX + lateral,
+        Math.max(0, y),
+        golferZ + alongTarget
+      );
+    } else {
+      // Target = +X direction
+      return new THREE.Vector3(
+        golferX - alongTarget,
+        Math.max(0, y),
+        golferZ + lateral
+      );
+    }
+  }
+
+  // Ball position at impact
+  ballMesh.position.copy(clubPos(0));
+
+  // Full swing arc (green): from top-of-backswing through impact to follow-through
+  // theta from +150° (backswing top) → 0 (impact) → -70° (follow-through)
+  const dsPoints = [];
+  for (let i = 0; i <= 40; i++) {
+    const t = i / 40;
+    const theta = (1 - t) * (150 * Math.PI / 180) + t * (-70 * Math.PI / 180);
+    dsPoints.push(clubPos(theta));
+  }
+
+  if (arcMesh) { simGroup.remove(arcMesh); arcMesh.geometry.dispose(); }
+  if (dsPoints.length > 1) {
+    const curve = new THREE.CatmullRomCurve3(dsPoints);
+    const tubeGeo = new THREE.TubeGeometry(curve, 40, 0.04, 8, false);
+    const ok = ceilClearance > 0.15 && Math.min(sideL, sideR) > sR * 0.3;
+    arcMesh = new THREE.Mesh(tubeGeo, ok ? arcMatGreen : arcMatRed);
+    simGroup.add(arcMesh);
+  }
+
+  // Backswing path (orange): from address up to top
+  const bsArcPoints = [];
+  for (let i = 0; i <= 20; i++) {
+    const t = i / 20;
+    const theta = t * (150 * Math.PI / 180); // 0° → 150°
+    bsArcPoints.push(clubPos(theta));
+  }
+
+  if (bsMesh) { simGroup.remove(bsMesh); bsMesh.geometry.dispose(); }
+  if (bsArcPoints.length > 1) {
+    const bsCurve = new THREE.CatmullRomCurve3(bsArcPoints);
+    const bsTubeGeo = new THREE.TubeGeometry(bsCurve, 20, 0.035, 8, false);
+    bsMesh = new THREE.Mesh(bsTubeGeo, ceilClearance > 0.05 ? bsMatOrange : bsMatRed);
+    simGroup.add(bsMesh);
+  }
+
+  // ─── Update UI ───
+  setVal('cCeil', ceilClearance, 'm');
+  setVal('cHems', hemsDist, 'm');
+  setVal('cSideL', sideL, 'm');
+  setVal('cSideR', sideR, 'm');
+  document.getElementById('cScreen').textContent = screenDist.toFixed(2) + 'm';
+  document.getElementById('cSwing').textContent = sR.toFixed(2) + 'm';
+}
+
+function setVal(id, val, unit) {
+  const el = document.getElementById(id);
+  el.textContent = val.toFixed(2) + unit;
+  el.className = 'val ' + (val > 0.3 ? 'ok' : val > 0.05 ? 'tight' : 'bad');
+}
+
+// ─── CONTROL WIRING ───
+document.getElementById('hSlider').addEventListener('input', updateSimulator);
+document.getElementById('clubSelect').addEventListener('change', updateSimulator);
+document.querySelectorAll('input[name="dir"]').forEach(r => r.addEventListener('change', updateSimulator));
+document.getElementById('posSlider').addEventListener('input', updateSimulator);
 
 // ─── ANIMATION LOOP ───
 function animate() {
@@ -191,27 +509,30 @@ window.addEventListener('resize', () => {
 
 // ─── VIEW CONTROLS ───
 window.setTopDown = function() {
-  camera.position.set(objCenter.x, objCenter.y + 12, objCenter.z);
+  camera.position.set(objCenter.x, 14, objCenter.z);
   controls.target.copy(objCenter);
   camera.up.set(0, 0, -1);
   controls.update();
 };
 
 window.set3DView = function() {
-  camera.position.set(
-    objCenter.x + objSize.x * 0.8,
-    objCenter.y + objSize.y * 2.5,
-    objCenter.z + objSize.z * 1.2
-  );
+  camera.position.set(objCenter.x + 6, 5, objCenter.z + 8);
   controls.target.copy(objCenter);
   camera.up.set(0, 1, 0);
   controls.update();
 };
 
 window.setFrontView = function() {
-  // View from window side (looking into the apartment)
-  camera.position.set(objCenter.x, objCenter.y, objCenter.z - objSize.z * 1.5);
-  controls.target.copy(objCenter);
+  camera.position.set(objCenter.x, 1.5, objCenter.z - 10);
+  controls.target.set(objCenter.x, 1.5, objCenter.z);
+  camera.up.set(0, 1, 0);
+  controls.update();
+};
+
+window.setSideView = function() {
+  // View from the side (along X axis), focused on stue area
+  camera.position.set(10, 2.0, 0);
+  controls.target.set(0, 1.0, 0);
   camera.up.set(0, 1, 0);
   controls.update();
 };
