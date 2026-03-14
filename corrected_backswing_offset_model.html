@@ -1,0 +1,385 @@
+<meta charset="utf-8">
+<style>
+.cr{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:13px;color:var(--color-text-secondary)}
+.cr label{min-width:130px}
+.cr .v{min-width:55px;text-align:right;font-weight:500;color:var(--color-text-primary)}
+.rg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+.rb{padding:8px 12px;border-radius:var(--border-radius-md);font-size:12px}
+.rb .rl{color:var(--color-text-secondary)}
+.rb .rv{font-weight:500;font-size:14px;display:block;margin-top:2px}
+.rok{background:var(--color-background-success);border:0.5px solid var(--color-border-success)}.rok .rv{color:var(--color-text-success)}
+.rwn{background:var(--color-background-warning);border:0.5px solid var(--color-border-warning)}.rwn .rv{color:var(--color-text-warning)}
+.rbd{background:var(--color-background-danger);border:0.5px solid var(--color-border-danger)}.rbd .rv{color:var(--color-text-danger)}
+.nt{font-size:12px;margin-top:8px;padding:8px 12px;border-radius:var(--border-radius-md);border:0.5px solid}
+.ng{background:var(--color-background-success);border-color:var(--color-border-success);color:var(--color-text-success)}
+.nw{background:var(--color-background-warning);border-color:var(--color-border-warning);color:var(--color-text-warning)}
+.nb{background:var(--color-background-danger);border-color:var(--color-border-danger);color:var(--color-text-danger)}
+.vf{font-size:11px;color:var(--color-text-success);margin-top:6px;opacity:0.8}
+.sh{font-size:11px;font-weight:600;margin-top:16px;margin-bottom:2px;color:var(--color-text-primary,#333)}
+</style>
+
+<p class="sh">Sidevisning — takhøyde og hemskant</p>
+
+<svg id="svg" width="100%" viewBox="0 0 700 440">
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<!-- Floor -->
+<line x1="40" y1="350" x2="650" y2="350" stroke="var(--p)" stroke-width="2"/>
+
+<!-- Window wall -->
+<line x1="60" y1="176" x2="60" y2="350" stroke="var(--p)" stroke-width="2"/>
+<rect x="62" y="220" width="5" height="55" rx="1" fill="#85B7EB" opacity="0.4" stroke="#378ADD" stroke-width="1"/>
+
+<!-- Sloped roof: 2.214m at x=60, 3.822m at x=378 (hemskant) -->
+<!-- Scale: 108px/m horizontal, 80px/m vertical. Floor=350 -->
+<path d="M60 173 L378 54" fill="none" stroke="var(--p)" stroke-width="2"/>
+<path d="M60 173 L378 54 L378 0 L60 0 Z" fill="var(--color-background-tertiary)" opacity="0.12"/>
+
+<!-- Verified ceiling heights (small, tucked into corners) -->
+<circle cx="60" cy="173" r="3" fill="#0F6E56" opacity="0.6"/>
+<text x="68" y="169" style="fill:#0F6E56;font-size:9px;font-family:system-ui">2,21 m</text>
+<circle cx="378" cy="54" r="3" fill="#0F6E56" opacity="0.6"/>
+<text x="350" y="48" text-anchor="end" style="fill:#0F6E56;font-size:9px;font-family:system-ui">3,82 m</text>
+
+<!-- Hems flat ceiling -->
+<rect x="378" y="170" width="272" height="180" fill="var(--color-background-danger)" opacity="0.05"/>
+<line x1="378" y1="170" x2="650" y2="170" stroke="var(--p)" stroke-width="2"/>
+
+<!-- Vertical cliff at hemskant -->
+<line x1="378" y1="54" x2="378" y2="170" stroke="#E24B4A" stroke-width="2" stroke-dasharray="4 3"/>
+
+<!-- Hems body -->
+<rect x="378" y="156" width="272" height="16" fill="var(--color-background-secondary)" opacity="0.2" stroke="var(--p)" stroke-width="0.5"/>
+<text x="514" y="153" text-anchor="middle" style="font-size:10px;font-family:system-ui;fill:var(--color-text-secondary,#666)">Hems</text>
+
+<!-- Hemskant vertical reference -->
+<line x1="378" y1="355" x2="378" y2="400" stroke="#7F77DD" stroke-width="1" stroke-dasharray="4 3" opacity="0.3"/>
+<text x="378" y="412" text-anchor="middle" style="fill:#534AB7;font-size:9px;font-family:system-ui">Hemskant 2,95 m</text>
+
+<!-- Floor ticks -->
+<g opacity="0.25" style="font-size:9px;font-family:system-ui">
+  <line x1="168" y1="354" x2="168" y2="358" stroke="var(--s)" stroke-width="0.5"/>
+  <text x="168" y="368" text-anchor="middle">1m</text>
+  <line x1="276" y1="354" x2="276" y2="358" stroke="var(--s)" stroke-width="0.5"/>
+  <text x="276" y="368" text-anchor="middle">2m</text>
+  <line x1="492" y1="354" x2="492" y2="358" stroke="var(--s)" stroke-width="0.5"/>
+  <text x="492" y="368" text-anchor="middle">4m</text>
+</g>
+
+<!-- Screen at 0.3m -->
+<rect x="92" y="176" width="5" height="171" rx="1" fill="#E24B4A" opacity="0.25"/>
+<rect x="92" y="176" width="5" height="171" rx="1" fill="none" stroke="#E24B4A" stroke-width="1"/>
+<text x="84" y="260" text-anchor="end" style="fill:#A32D2D;font-size:10px;font-family:system-ui">Skjerm</text>
+
+<!-- Golfer body -->
+<g id="gg">
+  <line id="gb" x1="320" y1="252" x2="320" y2="285" stroke="#0F6E56" stroke-width="3" stroke-linecap="round"/>
+  <circle id="gh" cx="320" cy="244" r="6" fill="#0F6E56" opacity="0.4" stroke="#0F6E56" stroke-width="1"/>
+  <line id="gl1" x1="320" y1="285" x2="312" y2="348" stroke="#0F6E56" stroke-width="2" stroke-linecap="round"/>
+  <line id="gl2" x1="320" y1="285" x2="328" y2="348" stroke="#0F6E56" stroke-width="2" stroke-linecap="round"/>
+</g>
+
+<!-- Club + swing arc -->
+<path id="gc" d="M320 260 Q340 230 350 190" fill="none" stroke="#0F6E56" stroke-width="2" stroke-linecap="round"/>
+<circle id="gs" cx="350" cy="190" r="4" fill="#0F6E56" opacity="0.5"/>
+
+<!-- Ceiling check line at club head -->
+<line id="nl" x1="350" y1="60" x2="350" y2="190" stroke="#E24B4A" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+
+<!-- Swing top marker -->
+<line id="sm" x1="340" y1="190" x2="360" y2="190" stroke="#BA7517" stroke-width="2"/>
+
+<!-- Clearance label (positioned to the left of the diagram to avoid clutter) -->
+<text id="cll" x="30" y="20" style="font-size:13px;font-weight:600;font-family:system-ui"></text>
+<text id="sl" x="30" y="35" style="fill:#BA7517;font-size:10px;font-family:system-ui"></text>
+
+<!-- Mat -->
+<rect id="mz" x="280" y="343" width="80" height="7" rx="3" fill="#0F6E56" opacity="0.2"/>
+
+<!-- Danger zone highlight near hemskant -->
+<rect id="dz" x="365" y="54" width="13" height="116" rx="0" fill="#E24B4A" opacity="0.06"/>
+
+<!-- Dimension: golfer to screen (below floor) -->
+<line id="dgs" x1="98" y1="388" x2="320" y2="388" stroke="#854F0B" stroke-width="1" marker-start="url(#ar)" marker-end="url(#ar)"/>
+<text id="dgsl" x="209" y="385" text-anchor="middle" style="fill:#854F0B;font-size:9px;font-family:system-ui"></text>
+
+<!-- Dimension: backswing offset (below golfer-screen line) -->
+<line id="bsd" x1="320" y1="388" x2="350" y2="388" stroke="#A32D2D" stroke-width="1" marker-start="url(#ar)" marker-end="url(#ar)"/>
+<text id="bsl" x="335" y="385" text-anchor="middle" style="fill:#A32D2D;font-size:9px;font-family:system-ui"></text>
+</svg>
+
+<div class="cr">
+  <label>Din høyde:</label>
+  <input type="range" id="sh" min="160" max="205" value="179" step="1" style="flex:1" oninput="upd()">
+  <span class="v" id="vh">179 cm</span>
+</div>
+<div class="cr">
+  <label>Avstand til vindu:</label>
+  <input type="range" id="sd" min="0.8" max="3.5" value="2.30" step="0.05" style="flex:1" oninput="upd()">
+  <span class="v" id="vd">2.55 m</span>
+</div>
+<div class="cr">
+  <label>Klubb:</label>
+  <input type="range" id="sc" min="0.85" max="1.15" value="1.05" step="0.05" style="flex:1" oninput="upd()">
+  <span class="v" id="vcc">Hybrid</span>
+</div>
+<div class="cr">
+  <label>Rombredde:</label>
+  <input type="range" id="sw" min="2.5" max="5.0" value="3.50" step="0.05" style="flex:1" oninput="upd()">
+  <span class="v" id="vw">3.50 m</span>
+</div>
+
+<div class="rg" id="res"></div>
+<div id="inf"></div>
+
+<p class="sh">Ovenfra — rombredde og sideklaringer</p>
+
+<svg id="svg2" width="100%" viewBox="0 0 700 300">
+<!-- Left wall -->
+<line id="wl" x1="100" y1="40" x2="100" y2="250" stroke="var(--p)" stroke-width="2"/>
+<text id="wll" x="96" y="145" text-anchor="end" style="font-size:10px;font-family:system-ui;fill:var(--color-text-secondary,#666)">Vegg</text>
+
+<!-- Right wall -->
+<line id="wr" x1="600" y1="40" x2="600" y2="250" stroke="var(--p)" stroke-width="2"/>
+<text id="wrl" x="604" y="145" style="font-size:10px;font-family:system-ui;fill:var(--color-text-secondary,#666)">Vegg</text>
+
+<!-- Screen (top) -->
+<rect id="scr2" x="150" y="43" width="400" height="7" rx="2" fill="#E24B4A" opacity="0.3" stroke="#E24B4A" stroke-width="1"/>
+<text id="scrl" x="350" y="37" text-anchor="middle" style="fill:#A32D2D;font-size:10px;font-family:system-ui">Skjerm</text>
+
+<!-- Golfer dot -->
+<circle id="gd" cx="350" cy="170" r="7" fill="#0F6E56" opacity="0.5" stroke="#0F6E56" stroke-width="1.5"/>
+<text id="gdl" x="350" y="192" text-anchor="middle" style="fill:#0F6E56;font-size:10px;font-family:system-ui">Golfer</text>
+
+<!-- Swing arc -->
+<ellipse id="sa" cx="350" cy="170" rx="80" ry="30" fill="none" stroke="#0F6E56" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.4"/>
+
+<!-- Left clearance -->
+<line id="lcl" x1="100" y1="170" x2="270" y2="170" stroke="#534AB7" stroke-width="1" marker-start="url(#ar)" marker-end="url(#ar)"/>
+<text id="lclt" x="185" y="164" text-anchor="middle" style="fill:#534AB7;font-size:10px;font-family:system-ui"></text>
+
+<!-- Right clearance -->
+<line id="rcl" x1="430" y1="170" x2="600" y2="170" stroke="#534AB7" stroke-width="1" marker-start="url(#ar)" marker-end="url(#ar)"/>
+<text id="rclt" x="515" y="164" text-anchor="middle" style="fill:#534AB7;font-size:10px;font-family:system-ui"></text>
+
+<!-- Width dimension at bottom -->
+<line id="wd" x1="100" y1="275" x2="600" y2="275" stroke="var(--s)" stroke-width="1" marker-start="url(#ar)" marker-end="url(#ar)"/>
+<text id="wdt" x="350" y="270" text-anchor="middle" style="font-size:10px;font-family:system-ui"></text>
+
+<!-- Danger zones on sides -->
+<rect id="dzl" x="100" y="40" width="20" height="210" fill="#E24B4A" opacity="0.06"/>
+<rect id="dzr" x="580" y="40" width="20" height="210" fill="#E24B4A" opacity="0.06"/>
+</svg>
+
+<div class="rg" id="res2"></div>
+<div id="inf2"></div>
+<p class="vf">Takhøyde sjekkes ved klubbhodets posisjon, ikke ved føttene. Rombredde estimert fra 3D-modell.</p>
+
+<script>
+const PX=108,PY=80,WX=60,FY=350;
+const CW=2.214,CHE=3.822,HE=2.95,HC=2.25;
+const SL=(CHE-CW)/HE;
+
+function ceil(d){return d<=HE?CW+d*SL:HC;}
+function dx(d){return WX+d*PX;}
+function my(m){return FY-m*PY;}
+function cn(l){if(l<=0.88)return'Wedge';if(l<=0.93)return'9-jern';if(l<=0.97)return'7-jern';if(l<=1.03)return'5-jern';if(l<=1.08)return'Hybrid';return'Driver';}
+function swH(h,c){return h/100*0.80+c*Math.sin(75*Math.PI/180);}
+function bsOff(c){return c*0.4;}
+function swAngle(c){if(c>=1.10)return 45;if(c>=1.03)return 48;if(c>=0.97)return 52;if(c>=0.93)return 56;if(c>=0.88)return 60;return 64;}
+function swRadius(h,c){
+  const arm=h/100*0.36;
+  const ang=swAngle(c)*Math.PI/180;
+  return(arm+c)*Math.cos(ang);
+}
+
+function upd(){
+  const h=+document.getElementById('sh').value;
+  const d=+document.getElementById('sd').value;
+  const c=+document.getElementById('sc').value;
+  const w=+document.getElementById('sw').value;
+  document.getElementById('vh').textContent=h+' cm';
+  document.getElementById('vd').textContent=d.toFixed(2)+' m';
+  document.getElementById('vcc').textContent=cn(c);
+  document.getElementById('vw').textContent=w.toFixed(2)+' m';
+
+  const sw=swH(h,c);
+  const off=bsOff(c);
+  const clubDist=d+off;
+  const ceilFeet=ceil(d);
+  const ceilClub=ceil(clubDist);
+  const clr=ceilClub-sw;
+  const sDist=d-0.3;
+  const clubToHems=HE-clubDist;
+  const under=clubDist>HE;
+
+  // --- SIDE VIEW ---
+  const gx=dx(d),hm=h/100;
+  const headY=my(hm),btY=headY+8,bbY=my(hm*0.55);
+  const swY=my(sw);
+  const clubX=dx(clubDist);
+  const cClubY=my(ceilClub);
+
+  // Golfer
+  document.getElementById('gh').setAttribute('cx',gx);
+  document.getElementById('gh').setAttribute('cy',headY);
+  document.getElementById('gb').setAttribute('x1',gx);
+  document.getElementById('gb').setAttribute('y1',btY);
+  document.getElementById('gb').setAttribute('x2',gx);
+  document.getElementById('gb').setAttribute('y2',bbY);
+  document.getElementById('gl1').setAttribute('x1',gx);
+  document.getElementById('gl1').setAttribute('y1',bbY);
+  document.getElementById('gl1').setAttribute('x2',gx-8);
+  document.getElementById('gl2').setAttribute('x1',gx);
+  document.getElementById('gl2').setAttribute('y1',bbY);
+  document.getElementById('gl2').setAttribute('x2',gx+8);
+
+  // Club arc
+  document.getElementById('gs').setAttribute('cx',clubX);
+  document.getElementById('gs').setAttribute('cy',swY);
+  document.getElementById('gc').setAttribute('d',
+    `M${gx} ${btY+10} Q${(gx+clubX)/2} ${(btY+swY)/2-8} ${clubX} ${swY}`);
+
+  // Ceiling check line
+  document.getElementById('nl').setAttribute('x1',clubX);
+  document.getElementById('nl').setAttribute('x2',clubX);
+  document.getElementById('nl').setAttribute('y1',cClubY);
+  document.getElementById('nl').setAttribute('y2',swY);
+
+  // Swing top marker
+  document.getElementById('sm').setAttribute('x1',clubX-8);
+  document.getElementById('sm').setAttribute('x2',clubX+8);
+  document.getElementById('sm').setAttribute('y1',swY);
+  document.getElementById('sm').setAttribute('y2',swY);
+
+  // Top-left clearance summary (clean, no overlap)
+  const cl=document.getElementById('cll');
+  if(clr>=0.3){cl.textContent='Tak-klaring: '+clr.toFixed(2)+'m ✓';cl.style.fill='#0F6E56';}
+  else if(clr>=0){cl.textContent='Tak-klaring: '+clr.toFixed(2)+'m ⚠';cl.style.fill='#BA7517';}
+  else{cl.textContent='TREFFER TAK: '+clr.toFixed(2)+'m ✗';cl.style.fill='#A32D2D';}
+
+  document.getElementById('sl').textContent='Sving '+sw.toFixed(2)+'m — tak '+(under?'2,25 (hems)':ceilClub.toFixed(2))+'m ved klubbhode';
+
+  // Dimensions below floor
+  document.getElementById('bsd').setAttribute('x1',gx);
+  document.getElementById('bsd').setAttribute('x2',clubX);
+  document.getElementById('bsl').setAttribute('x',(gx+clubX)/2);
+  document.getElementById('bsl').textContent=off.toFixed(2)+'m backswing';
+
+  const sx=dx(0.3);
+  document.getElementById('dgs').setAttribute('x1',sx+3);
+  document.getElementById('dgs').setAttribute('x2',gx);
+  document.getElementById('dgsl').setAttribute('x',(sx+gx)/2);
+  document.getElementById('dgsl').textContent=sDist.toFixed(2)+'m til skjerm';
+
+  // Mat
+  document.getElementById('mz').setAttribute('x',gx-40);
+
+  // Danger zone near hemskant
+  const dzX=Math.max(dx(HE)-13, clubX-5);
+  document.getElementById('dz').setAttribute('x',dzX);
+  document.getElementById('dz').style.opacity=clubToHems<0.3?'0.15':'0.05';
+
+  // Result cards
+  const sdC=sDist>=2.0?'rok':sDist>=1.5?'rwn':'rbd';
+  const clC=clr>=0.3?'rok':clr>=0.1?'rwn':'rbd';
+  const chC=under?'rbd':clubToHems>=0.3?'rok':'rwn';
+
+  document.getElementById('res').innerHTML=
+    '<div class="rb '+clC+'"><span class="rl">Tak-klaring ved klubbhode</span><span class="rv">'+clr.toFixed(2)+'m'+(clr>=0.3?' ✓':clr>=0?' ⚠':' ✗')+'</span></div>'+
+    '<div class="rb '+chC+'"><span class="rl">Klubbhode → hemskant</span><span class="rv">'+(under?'FORBI! ✗':clubToHems.toFixed(2)+'m'+(clubToHems>=0.3?' ✓':' ⚠'))+'</span></div>'+
+    '<div class="rb '+sdC+'"><span class="rl">Golfer → skjerm</span><span class="rv">'+sDist.toFixed(2)+'m'+(sDist>=2.0?' ✓':sDist>=1.5?' ⚠':' ✗')+'</span></div>'+
+    '<div class="rb rok"><span class="rl">Backswing-offset</span><span class="rv">'+off.toFixed(2)+'m bak deg ('+cn(c)+')</span></div>';
+
+  const ib=document.getElementById('inf');
+  if(under){
+    ib.innerHTML='<div class="nt nb"><strong>Klubbhodet treffer hemstaket!</strong> Backswing tar klubben '+off.toFixed(2)+'m bak deg til '+(clubDist).toFixed(2)+'m — forbi hemskanten (2,95m). Flytt nærmere vinduet eller bruk kortere klubb.</div>';
+  } else if(clr<0.1){
+    ib.innerHTML='<div class="nt nb"><strong>For lite klaring!</strong> Taket er bare '+ceilClub.toFixed(1)+'m der klubben er på toppen ('+off.toFixed(1)+'m bak deg).</div>';
+  } else if(clubToHems<0.3){
+    ib.innerHTML='<div class="nt nw"><strong>Farlig nær hemskanten!</strong> Klubbhodet er bare '+clubToHems.toFixed(2)+'m fra der taket dropper.</div>';
+  } else if(clr>=0.3 && sDist>=1.5){
+    ib.innerHTML='<div class="nt ng"><strong>OK!</strong> '+clr.toFixed(2)+'m klaring, '+clubToHems.toFixed(2)+'m fra hemskant, '+sDist.toFixed(1)+'m til skjerm.</div>';
+  } else {
+    ib.innerHTML='<div class="nt nw"><strong>Stramt.</strong> Juster posisjon eller bruk kortere klubb.</div>';
+  }
+
+  // --- TOP-DOWN VIEW ---
+  const T2W=500;
+  const T2MID=350, T2GY=170;
+  const ppm=T2W/w;
+
+  const wallL=T2MID-w/2*ppm;
+  const wallR=T2MID+w/2*ppm;
+  document.getElementById('wl').setAttribute('x1',wallL);
+  document.getElementById('wl').setAttribute('x2',wallL);
+  document.getElementById('wll').setAttribute('x',wallL-4);
+  document.getElementById('wr').setAttribute('x1',wallR);
+  document.getElementById('wr').setAttribute('x2',wallR);
+  document.getElementById('wrl').setAttribute('x',wallR+4);
+
+  const scrW=Math.min(w-0.4,3.0)*ppm;
+  document.getElementById('scr2').setAttribute('x',T2MID-scrW/2);
+  document.getElementById('scr2').setAttribute('width',scrW);
+
+  document.getElementById('gd').setAttribute('cx',T2MID);
+
+  const sr=swRadius(h,c);
+  const srPx=sr*ppm;
+  const bkPx=off*ppm;
+  document.getElementById('sa').setAttribute('cx',T2MID);
+  document.getElementById('sa').setAttribute('rx',srPx);
+  document.getElementById('sa').setAttribute('ry',Math.max(bkPx,20));
+
+  const sideL=w/2-sr;
+  const sideR=w/2-sr;
+  const swEdgeL=T2MID-srPx;
+  const swEdgeR=T2MID+srPx;
+
+  document.getElementById('lcl').setAttribute('x1',wallL);
+  document.getElementById('lcl').setAttribute('x2',swEdgeL);
+  document.getElementById('lclt').setAttribute('x',(wallL+swEdgeL)/2);
+  document.getElementById('lclt').textContent=sideL.toFixed(2)+'m';
+
+  document.getElementById('rcl').setAttribute('x1',swEdgeR);
+  document.getElementById('rcl').setAttribute('x2',wallR);
+  document.getElementById('rclt').setAttribute('x',(swEdgeR+wallR)/2);
+  document.getElementById('rclt').textContent=sideR.toFixed(2)+'m';
+
+  document.getElementById('wd').setAttribute('x1',wallL);
+  document.getElementById('wd').setAttribute('x2',wallR);
+  document.getElementById('wdt').textContent=w.toFixed(2)+'m bredde';
+
+  document.getElementById('dzl').setAttribute('x',wallL);
+  document.getElementById('dzl').setAttribute('width',Math.max(2,Math.min(srPx-sideL*ppm,srPx)));
+  document.getElementById('dzl').style.opacity=sideL<0.3?'0.15':'0.05';
+  document.getElementById('dzr').setAttribute('x',wallR-Math.max(2,Math.min(srPx-sideR*ppm,srPx)));
+  document.getElementById('dzr').setAttribute('width',Math.max(2,Math.min(srPx-sideR*ppm,srPx)));
+  document.getElementById('dzr').style.opacity=sideR<0.3?'0.15':'0.05';
+
+  const slC=sideL>=0.3?'rok':sideL>=0.1?'rwn':'rbd';
+  const srC=sideR>=0.3?'rok':sideR>=0.1?'rwn':'rbd';
+
+  document.getElementById('res2').innerHTML=
+    '<div class="rb '+slC+'"><span class="rl">Klaring venstre vegg</span><span class="rv">'+sideL.toFixed(2)+'m'+(sideL>=0.3?' ✓':sideL>=0?' ⚠':' ✗')+'</span></div>'+
+    '<div class="rb '+srC+'"><span class="rl">Klaring høyre vegg</span><span class="rv">'+sideR.toFixed(2)+'m'+(sideR>=0.3?' ✓':sideR>=0?' ⚠':' ✗')+'</span></div>'+
+    '<div class="rb rok"><span class="rl">Svingens sideradius</span><span class="rv">'+sr.toFixed(2)+'m ('+cn(c)+', '+swAngle(c)+'°)</span></div>'+
+    '<div class="rb rok"><span class="rl">Skjermbredde (maks)</span><span class="rv">'+(Math.min(w-0.4,3.0)).toFixed(2)+'m</span></div>';
+
+  const ib2=document.getElementById('inf2');
+  if(sideL<0||sideR<0){
+    ib2.innerHTML='<div class="nt nb"><strong>For smalt!</strong> Svingen ('+sr.toFixed(2)+'m) treffer veggen. Trenger minst '+(sr*2).toFixed(2)+'m.</div>';
+  } else if(sideL<0.15){
+    ib2.innerHTML='<div class="nt nb"><strong>Svært stramt!</strong> Bare '+sideL.toFixed(2)+'m til veggen.</div>';
+  } else if(sideL<0.3){
+    ib2.innerHTML='<div class="nt nw"><strong>Stramt sideveis.</strong> '+sideL.toFixed(2)+'m klaring. Kortere klubber gir mer margin.</div>';
+  } else {
+    ib2.innerHTML='<div class="nt ng"><strong>Bredden er OK!</strong> '+sideL.toFixed(2)+'m klaring til vegg med '+cn(c)+'.</div>';
+  }
+}
+upd();
+</script>

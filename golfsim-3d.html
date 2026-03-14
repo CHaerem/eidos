@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<title>Golfsimulator 3D Romplanlegger</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;display:flex;height:100vh;overflow:hidden;background:#1a1a1a}
+#sidebar{width:280px;background:#fff;border-right:1px solid #ddd;padding:16px;overflow-y:auto;flex-shrink:0}
+#sidebar h2{font-size:15px;margin-bottom:12px;color:#333}
+.sep{border-top:1px solid #eee;margin:14px 0}
+#canvas-wrap{flex:1;position:relative}
+canvas{display:block;width:100%;height:100%}
+.dim-info{font-size:12px;color:#555;margin-bottom:4px;line-height:1.5}
+.dim-info b{color:#333}
+button.view-btn{width:100%;padding:8px;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#f5f5f5;margin-bottom:6px}
+button.view-btn:hover{background:#e8e8e8}
+#status{font-size:11px;color:#888;margin-top:8px}
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>Golfsimulator Romplanlegger</h2>
+  <p style="font-size:12px;color:#888;margin-bottom:12px">3D-modell fra OBJ (Vibes gate 20)</p>
+
+  <button class="view-btn" onclick="setTopDown()">Ovenfra-visning</button>
+  <button class="view-btn" onclick="set3DView()">3D-visning</button>
+  <button class="view-btn" onclick="setFrontView()">Frontvisning (fra vindu)</button>
+
+  <div class="sep"></div>
+
+  <div class="dim-info">
+    <b>Modell:</b> Vibes Gate 20 - Ground Floor<br>
+    <b>Størrelse:</b> ~8.9m × 5.2m × 2.4m<br>
+    <b>Skala:</b> 1 OBJ-enhet = 0.1m
+  </div>
+
+  <div class="sep"></div>
+  <div id="status">Laster OBJ-modell...</div>
+</div>
+
+<div id="canvas-wrap"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.162.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.162.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+
+// ─── ROOM CONSTANTS (for ceiling, simulator later) ───
+const ROOM = {
+  ceilWindow: 2.214,
+  ceilHemskant: 3.822,
+  ceilUnderHems: 2.25,
+  hemsDepth: 1.90,
+  hemskantDist: 3.10,
+};
+
+// ─── THREE.JS SETUP ───
+const wrap = document.getElementById('canvas-wrap');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2a2a2a);
+
+const camera = new THREE.PerspectiveCamera(50, wrap.clientWidth / wrap.clientHeight, 0.1, 100);
+camera.position.set(5, 8, 10);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+wrap.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+
+// Lights
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+dirLight.position.set(8, 12, 5);
+scene.add(dirLight);
+
+// Subtle grid
+const grid = new THREE.GridHelper(15, 30, 0x444444, 0x333333);
+scene.add(grid);
+
+// ─── OBJ MODEL CENTER (from analysis) ───
+// OBJ scaled by 0.1: X: -4.46 to 4.46, Y: -1.22 to 1.22, Z: -2.58 to 2.58
+// We shift so floor is at Y=0 (add 1.22 to Y)
+let objCenter = new THREE.Vector3(0, 0, 0);
+let objSize = new THREE.Vector3(8.92, 2.44, 5.16);
+
+// ─── LOAD OBJ ───
+const loader = new OBJLoader();
+loader.load(
+  'Vibes%20Gate%2020%20-%20Ground%20Floor.obj',
+  (obj) => {
+    obj.scale.set(0.1, 0.1, 0.1);
+
+    // Shift so floor is at Y=0
+    obj.position.y = 1.22;
+
+    // Style meshes
+    obj.traverse((child) => {
+      if (child.isMesh) {
+        const name = child.name || '';
+
+        if (name.startsWith('WholeFloor')) {
+          child.material = new THREE.MeshLambertMaterial({
+            color: 0xD4C8B8,
+            side: THREE.DoubleSide,
+          });
+        } else if (name.startsWith('ExternalWalls')) {
+          child.material = new THREE.MeshLambertMaterial({
+            color: 0x8899AA,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.5,
+          });
+        } else if (name.startsWith('FloorFillerTop')) {
+          child.material = new THREE.MeshLambertMaterial({
+            color: 0xBBBBBB,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.3,
+          });
+        } else if (name.startsWith('InnerSide')) {
+          child.material = new THREE.MeshLambertMaterial({
+            color: 0xC4B8A8,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.7,
+          });
+        } else {
+          child.material = new THREE.MeshLambertMaterial({
+            color: 0xAAAAAA,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.5,
+          });
+        }
+      }
+    });
+
+    scene.add(obj);
+
+    // Compute bounds for camera
+    const box = new THREE.Box3().setFromObject(obj);
+    objCenter = box.getCenter(new THREE.Vector3());
+    objSize = box.getSize(new THREE.Vector3());
+
+    // Default 3D view
+    controls.target.copy(objCenter);
+    camera.position.set(
+      objCenter.x + objSize.x * 0.8,
+      objCenter.y + objSize.y * 2.5,
+      objCenter.z + objSize.z * 1.2
+    );
+    controls.update();
+
+    document.getElementById('status').textContent =
+      `OBJ lastet: ${objSize.x.toFixed(1)}m × ${objSize.y.toFixed(1)}m × ${objSize.z.toFixed(1)}m`;
+  },
+  null,
+  (err) => {
+    document.getElementById('status').textContent = 'Feil ved lasting: ' + err.message;
+  }
+);
+
+// ─── ANIMATION LOOP ───
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = wrap.clientWidth / wrap.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+});
+
+// ─── VIEW CONTROLS ───
+window.setTopDown = function() {
+  camera.position.set(objCenter.x, objCenter.y + 12, objCenter.z);
+  controls.target.copy(objCenter);
+  camera.up.set(0, 0, -1);
+  controls.update();
+};
+
+window.set3DView = function() {
+  camera.position.set(
+    objCenter.x + objSize.x * 0.8,
+    objCenter.y + objSize.y * 2.5,
+    objCenter.z + objSize.z * 1.2
+  );
+  controls.target.copy(objCenter);
+  camera.up.set(0, 1, 0);
+  controls.update();
+};
+
+window.setFrontView = function() {
+  // View from window side (looking into the apartment)
+  camera.position.set(objCenter.x, objCenter.y, objCenter.z - objSize.z * 1.5);
+  controls.target.copy(objCenter);
+  camera.up.set(0, 1, 0);
+  controls.update();
+};
+</script>
+</body>
+</html>

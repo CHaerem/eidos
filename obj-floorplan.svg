@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800.0 496.0" style="background:#fff">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L10,5 L0,10" fill="#c00"/></marker></defs>
+<style>
+  .outer { stroke: #333; stroke-width: 3; fill: none }
+  .inner { stroke: #888; stroke-width: 2; fill: none; stroke-dasharray: 5,3 }
+  .label { font: 10px sans-serif; fill: #666 }
+  .dim { font: bold 11px sans-serif; fill: #c00 }
+  .room { font: bold 14px sans-serif; fill: #333; text-anchor: middle }
+</style>
+<line class="outer" x1="49.60000000000001" y1="48.00000000000001" x2="750.3999999999999" y2="48.00000000000001"/>
+<line class="outer" x1="750.3999999999999" y1="448.0" x2="750.3999999999999" y2="48.00000000000001"/>
+<line class="outer" x1="244.0" y1="448.0" x2="750.3999999999999" y2="448.0"/>
+<line class="outer" x1="49.60000000000001" y1="448.0" x2="237.60000000000002" y2="448.0"/>
+<line class="outer" x1="49.60000000000001" y1="447.2" x2="49.60000000000001" y2="292.0"/>
+<line class="outer" x1="49.60000000000001" y1="285.6" x2="49.60000000000001" y2="48.00000000000001"/>
+<line class="inner" x1="175.2" y1="144.0" x2="175.2" y2="48.00000000000001"/>
+<line class="inner" x1="175.2" y1="144.0" x2="241.6" y2="179.20000000000002"/>
+<line class="inner" x1="241.6" y1="180.0" x2="457.59999999999997" y2="180.0"/>
+<line class="inner" x1="457.59999999999997" y1="180.0" x2="457.59999999999997" y2="48.00000000000001"/>
+<line class="inner" x1="49.60000000000001" y1="285.6" x2="244.0" y2="285.6"/>
+<line class="inner" x1="244.0" y1="448.0" x2="244.0" y2="285.6"/>
+<rect x="424.79999999999995" y="208.8" width="20.8" height="56.8" fill="#999" opacity="0.5"/>
+<text class="room" x="120.0" y="104.0">Soverom</text>
+<text class="room" x="480.0" y="104.0">Stue</text>
+<text class="room" x="144.0" y="368.0">Bad/VM</text>
+<text class="room" x="520.0" y="368.0">Kjøkken?</text>
+<text class="room" x="360.0" y="232.0">Søyle</text>
+<line x1="49.60000000000001" y1="48.00000000000001" x2="175.2" y2="48.00000000000001" stroke="#c00" stroke-width="1" marker-start="url(#arr)" marker-end="url(#arr)"/>
+<text class="dim" x="112.4" y="44.00000000000001">1.57m</text>
+<line x1="175.2" y1="48.00000000000001" x2="750.3999999999999" y2="48.00000000000001" stroke="#c00" stroke-width="1" marker-start="url(#arr)" marker-end="url(#arr)"/>
+<text class="dim" x="462.79999999999995" y="44.00000000000001">7.19m</text>
+<line x1="760.0" y1="48.00000000000001" x2="760.0" y2="448.0" stroke="#c00" stroke-width="1" marker-start="url(#arr)" marker-end="url(#arr)"/>
+<text class="dim" x="760.0" y="244.0">5.00m</text>
+<line x1="40.0" y1="48.00000000000001" x2="40.0" y2="285.6" stroke="#c00" stroke-width="1" marker-start="url(#arr)" marker-end="url(#arr)"/>
+<text class="dim" x="40.0" y="162.8">2.97m</text>
+<line x1="40.0" y1="285.6" x2="40.0" y2="448.0" stroke="#c00" stroke-width="1" marker-start="url(#arr)" marker-end="url(#arr)"/>
+<text class="dim" x="40.0" y="362.8">2.03m</text>
+<line x1="244.0" y1="456.0" x2="750.3999999999999" y2="456.0" stroke="#c00" stroke-width="1" marker-start="url(#arr)" marker-end="url(#arr)"/>
+<text class="dim" x="497.19999999999993" y="452.0">6.33m</text>
+<line x1="49.60000000000001" y1="456.0" x2="244.0" y2="456.0" stroke="#c00" stroke-width="1" marker-start="url(#arr)" marker-end="url(#arr)"/>
+<text class="dim" x="146.8" y="452.0">2.43m</text>
+<text x="400.0" y="20" text-anchor="middle" style="font:bold 16px sans-serif">OBJ Ground Floor - Veggposisjoner (meter)</text>
+<text x="400.0" y="36" text-anchor="middle" style="font:12px sans-serif;fill:#666">Vindu/nord er øverst. Skala: 1 OBJ-enhet = 0.1m</text>
+</svg>

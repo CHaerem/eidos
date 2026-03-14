@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<title>OBJ Viewer - Vibes Gate 20</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui;display:flex;height:100vh;overflow:hidden;background:#222}
+#info{position:absolute;top:10px;left:10px;color:#fff;font-size:13px;background:rgba(0,0,0,0.6);padding:10px 14px;border-radius:6px;z-index:10}
+#info button{margin:4px 2px;padding:6px 12px;cursor:pointer;border:none;border-radius:4px;background:#555;color:#fff;font-size:12px}
+#info button:hover{background:#777}
+canvas{display:block;width:100%;height:100%}
+</style>
+</head>
+<body>
+
+<div id="info">
+  <b>OBJ: Vibes Gate 20 - Ground Floor</b><br>
+  <span id="status">Laster...</span><br>
+  <button onclick="viewTop()">Ovenfra</button>
+  <button onclick="view3D()">3D</button>
+  <button onclick="viewFront()">Front</button>
+  <button onclick="viewSide()">Side</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.162.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.162.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x333333);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(5, 8, 10);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+
+// Lights
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+dir.position.set(10, 15, 5);
+scene.add(dir);
+
+// Grid
+const grid = new THREE.GridHelper(20, 40, 0x555555, 0x444444);
+scene.add(grid);
+
+// Axes
+const axes = new THREE.AxesHelper(5);
+scene.add(axes);
+
+// Load OBJ
+const loader = new OBJLoader();
+loader.load(
+  'Vibes%20Gate%2020%20-%20Ground%20Floor.obj',
+  (obj) => {
+    // OBJ scale: 1 unit = 0.1m (decimeters), scale down to meters
+    obj.scale.set(0.1, 0.1, 0.1);
+
+    // Color all meshes
+    const colors = [0x88AACC, 0xCC8888, 0x88CC88, 0xCCCC88, 0xCC88CC, 0x88CCCC, 0xAAAA88];
+    let i = 0;
+    obj.traverse((child) => {
+      if (child.isMesh) {
+        child.material = new THREE.MeshLambertMaterial({
+          color: colors[i % colors.length],
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.7,
+        });
+        i++;
+      }
+    });
+
+    scene.add(obj);
+
+    // Center camera on model
+    const box = new THREE.Box3().setFromObject(obj);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    controls.target.copy(center);
+
+    camera.position.set(center.x + size.x, center.y + size.y * 2, center.z + size.z);
+    controls.update();
+
+    const s = size;
+    document.getElementById('status').textContent =
+      `Lastet! Størrelse: ${s.x.toFixed(2)}m × ${s.y.toFixed(2)}m × ${s.z.toFixed(2)}m`;
+
+    // Log mesh names
+    obj.traverse((child) => {
+      if (child.isMesh) {
+        console.log('Mesh:', child.name, 'vertices:', child.geometry.attributes.position?.count);
+      }
+    });
+
+    window._obj = obj;
+    window._center = center;
+    window._size = size;
+  },
+  (xhr) => {
+    if (xhr.total) {
+      document.getElementById('status').textContent =
+        `Laster... ${Math.round(xhr.loaded / xhr.total * 100)}%`;
+    }
+  },
+  (err) => {
+    document.getElementById('status').textContent = 'Feil: ' + err.message;
+    console.error(err);
+  }
+);
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+window.viewTop = () => {
+  const c = window._center, s = window._size;
+  if (!c) return;
+  camera.position.set(c.x, c.y + Math.max(s.x, s.z) * 1.5, c.z);
+  camera.up.set(0, 0, -1);
+  controls.target.copy(c);
+  controls.update();
+};
+
+window.view3D = () => {
+  const c = window._center, s = window._size;
+  if (!c) return;
+  camera.position.set(c.x + s.x, c.y + s.y * 2, c.z + s.z);
+  camera.up.set(0, 1, 0);
+  controls.target.copy(c);
+  controls.update();
+};
+
+window.viewFront = () => {
+  const c = window._center, s = window._size;
+  if (!c) return;
+  camera.position.set(c.x, c.y, c.z + Math.max(s.x, s.z) * 1.5);
+  camera.up.set(0, 1, 0);
+  controls.target.copy(c);
+  controls.update();
+};
+
+window.viewSide = () => {
+  const c = window._center, s = window._size;
+  if (!c) return;
+  camera.position.set(c.x + Math.max(s.x, s.z) * 1.5, c.y, c.z);
+  camera.up.set(0, 1, 0);
+  controls.target.copy(c);
+  controls.update();
+};
+</script>
+</body>
+</html>
