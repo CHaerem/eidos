@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<title>Eidos — 3D Romplanlegger</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;display:flex;height:100vh;overflow:hidden;background:#1a1a1a}
+#sidebar{width:300px;background:#fff;border-right:1px solid #ddd;overflow-y:auto;flex-shrink:0}
+#sidebar h2{font-size:15px;margin-bottom:8px;color:#333}
+#canvas-wrap{flex:1;position:relative}
+canvas{display:block;width:100%;height:100%}
+label{display:block;font-size:12px;color:#555;margin-bottom:2px}
+label b{color:#333}
+input[type=range]{width:100%;margin:2px 0 8px}
+select{width:100%;padding:4px;margin-bottom:8px;font-size:13px}
+button.view-btn{width:100%;padding:7px;font-size:12px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#f5f5f5;margin-bottom:5px}
+button.view-btn:hover{background:#e8e8e8}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:12px}
+.info-grid .lbl{color:#888}
+.info-grid .val{color:#333;font-weight:600}
+.val.ok{color:#2a7}
+.val.tight{color:#c80}
+.val.bad{color:#c22}
+#status{font-size:11px;color:#888;margin-top:8px;padding:0 16px 12px}
+.radio-group{display:flex;gap:8px;margin-bottom:8px}
+.radio-group label{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px}
+
+/* Collapsible sections */
+.section{border-bottom:1px solid #eee}
+.section-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;background:#fafafa;border-bottom:1px solid #eee;user-select:none}
+.section-header:hover{background:#f0f0f0}
+.section-header h3{font-size:13px;font-weight:600;color:#333;margin:0}
+.section-header .arrow{font-size:10px;color:#888;transition:transform 0.2s}
+.section-body{padding:12px 16px}
+.section.collapsed .section-body{display:none}
+.section.collapsed .arrow{transform:rotate(-90deg)}
+
+/* Furniture list */
+.furn-item{background:#f8f8f8;border:1px solid #e0e0e0;border-radius:5px;padding:8px 10px;margin-bottom:6px;font-size:12px}
+.furn-item.selected{border-color:#4488cc;background:#eef4ff}
+.furn-item-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.furn-item-header span{font-weight:600;cursor:pointer;color:#333}
+.furn-item-header span:hover{color:#4488cc}
+.btn-del{background:none;border:none;color:#c44;cursor:pointer;font-size:16px;line-height:1;padding:0 4px}
+.btn-del:hover{color:#f00}
+.furn-controls{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px}
+.furn-controls label{font-size:11px;margin-bottom:0}
+.furn-controls input[type=range]{margin:0 0 4px}
+.rot-btns{display:flex;gap:3px;margin:2px 0 4px}
+.rot-btns button{flex:1;padding:3px 0;font-size:11px;cursor:pointer;border:1px solid #ccc;border-radius:3px;background:#f0f0f0;color:#333}
+.rot-btns button:hover{background:#ddd}
+.rot-btns button.active{background:#4488cc;color:#fff;border-color:#4488cc}
+.key-hint{font-size:10px;color:#aaa;margin-top:2px;font-style:italic}
+
+button.add-btn{width:100%;padding:7px;font-size:12px;cursor:pointer;border:1px solid #4a8;border-radius:4px;background:#e8f5ee;color:#2a6;font-weight:600;margin-top:4px}
+button.add-btn:hover{background:#d4eddb}
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+
+  <!-- Visning -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h3>Visning</h3><span class="arrow">▾</span>
+    </div>
+    <div class="section-body">
+      <button class="view-btn" onclick="setTopDown()">Ovenfra</button>
+      <button class="view-btn" onclick="set3DView()">3D-visning</button>
+      <button class="view-btn" onclick="setFrontView()">Front (fra vindu)</button>
+      <button class="view-btn" onclick="setSideView()">Sidevisning</button>
+    </div>
+  </div>
+
+  <!-- Golfsimulator -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h3>Golfsimulator</h3><span class="arrow">▾</span>
+    </div>
+    <div class="section-body">
+      <label><input type="checkbox" id="simToggle" checked> Vis simulator</label>
+      <div id="simControls">
+        <label><b>Spillerhøyde:</b> <span id="hVal">180</span> cm</label>
+        <input type="range" id="hSlider" min="160" max="205" value="180" step="1">
+
+        <label><b>Klubb:</b></label>
+        <select id="clubSelect">
+          <option value="1.143">Driver (45")</option>
+          <option value="1.016">3-wood (40")</option>
+          <option value="0.978">Hybrid (38.5")</option>
+          <option value="0.940" selected>7-jern (37")</option>
+          <option value="0.914">9-jern (36")</option>
+          <option value="0.889">Wedge (35")</option>
+        </select>
+
+        <label><b>Retning:</b></label>
+        <div class="radio-group">
+          <label><input type="radio" name="dir" value="window" checked> Mot vindu</label>
+          <label><input type="radio" name="dir" value="along"> Langs rommet</label>
+        </div>
+
+        <label><b>Sim posisjon X:</b> <span id="simXVal">2.5</span>m</label>
+        <input type="range" id="simXSlider" min="-4" max="4" value="2.5" step="0.05">
+
+        <label><b>Sim posisjon Z:</b> <span id="simZVal">0.5</span>m</label>
+        <input type="range" id="simZSlider" min="-2.5" max="2.5" value="0.5" step="0.05">
+
+        <h2 style="margin-top:8px">Klaringer</h2>
+        <div class="info-grid">
+          <span class="lbl">Tak-klaring:</span><span class="val" id="cCeil">–</span>
+          <span class="lbl">Hemskant-avst:</span><span class="val" id="cHems">–</span>
+          <span class="lbl">Sideklaring V:</span><span class="val" id="cSideL">–</span>
+          <span class="lbl">Sideklaring H:</span><span class="val" id="cSideR">–</span>
+          <span class="lbl">Skjerm-avstand:</span><span class="val" id="cScreen">–</span>
+          <span class="lbl">Svingradius:</span><span class="val" id="cSwing">–</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Møbler -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h3>Møbler</h3><span class="arrow">▾</span>
+    </div>
+    <div class="section-body">
+      <select id="furnSelect">
+        <option value="besta_3x">BESTÅ skap (3×60cm)</option>
+        <option value="soderhamn">Söderhamn hjørnesofa 3-s</option>
+        <option value="cana_tv">Bolia Cana + Frame 50" TV</option>
+        <option value="sofa_3">Sofa (3-seter)</option>
+        <option value="sofa_2">Sofa (2-seter)</option>
+        <option value="stol">Lenestol</option>
+        <option value="sofabord">Sofabord</option>
+        <option value="spisebord">Spisebord</option>
+        <option value="tv_benk">TV-benk</option>
+        <option value="bokhylle">Bokhylle</option>
+        <option value="gulvlampe">Gulvlampe</option>
+        <option value="kjokkenbenk">Kjøkkenbenk</option>
+        <option value="spisestol">Spisestol</option>
+      </select>
+      <button class="add-btn" onclick="addFurniture()">+ Legg til møbel</button>
+      <div id="furnList" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <div id="status">Laster...</div>
+</div>
+
+<div id="canvas-wrap"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.162.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.162.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

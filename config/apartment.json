@@ -1,0 +1,17 @@
+{
+  "name": "Vibes Gate 20B, 5. etasje",
+  "objPath": "Vibes%20Gate%2020%20-%20Ground%20Floor.obj",
+  "objScale": 0.1,
+  "objYShift": 1.22,
+  "ceiling": {
+    "windowZ": -2.50,
+    "backZ": 2.50,
+    "hemskantDist": 3.10,
+    "ceilWindow": 2.214,
+    "ceilHemskant": 3.822,
+    "ceilUnderHems": 2.25,
+    "hemsDepth": 1.90,
+    "roomMinX": -4.38,
+    "roomMaxX": 4.38
+  }
+}
