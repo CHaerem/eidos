@@ -24,20 +24,20 @@ export function initSimulator() {
 
   const screenW = 2.5, screenH = 2.0;
   const screenGeo = new THREE.PlaneGeometry(screenW, screenH);
-  screenMesh = new THREE.Mesh(screenGeo, new THREE.MeshLambertMaterial({ color: 0x333333, side: THREE.DoubleSide }));
+  screenMesh = new THREE.Mesh(screenGeo, new THREE.MeshStandardMaterial({ color: 0x333333, side: THREE.DoubleSide, roughness: 0.3, metalness: 0.0 }));
   screenMesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(screenGeo), new THREE.LineBasicMaterial({ color: 0x666666 })));
   simGroup.add(screenMesh);
 
   const matW = 1.5, matD = 1.2;
   matMesh = new THREE.Mesh(
     new THREE.BoxGeometry(matW, 0.02, matD),
-    new THREE.MeshLambertMaterial({ color: 0x2D7A2D })
+    new THREE.MeshStandardMaterial({ color: 0x2D7A2D, roughness: 0.8, metalness: 0.0 })
   );
   matMesh.position.y = 0.01;
   simGroup.add(matMesh);
 
   golferGroup = new THREE.Group();
-  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x4466AA });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4466AA, roughness: 0.6, metalness: 0.0 });
   const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.10, 0.9, 8), bodyMat);
   bodyMesh.position.y = 0.9;
   golferGroup.add(bodyMesh);

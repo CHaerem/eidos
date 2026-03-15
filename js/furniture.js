@@ -19,6 +19,25 @@ export const FURNITURE_CATALOG = {
 
 // ─── HELPERS ───
 
+// PBR material factory with shadow support
+function mat(color, opts = {}) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness: opts.roughness ?? 0.5,
+    metalness: opts.metalness ?? 0.0,
+    ...opts,
+  });
+}
+
+function enableShadows(group) {
+  group.traverse(c => {
+    if (c.isMesh && c.material.visible !== false) {
+      c.castShadow = true;
+      c.receiveShadow = true;
+    }
+  });
+}
+
 function addEdges(mesh, group) {
   const edges = new THREE.LineSegments(
     new THREE.EdgesGeometry(mesh.geometry),
@@ -53,10 +72,10 @@ function createBesta(group) {
   const frameW = 0.60, wallT = 0.018;
   const drawerH = 0.26;
   const drawerGap = 0.003;
-  const cabinetMat = new THREE.MeshLambertMaterial({ color: 0x2B2B2B });
-  const drawerMat = new THREE.MeshLambertMaterial({ color: 0x3C3C3C });
-  const handleMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
-  const shelfMat = new THREE.MeshLambertMaterial({ color: 0x2B2B2B });
+  const cabinetMat = mat(0x2B2B2B, { roughness: 0.4, metalness: 0.0 }); // smooth laminate
+  const drawerMat = mat(0x3C3C3C, { roughness: 0.4 });
+  const handleMat = mat(0x888888, { roughness: 0.3, metalness: 0.8 }); // metal handles
+  const shelfMat = mat(0x2B2B2B, { roughness: 0.4 });
 
   for (let i = 0; i < 3; i++) {
     const offsetX = -W/2 + frameW/2 + i * frameW;
@@ -147,10 +166,10 @@ function createSoderhamn(group) {
   const totalArm2 = cornerW + sectionW;
   const legH = 0.14;
 
-  const frameMat = new THREE.MeshLambertMaterial({ color: 0x6E6E6E });
-  const cushionMat = new THREE.MeshLambertMaterial({ color: 0x8E8E8E });
-  const backMat = new THREE.MeshLambertMaterial({ color: 0x7E7E7E });
-  const legMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+  const frameMat = mat(0x6E6E6E, { roughness: 0.8 }); // fabric base
+  const cushionMat = mat(0x8E8E8E, { roughness: 0.9 }); // soft fabric
+  const backMat = mat(0x7E7E7E, { roughness: 0.9 }); // soft fabric
+  const legMat = mat(0x333333, { roughness: 0.3, metalness: 0.6 }); // metal legs
 
   // Bounding box for raycasting (children[0])
   const boundingBox = new THREE.Mesh(
@@ -219,11 +238,11 @@ function createCanaTv(group) {
   const legH = 0.12, legR = 0.015;
   const sideH = benchH - legH - 0.025;
 
-  const oakMat = new THREE.MeshLambertMaterial({ color: 0xC4A87C });
-  const frontMat = new THREE.MeshLambertMaterial({ color: 0xB89B6A });
-  const legMat = new THREE.MeshLambertMaterial({ color: 0x8B7355 });
-  const tvMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
-  const screenMat = new THREE.MeshLambertMaterial({ color: 0x222233 });
+  const oakMat = mat(0xC4A87C, { roughness: 0.7 }); // natural oak
+  const frontMat = mat(0xB89B6A, { roughness: 0.8 }); // woven front
+  const legMat = mat(0x8B7355, { roughness: 0.6 }); // wood legs
+  const tvMat = mat(0x111111, { roughness: 0.2, metalness: 0.1 }); // TV frame
+  const screenMat = mat(0x222233, { roughness: 0.1, metalness: 0.1 }); // glossy screen
 
   // Bounding box for raycasting (children[0])
   const totalH = benchH + 0.645;
@@ -336,8 +355,8 @@ export function createFurnitureMesh(type) {
     createCanaTv(group);
   } else {
     const geo = new THREE.BoxGeometry(cat.w, cat.h, cat.d);
-    const mat = new THREE.MeshLambertMaterial({ color: cat.color });
-    const box = new THREE.Mesh(geo, mat);
+    const boxMat = new THREE.MeshStandardMaterial({ color: cat.color, roughness: 0.7, metalness: 0.0 });
+    const box = new THREE.Mesh(geo, boxMat);
     box.position.y = cat.h / 2;
     group.add(box);
 
@@ -350,6 +369,7 @@ export function createFurnitureMesh(type) {
   }
 
   addLabel(cat.name, cat.h, group);
+  enableShadows(group);
   group.userData.type = type;
   return group;
 }

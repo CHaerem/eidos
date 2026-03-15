@@ -75,8 +75,9 @@ function buildCeiling() {
     xL, yW, zW,  xR, yH, zH,  xL, yH, zH,
   ], 3));
   slopeGeo.computeVertexNormals();
-  ceilGroup.add(new THREE.Mesh(slopeGeo, new THREE.MeshLambertMaterial({
-    color: 0x6688AA, transparent: true, opacity: 0.25, side: THREE.DoubleSide
+  ceilGroup.add(new THREE.Mesh(slopeGeo, new THREE.MeshStandardMaterial({
+    color: 0x6688AA, transparent: true, opacity: 0.25, side: THREE.DoubleSide,
+    roughness: 0.9, metalness: 0.0
   })));
   ceilGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(slopeGeo),
     new THREE.LineBasicMaterial({ color: 0x5577AA, opacity: 0.5, transparent: true })));
@@ -88,8 +89,9 @@ function buildCeiling() {
     xL, CEIL.ceilUnderHems, zH,  xR, CEIL.ceilUnderHems, zB,  xL, CEIL.ceilUnderHems, zB,
   ], 3));
   flatGeo.computeVertexNormals();
-  ceilGroup.add(new THREE.Mesh(flatGeo, new THREE.MeshLambertMaterial({
-    color: 0xAA8866, transparent: true, opacity: 0.25, side: THREE.DoubleSide
+  ceilGroup.add(new THREE.Mesh(flatGeo, new THREE.MeshStandardMaterial({
+    color: 0xAA8866, transparent: true, opacity: 0.25, side: THREE.DoubleSide,
+    roughness: 0.9, metalness: 0.0
   })));
 
   // Hemskant edge
@@ -99,8 +101,9 @@ function buildCeiling() {
     xL, yH, zH,  xR, CEIL.ceilUnderHems, zH,  xL, CEIL.ceilUnderHems, zH,
   ], 3));
   kantGeo.computeVertexNormals();
-  ceilGroup.add(new THREE.Mesh(kantGeo, new THREE.MeshLambertMaterial({
-    color: 0xCC4444, transparent: true, opacity: 0.4, side: THREE.DoubleSide
+  ceilGroup.add(new THREE.Mesh(kantGeo, new THREE.MeshStandardMaterial({
+    color: 0xCC4444, transparent: true, opacity: 0.4, side: THREE.DoubleSide,
+    roughness: 0.9, metalness: 0.0
   })));
   ceilGroup.add(new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([
@@ -125,15 +128,32 @@ function loadOBJ(objPath, scale, yShift) {
           if (child.isMesh) {
             const name = child.name || '';
             if (name.startsWith('WholeFloor')) {
-              child.material = new THREE.MeshLambertMaterial({ color: 0xD4C8B8, side: THREE.DoubleSide });
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0xD4C8B8, side: THREE.DoubleSide,
+                roughness: 0.7, metalness: 0.0
+              });
+              child.receiveShadow = true;
             } else if (name.startsWith('ExternalWalls')) {
-              child.material = new THREE.MeshLambertMaterial({ color: 0x8899AA, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0x8899AA, side: THREE.DoubleSide,
+                transparent: true, opacity: 0.4,
+                roughness: 0.9, metalness: 0.0
+              });
             } else if (name.startsWith('FloorFillerTop')) {
               child.visible = false;
             } else if (name.startsWith('InnerSide')) {
-              child.material = new THREE.MeshLambertMaterial({ color: 0xC4B8A8, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0xC4B8A8, side: THREE.DoubleSide,
+                transparent: true, opacity: 0.6,
+                roughness: 0.9, metalness: 0.0
+              });
+              child.receiveShadow = true;
             } else {
-              child.material = new THREE.MeshLambertMaterial({ color: 0xAAAAAA, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0xAAAAAA, side: THREE.DoubleSide,
+                transparent: true, opacity: 0.5,
+                roughness: 0.8, metalness: 0.0
+              });
             }
           }
         });

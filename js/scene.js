@@ -16,16 +16,39 @@ export function initScene() {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(wrap.clientWidth, wrap.clientHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
   wrap.appendChild(renderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-  dirLight.position.set(8, 12, 5);
+  // Hemisphere light (warm sky, cool ground)
+  scene.add(new THREE.HemisphereLight(0xffeedd, 0x8899aa, 0.6));
+
+  // Main directional light with shadows
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+  dirLight.position.set(5, 10, 4);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.width = 2048;
+  dirLight.shadow.mapSize.height = 2048;
+  dirLight.shadow.camera.near = 0.1;
+  dirLight.shadow.camera.far = 30;
+  dirLight.shadow.camera.left = -8;
+  dirLight.shadow.camera.right = 8;
+  dirLight.shadow.camera.top = 6;
+  dirLight.shadow.camera.bottom = -6;
+  dirLight.shadow.bias = -0.001;
   scene.add(dirLight);
+
+  // Fill light (softer, from opposite side)
+  const fillLight = new THREE.DirectionalLight(0xccddff, 0.3);
+  fillLight.position.set(-4, 6, -3);
+  scene.add(fillLight);
 
   const grid = new THREE.GridHelper(15, 30, 0x444444, 0x333333);
   scene.add(grid);
