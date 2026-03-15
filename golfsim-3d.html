@@ -518,11 +518,14 @@ function addLabel(name, h, group) {
 }
 
 // ─── BESTÅ skap (3×60cm = 180cm breed, 40cm dyp, 192cm høy) ───
+// Åpne skap: skuffeseksjon nederst, åpne hyller over
 function createBesta(group) {
   const W = 1.80, H = 1.92, D = 0.40;
   const frameW = 0.60, wallT = 0.018;
+  const drawerH = 0.26; // drawer section height (2 drawers)
+  const drawerGap = 0.003;
   const cabinetMat = new THREE.MeshLambertMaterial({ color: 0x2B2B2B });
-  const doorMat = new THREE.MeshLambertMaterial({ color: 0x3C3C3C });
+  const drawerMat = new THREE.MeshLambertMaterial({ color: 0x3C3C3C });
   const handleMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
   const shelfMat = new THREE.MeshLambertMaterial({ color: 0x2B2B2B });
 
@@ -555,24 +558,38 @@ function createBesta(group) {
     right.position.set(frameW/2 - wallT/2, H/2, 0);
     cabinetGroup.add(right);
 
-    // 4 shelves inside
-    for (let s = 1; s <= 4; s++) {
-      const shelf = new THREE.Mesh(new THREE.BoxGeometry(frameW - 2*wallT, wallT, D - wallT), shelfMat);
-      shelf.position.set(0, s * (H / 5), wallT/2);
-      cabinetGroup.add(shelf);
+    // ── Drawer section (bottom) ──
+    // Divider between drawers and shelves
+    const dividerY = wallT + drawerH * 2 + drawerGap;
+    const divider = new THREE.Mesh(new THREE.BoxGeometry(frameW - 2*wallT, wallT, D - wallT), shelfMat);
+    divider.position.set(0, dividerY, wallT/2);
+    cabinetGroup.add(divider);
+
+    // 2 drawers
+    for (let d = 0; d < 2; d++) {
+      const dY = wallT + d * (drawerH + drawerGap) + drawerH / 2;
+      const dW = frameW - 2*wallT - 0.006;
+      const dH = drawerH - drawerGap;
+      // Drawer front face
+      const drawerFront = new THREE.Mesh(new THREE.BoxGeometry(dW, dH, 0.018), drawerMat);
+      drawerFront.position.set(0, dY, D/2 - 0.009);
+      cabinetGroup.add(drawerFront);
+      addEdges(drawerFront, cabinetGroup);
+      // Drawer handle (horizontal bar)
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.012, 0.02), handleMat);
+      handle.position.set(0, dY, D/2 + 0.003);
+      cabinetGroup.add(handle);
     }
 
-    // Door (front panel, slightly protruding)
-    const doorH = H - 0.004;
-    const door = new THREE.Mesh(new THREE.BoxGeometry(frameW - 0.004, doorH, 0.02), doorMat);
-    door.position.set(0, H/2, D/2 - 0.008);
-    cabinetGroup.add(door);
-    addEdges(door, cabinetGroup);
-
-    // Handle (vertical bar)
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.14, 0.025), handleMat);
-    handle.position.set(frameW/2 - 0.06, H * 0.55, D/2 + 0.005);
-    cabinetGroup.add(handle);
+    // ── Open shelves (above drawers) ──
+    const shelfStart = dividerY + wallT;
+    const shelfZone = H - wallT - shelfStart; // available height for shelves
+    const numShelves = 3;
+    for (let s = 1; s < numShelves; s++) {
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(frameW - 2*wallT, wallT, D - wallT), shelfMat);
+      shelf.position.set(0, shelfStart + s * (shelfZone / numShelves), wallT/2);
+      cabinetGroup.add(shelf);
+    }
 
     cabinetGroup.position.x = offsetX;
     group.add(cabinetGroup);
@@ -930,28 +947,112 @@ function renderFurnitureList() {
 }
 window.selectFurniture = selectFurniture;
 
-// ─── CLICK TO SELECT FURNITURE (Raycaster) ───
+// ─── DRAG & DROP + CLICK TO SELECT (Raycaster) ───
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
+const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // y=0 plane
+let dragging = null; // { item, offset: Vector3 }
+let didDrag = false;
+const SNAP_DIST = 0.15; // snap to wall when within 15cm
 
-renderer.domElement.addEventListener('click', (e) => {
+function getFloorPoint(e) {
   mouse.x = (e.offsetX / renderer.domElement.clientWidth) * 2 - 1;
   mouse.y = -(e.offsetY / renderer.domElement.clientHeight) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
+  const pt = new THREE.Vector3();
+  raycaster.ray.intersectPlane(floorPlane, pt);
+  return pt;
+}
 
-  // Check furniture meshes
-  const furnMeshes = placedItems.map(i => i.mesh.children[0]); // the box mesh
-  const hits = raycaster.intersectObjects(furnMeshes);
+function hitFurniture(e) {
+  mouse.x = (e.offsetX / renderer.domElement.clientWidth) * 2 - 1;
+  mouse.y = -(e.offsetY / renderer.domElement.clientHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  // Collect all meshes from furniture groups (recursive)
+  const allMeshes = [];
+  for (const item of placedItems) {
+    item.mesh.traverse(c => { if (c.isMesh) allMeshes.push(c); });
+  }
+  const hits = raycaster.intersectObjects(allMeshes);
   if (hits.length > 0) {
-    const hitMesh = hits[0].object;
-    const item = placedItems.find(i => i.mesh.children[0] === hitMesh);
-    if (item) {
-      selectFurniture(item.id);
-      return;
+    // Find which item owns this mesh
+    for (const item of placedItems) {
+      let found = false;
+      item.mesh.traverse(c => { if (c === hits[0].object) found = true; });
+      if (found) return item;
     }
   }
-  // Click on empty space deselects
-  selectFurniture(null);
+  return null;
+}
+
+function snapToWalls(item) {
+  const cat = FURNITURE_CATALOG[item.type];
+  const rot = item.rotation * Math.PI / 180;
+  // Effective half-dimensions considering rotation
+  const cosR = Math.abs(Math.cos(rot)), sinR = Math.abs(Math.sin(rot));
+  const halfW = (cat.w * cosR + cat.d * sinR) / 2;
+  const halfD = (cat.w * sinR + cat.d * cosR) / 2;
+
+  let x = item.x, z = item.z;
+
+  // Snap to walls: left (roomMinX), right (roomMaxX), window (windowZ), back (backZ)
+  if (Math.abs((x - halfW) - CEIL.roomMinX) < SNAP_DIST) x = CEIL.roomMinX + halfW;
+  if (Math.abs((x + halfW) - CEIL.roomMaxX) < SNAP_DIST) x = CEIL.roomMaxX - halfW;
+  if (Math.abs((z - halfD) - CEIL.windowZ) < SNAP_DIST) z = CEIL.windowZ + halfD;
+  if (Math.abs((z + halfD) - CEIL.backZ) < SNAP_DIST) z = CEIL.backZ - halfD;
+
+  item.x = x;
+  item.z = z;
+}
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  const item = hitFurniture(e);
+  if (item) {
+    const floorPt = getFloorPoint(e);
+    if (floorPt) {
+      dragging = { item, offset: new THREE.Vector3(item.x - floorPt.x, 0, item.z - floorPt.z) };
+      didDrag = false;
+      controls.enabled = false; // disable orbit while dragging
+      selectFurniture(item.id);
+      renderer.domElement.style.cursor = 'grabbing';
+    }
+  }
+});
+
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (dragging) {
+    const floorPt = getFloorPoint(e);
+    if (floorPt) {
+      dragging.item.x = floorPt.x + dragging.offset.x;
+      dragging.item.z = floorPt.z + dragging.offset.z;
+      snapToWalls(dragging.item);
+      dragging.item.mesh.position.set(dragging.item.x, 0, dragging.item.z);
+      didDrag = true;
+      // Update sidebar sliders if visible
+      const xEl = document.getElementById('fx_' + dragging.item.id);
+      const zEl = document.getElementById('fz_' + dragging.item.id);
+      if (xEl) { xEl.value = dragging.item.x; document.getElementById('fxv_' + dragging.item.id).textContent = dragging.item.x.toFixed(1); }
+      if (zEl) { zEl.value = dragging.item.z; document.getElementById('fzv_' + dragging.item.id).textContent = dragging.item.z.toFixed(1); }
+    }
+  } else {
+    // Hover cursor
+    const item = hitFurniture(e);
+    renderer.domElement.style.cursor = item ? 'grab' : '';
+  }
+});
+
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (dragging) {
+    controls.enabled = true;
+    renderer.domElement.style.cursor = '';
+    dragging = null;
+  }
+  if (!didDrag) {
+    // Simple click — select or deselect
+    const item = hitFurniture(e);
+    selectFurniture(item ? item.id : null);
+  }
+  didDrag = false;
 });
 
 // ─── CONTROL WIRING ───
