@@ -75,12 +75,13 @@ function buildCeiling() {
     xL, yW, zW,  xR, yH, zH,  xL, yH, zH,
   ], 3));
   slopeGeo.computeVertexNormals();
-  ceilGroup.add(new THREE.Mesh(slopeGeo, new THREE.MeshStandardMaterial({
-    color: 0x6688AA, transparent: true, opacity: 0.25, side: THREE.DoubleSide,
-    roughness: 0.9, metalness: 0.0
-  })));
-  ceilGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(slopeGeo),
-    new THREE.LineBasicMaterial({ color: 0x5577AA, opacity: 0.5, transparent: true })));
+  const ceilMat = new THREE.MeshStandardMaterial({
+    color: 0xF5F5F0, side: THREE.FrontSide,
+    roughness: 0.95, metalness: 0.0
+  });
+  const slopeMesh = new THREE.Mesh(slopeGeo, ceilMat);
+  slopeMesh.receiveShadow = true;
+  ceilGroup.add(slopeMesh);
 
   // Flat ceiling under hems
   const flatGeo = new THREE.BufferGeometry();
@@ -89,10 +90,9 @@ function buildCeiling() {
     xL, CEIL.ceilUnderHems, zH,  xR, CEIL.ceilUnderHems, zB,  xL, CEIL.ceilUnderHems, zB,
   ], 3));
   flatGeo.computeVertexNormals();
-  ceilGroup.add(new THREE.Mesh(flatGeo, new THREE.MeshStandardMaterial({
-    color: 0xAA8866, transparent: true, opacity: 0.25, side: THREE.DoubleSide,
-    roughness: 0.9, metalness: 0.0
-  })));
+  const flatMesh = new THREE.Mesh(flatGeo, ceilMat);
+  flatMesh.receiveShadow = true;
+  ceilGroup.add(flatMesh);
 
   // Hemskant edge
   const kantGeo = new THREE.BufferGeometry();
@@ -101,16 +101,9 @@ function buildCeiling() {
     xL, yH, zH,  xR, CEIL.ceilUnderHems, zH,  xL, CEIL.ceilUnderHems, zH,
   ], 3));
   kantGeo.computeVertexNormals();
-  ceilGroup.add(new THREE.Mesh(kantGeo, new THREE.MeshStandardMaterial({
-    color: 0xCC4444, transparent: true, opacity: 0.4, side: THREE.DoubleSide,
-    roughness: 0.9, metalness: 0.0
-  })));
-  ceilGroup.add(new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(xL, yH, zH), new THREE.Vector3(xR, yH, zH),
-    ]),
-    new THREE.LineBasicMaterial({ color: 0xFF4444, linewidth: 2 })
-  ));
+  const kantMesh = new THREE.Mesh(kantGeo, ceilMat);
+  kantMesh.receiveShadow = true;
+  ceilGroup.add(kantMesh);
 
   scene.add(ceilGroup);
 }

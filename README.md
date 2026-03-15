@@ -21,13 +21,16 @@ Første leilighet: Vibes gate 20B, 5. etasje (loft), Oslo.
 |------|--------|-------------|
 | 1. Modularisering | ✅ Ferdig | Monolitt → 8 ES-moduler + leilighetskonfig JSON |
 | 2. PBR + Skygger | ✅ Ferdig | MeshStandardMaterial, shadow mapping, tone mapping, bedre belysning |
-| 3. Romdetaljer | 🔲 Neste | Vinduer, dørkarmer, fotlister, ugjennomsiktig tak |
+| 3. Romdetaljer | ✅ Ferdig | Vinduer, dørkarmer, fotlister, ugjennomsiktig tak |
 | 4. WebXR/VR | 🔲 Planlagt | Meta Quest 3, teleportering, controller-interaksjon |
 | 5. Konfig-system | 🔲 Planlagt | Data-drevet rombygger, URL-parameter for leilighetsvalg |
 
 ## Funksjoner
 
-- 3D-modell av leiligheten (OBJ) med korrekt skråtak
+- 3D-modell av leiligheten (OBJ) med korrekt skråtak og ugjennomsiktig tak
+- Vinduer med glass, karmer, sprosser og vinduskarmer
+- Dørkarmer ved innvendige åpninger
+- Fotlister langs vegger (perimeter + innervegger)
 - PBR-materialer med skygger og ACES filmic tone mapping
 - Møbelkatalog med detaljerte 3D-modeller (BESTÅ, Söderhamn, Bolia Cana + Frame TV)
 - Drag-and-drop plassering med snap-to-wall
@@ -54,12 +57,13 @@ eidos/
     state.js              Delt state (scene, kamera, møbler, simulator)
     scene.js              Three.js scene, renderer, lys, kontroller
     room.js               OBJ-lasting, takgeometri, romkonstanter
+    room-details.js       Vinduer, dørkarmer, fotlister
     furniture.js          Møbelkatalog og 3D-modellbyggere
     interaction.js        Drag-and-drop, raycasting, seleksjon
     simulator.js          Golfsimulator, svingformler, klaringer
     ui.js                 Sidebar-kontroller og møbelliste
   config/
-    apartment.json        Leilighetskonfigurasjon (romgrenser, tak, OBJ-sti)
+    apartment.json        Leilighetskonfigurasjon (romgrenser, tak, vegger, vinduer, dører)
   textures/               Teksturer (fase 2+)
 ```
 
