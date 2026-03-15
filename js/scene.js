@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { state } from './state.js';
+import { BOUNDS } from './room.js';
 
 // ─── THREE.JS SCENE SETUP ───
 
@@ -76,31 +77,46 @@ export function initScene() {
     renderer.setSize(wrap.clientWidth, wrap.clientHeight);
   });
 
-  // View controls (window.* for onclick in HTML)
+  // View controls — computed from BOUNDS (config-driven)
+  // These use BOUNDS which are populated from apartment.json in room.js
   window.setTopDown = function() {
-    camera.position.set(state.objCenter.x, 14, state.objCenter.z);
-    controls.target.copy(state.objCenter);
+    const cx = (BOUNDS.minX + BOUNDS.maxX) / 2;
+    const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2;
+    const spanX = BOUNDS.maxX - BOUNDS.minX;
+    const spanZ = BOUNDS.maxZ - BOUNDS.minZ;
+    const height = Math.max(spanX, spanZ) * 1.5;
+    camera.position.set(cx, height, cz);
+    controls.target.set(cx, 0, cz);
     camera.up.set(0, 0, -1);
     controls.update();
   };
 
   window.set3DView = function() {
-    camera.position.set(state.objCenter.x + 6, 5, state.objCenter.z + 8);
-    controls.target.copy(state.objCenter);
+    const cx = (BOUNDS.minX + BOUNDS.maxX) / 2;
+    const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2;
+    const spanX = BOUNDS.maxX - BOUNDS.minX;
+    camera.position.set(cx + spanX * 0.7, 5, cz + spanX * 0.9);
+    controls.target.set(cx, 1, cz);
     camera.up.set(0, 1, 0);
     controls.update();
   };
 
   window.setFrontView = function() {
-    camera.position.set(state.objCenter.x, 1.5, state.objCenter.z - 10);
-    controls.target.set(state.objCenter.x, 1.5, state.objCenter.z);
+    const cx = (BOUNDS.minX + BOUNDS.maxX) / 2;
+    const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2;
+    const spanZ = BOUNDS.maxZ - BOUNDS.minZ;
+    camera.position.set(cx, 1.5, BOUNDS.minZ - spanZ * 1.5);
+    controls.target.set(cx, 1.5, cz);
     camera.up.set(0, 1, 0);
     controls.update();
   };
 
   window.setSideView = function() {
-    camera.position.set(10, 2.0, 0);
-    controls.target.set(0, 1.0, 0);
+    const cx = (BOUNDS.minX + BOUNDS.maxX) / 2;
+    const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2;
+    const spanX = BOUNDS.maxX - BOUNDS.minX;
+    camera.position.set(BOUNDS.maxX + spanX * 0.8, 2.0, cz);
+    controls.target.set(cx, 1.0, cz);
     camera.up.set(0, 1, 0);
     controls.update();
   };

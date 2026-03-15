@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { state } from './state.js';
-import { CEIL, ceilAt } from './room.js';
+import { CEIL, BOUNDS, ceilAt } from './room.js';
 
 // ─── SWING FORMULAS ───
 function swingHeight(heightCm, clubLen) {
@@ -60,6 +60,18 @@ export function initSimulator() {
   scene.add(simGroup);
   state.simGroup = simGroup;
 
+  // Update simulator slider ranges from config bounds
+  const simXSlider = document.getElementById('simXSlider');
+  const simZSlider = document.getElementById('simZSlider');
+  if (simXSlider) {
+    simXSlider.min = (BOUNDS.minX + 0.5).toFixed(2);
+    simXSlider.max = (BOUNDS.maxX - 0.5).toFixed(2);
+  }
+  if (simZSlider) {
+    simZSlider.min = (BOUNDS.minZ + 0.5).toFixed(2);
+    simZSlider.max = (BOUNDS.maxZ - 0.5).toFixed(2);
+  }
+
   // Toggle
   document.getElementById('simToggle').addEventListener('change', (e) => {
     simGroup.visible = e.target.checked;
@@ -98,12 +110,14 @@ export function updateSimulator() {
   let golferX = simX, golferZ = simZ;
   let screenX, screenZ, screenRotY = 0;
 
+  // Screen placement — uses config-driven BOUNDS
+  const screenOffset = (state.apartmentConfig && state.apartmentConfig.simulator && state.apartmentConfig.simulator.screenDistance) || 0.3;
   if (dir === 'window') {
     screenX = golferX;
-    screenZ = CEIL.windowZ + 0.3;
+    screenZ = BOUNDS.minZ + screenOffset;
     screenRotY = 0;
   } else {
-    screenX = CEIL.roomMaxX - 0.3;
+    screenX = BOUNDS.maxX - screenOffset;
     screenZ = golferZ;
     screenRotY = Math.PI / 2;
   }
@@ -117,8 +131,8 @@ export function updateSimulator() {
   const ceilH = ceilAt(golferZ);
   const ceilClearance = ceilH - sH;
   const hemsDist = CEIL.hemskantZ - golferZ;
-  const sideL = golferX - CEIL.roomMinX;
-  const sideR = CEIL.roomMaxX - golferX;
+  const sideL = golferX - BOUNDS.minX;
+  const sideR = BOUNDS.maxX - golferX;
   const screenDist = dir === 'window'
     ? Math.abs(golferZ - screenZ) - 0.5
     : Math.abs(golferX - screenX) - 0.5;

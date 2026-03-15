@@ -4,6 +4,7 @@
   "objScale": 0.1,
   "objYShift": 1.22,
   "ceiling": {
+    "type": "slope",
     "windowZ": -2.50,
     "backZ": 2.50,
     "hemskantDist": 3.10,
@@ -13,6 +14,11 @@
     "hemsDepth": 1.90,
     "roomMinX": -4.38,
     "roomMaxX": 4.38
+  },
+  "bounds": {
+    "minX": -4.38, "maxX": 4.38,
+    "minZ": -2.50, "maxZ": 2.50,
+    "floorY": 0
   },
   "walls": {
     "exterior": {
@@ -33,15 +39,20 @@
     { "id": "W1", "wall": "south", "x1": -3.795, "x2": -2.613, "sillHeight": 1.00, "topHeight": 2.20 },
     { "id": "W2", "wall": "south", "x1": -1.578, "x2": -0.396, "sillHeight": 1.00, "topHeight": 2.20 },
     { "id": "W3", "wall": "south", "x1": 0.651, "x2": 1.833, "sillHeight": 1.00, "topHeight": 2.20 },
-    { "id": "W4", "wall": "south", "x1": 2.902, "x2": 4.084, "sillHeight": 1.00, "topHeight": 2.20 },
+    { "id": "W4", "wall": "south", "x1": 2.902, "x2": 4.084, "sillHeight": 1.00, "topHeight": 2.20 }
   ],
   "doors": [
-    { "id": "D1", "wall": "D", "pos": -0.471, "axis": "z", "from": -3.606, "to": -2.807, "height": 2.00, "note": "Dør mellom entré og soverom" },
-    { "id": "D2", "wall": "west", "pos": -4.38, "axis": "x", "from": 1.065, "to": 1.866, "height": 2.00, "note": "Inngangsdør (hovedinngang)" }
+    { "id": "D1", "wall": "D", "pos": -0.471, "axis": "z", "from": -3.606, "to": -2.807, "height": 2.00, "note": "Dor mellom entre og soverom" },
+    { "id": "D2", "wall": "west", "pos": -4.38, "axis": "x", "from": 1.065, "to": 1.866, "height": 2.00, "note": "Inngangsdor (hovedinngang)" }
   ],
   "baseboard": {
     "height": 0.08,
     "depth": 0.012,
     "color": "0xF0F0F0"
+  },
+  "simulator": {
+    "hitDirection": "negZ",
+    "screenDistance": 0.3,
+    "defaultClub": "driver"
   }
 }

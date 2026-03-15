@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { state } from './state.js';
 import { FURNITURE_CATALOG, createFurnitureMesh } from './furniture.js';
-import { CEIL } from './room.js';
+import { BOUNDS } from './room.js';
 import { renderFurnitureList } from './ui.js';
 
 // ─── DRAG & DROP STATE ───
@@ -51,15 +51,15 @@ export function snapToWalls(item) {
 
   let x = item.x, z = item.z;
 
-  // Clamp: can't go through walls
-  x = Math.max(CEIL.roomMinX + halfW, Math.min(CEIL.roomMaxX - halfW, x));
-  z = Math.max(CEIL.windowZ + halfD, Math.min(CEIL.backZ - halfD, z));
+  // Clamp: can't go through walls (uses config-driven BOUNDS)
+  x = Math.max(BOUNDS.minX + halfW, Math.min(BOUNDS.maxX - halfW, x));
+  z = Math.max(BOUNDS.minZ + halfD, Math.min(BOUNDS.maxZ - halfD, z));
 
   // Snap to walls (multiple simultaneously for corners)
-  if (Math.abs((x - halfW) - CEIL.roomMinX) < SNAP_DIST) x = CEIL.roomMinX + halfW;
-  if (Math.abs((x + halfW) - CEIL.roomMaxX) < SNAP_DIST) x = CEIL.roomMaxX - halfW;
-  if (Math.abs((z - halfD) - CEIL.windowZ) < SNAP_DIST) z = CEIL.windowZ + halfD;
-  if (Math.abs((z + halfD) - CEIL.backZ) < SNAP_DIST) z = CEIL.backZ - halfD;
+  if (Math.abs((x - halfW) - BOUNDS.minX) < SNAP_DIST) x = BOUNDS.minX + halfW;
+  if (Math.abs((x + halfW) - BOUNDS.maxX) < SNAP_DIST) x = BOUNDS.maxX - halfW;
+  if (Math.abs((z - halfD) - BOUNDS.minZ) < SNAP_DIST) z = BOUNDS.minZ + halfD;
+  if (Math.abs((z + halfD) - BOUNDS.maxZ) < SNAP_DIST) z = BOUNDS.maxZ - halfD;
 
   item.x = x;
   item.z = z;

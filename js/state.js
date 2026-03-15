@@ -8,6 +8,9 @@ export const state = {
   renderer: null,
   controls: null,
 
+  // Apartment config (loaded by room.js from config/apartment.json)
+  apartmentConfig: null,
+
   // Room data (set by room.js after OBJ load)
   objCenter: null,
   objSize: null,
