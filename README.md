@@ -1,29 +1,65 @@
-# Eidos — 3D Leilighetsplanlegger
+# Eidos — 3D Boligmodellering fra Plantegninger
 
 > *Eidos* (gresk: εἶδος) — form, idé. Den ideelle formen av noe, sett med sinnets øye.
 
-Se den ideelle versjonen av rommet ditt før det eksisterer. Planlegg møblering, test plasseringer, diskuter feng shui — og utforsk leiligheten i VR.
+Et generisk rammeverk for å bygge nøyaktige 3D-modeller av boliger — fra plantegning til interaktiv modell med møbler, materialer og VR-støtte.
 
 ## Visjon
 
-Eidos er en interaktiv 3D-planlegger som lar deg visualisere og planlegge innredningen av en leilighet. Prosjektet har fire ambisjoner:
+Eidos er et **config-drevet rammeverk** for 3D-modellering av boliger. Målet er at hvem som helst skal kunne gå fra en plantegning til en komplett, interaktiv 3D-modell:
 
-1. **Ultrarealistisk 3D-modell** — PBR-materialer, skygger, arkitektoniske detaljer
-2. **AI-assistert planlegging** — Diskuter planløsninger og feng shui med Claude
-3. **VR-utforskning** — Gå gjennom leiligheten med Meta Quest 3
-4. **Gjenbrukbart rammeverk** — Bytt ut én JSON-fil for å modellere en ny leilighet
+1. **Plantegning inn, 3D-modell ut** — Generer `apartment.json` fra plantegninger (manuelt eller med AI)
+2. **Iterativt samarbeid** — Menneske og AI finjusterer modellen sammen: "flytt døren 20cm til venstre", "legg til vindu her"
+3. **Ultrarealistisk rendering** — PBR-materialer, skygger, arkitektoniske detaljer (vinduer, dørkarmer, fotlister)
+4. **VR-utforskning** — Gå gjennom boligen med Meta Quest 3
+5. **Auto-generering** — Fra finn.no-lenke eller boligbilder via Claude Vision til ferdig modell
 
-Første leilighet: Vibes gate 20B, 5. etasje (loft), Oslo.
+Første bolig: Vibes gate 20B, 5. etasje (loft), Oslo.
+
+## Hvordan det fungerer
+
+```
+Plantegning (PDF/bilde)
+    ↓
+apartment.json            ← Manuelt eller AI-generert
+    ↓                       (vegger, vinduer, dører, tak, møbler)
+Eidos 3D-motor            ← Three.js med PBR-rendering
+    ↓
+Interaktiv 3D-modell      ← Drag-and-drop møbler, snap-to-wall
+    ↓
+VR-utforskning            ← Meta Quest 3 (WebXR)
+```
+
+**Alt er drevet av én JSON-fil** (`apartment.json`). Bytt fil — bytt bolig. Filen beskriver:
+- Romgeometri (vegger, tak, gulv)
+- Vinduer og dører (posisjon, størrelse)
+- OBJ-modell (valgfri — for eksisterende 3D-modeller)
+- Arkitektoniske detaljer (fotlister, karmer)
+
+## Fremtidig pipeline
+
+```
+finn.no-lenke
+    ↓
+Claude Vision parser plantegning + bilder
+    ↓
+Auto-generert apartment.json
+    ↓
+Menneske + AI finjusterer sammen
+    ↓
+Nøyaktig 3D-modell med møbler
+```
 
 ## Progresjon
 
 | Fase | Status | Beskrivelse |
 |------|--------|-------------|
-| 1. Modularisering | ✅ Ferdig | Monolitt → 8 ES-moduler + leilighetskonfig JSON |
+| 1. Modularisering | ✅ Ferdig | Monolitt → 9 ES-moduler + leilighetskonfig JSON |
 | 2. PBR + Skygger | ✅ Ferdig | MeshStandardMaterial, shadow mapping, tone mapping, bedre belysning |
 | 3. Romdetaljer | ✅ Ferdig | Vinduer, dørkarmer, fotlister, ugjennomsiktig tak |
-| 4. WebXR/VR | 🔲 Planlagt | Meta Quest 3, teleportering, controller-interaksjon |
-| 5. Konfig-system | 🔲 Planlagt | Data-drevet rombygger, URL-parameter for leilighetsvalg |
+| 4. Generisk rammeverk | 🔲 Neste | Config-drevet rombygging, fjerne hardkoding, støtte flere taktyper |
+| 5. AI-pipeline | 🔲 Planlagt | Claude Vision for plantegning-parsing, finn.no-integrasjon |
+| 6. WebXR/VR | 🔲 Planlagt | Meta Quest 3, teleportering, controller-interaksjon |
 
 ## Funksjoner
 
