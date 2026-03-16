@@ -157,6 +157,8 @@ export function initInteraction() {
         dragging = { item, offset: new THREE.Vector3(item.x - floorPt.x, 0, item.z - floorPt.z) };
         didDrag = false;
         state.controls.enabled = false;
+        const panel = document.getElementById('panel');
+        if (panel) panel.style.pointerEvents = 'none';
         selectFurniture(item.id);
         canvas.style.cursor = 'grabbing';
       }
@@ -187,6 +189,8 @@ export function initInteraction() {
     if (dragging) {
       state.controls.enabled = true;
       canvas.style.cursor = '';
+      const panel = document.getElementById('panel');
+      if (panel) panel.style.pointerEvents = '';
       dragging = null;
     }
     if (!didDrag) {

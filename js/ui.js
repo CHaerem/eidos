@@ -41,11 +41,94 @@ export function renderFurnitureList() {
   }
 }
 
+// ─── APARTMENT INFO ───
+
+function populateApartmentInfo() {
+  const el = document.getElementById('apartment-info');
+  if (!el) return;
+
+  const cfg = state.apartmentConfig;
+  if (!cfg) {
+    el.innerHTML = '<span class="lbl">Ingen config lastet</span>';
+    return;
+  }
+
+  const b = cfg.bounds || {};
+  const width = ((b.maxX || 0) - (b.minX || 0)).toFixed(1);
+  const depth = ((b.maxZ || 0) - (b.minZ || 0)).toFixed(1);
+  const roomCount = (cfg.rooms || []).length;
+  const upperRoomCount = (cfg.upperFloor && cfg.upperFloor.rooms || []).length;
+  const totalRooms = roomCount + upperRoomCount;
+  const floors = cfg.upperFloor ? '2' : '1';
+
+  el.innerHTML = `
+    <span class="lbl">Navn:</span><span class="val">${cfg.name || '—'}</span>
+    <span class="lbl">Bredde:</span><span class="val">${width} m</span>
+    <span class="lbl">Dybde:</span><span class="val">${depth} m</span>
+    <span class="lbl">Etasjer:</span><span class="val">${floors}</span>
+    <span class="lbl">Rom:</span><span class="val">${totalRooms}</span>
+  `;
+}
+
+// ─── TAB SWITCHING ───
+
+function initTabs() {
+  const tabs = document.querySelectorAll('#panel-tabs .tab');
+  const contents = document.querySelectorAll('.tab-content');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab;
+
+      // Update tab active states
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      // Show/hide tab content (display toggle, not DOM removal)
+      contents.forEach(c => {
+        c.style.display = c.id === `tab-${target}` ? '' : 'none';
+      });
+    });
+  });
+}
+
+// ─── PANEL COLLAPSE / EXPAND ───
+
+function initPanelToggle() {
+  const panel = document.getElementById('panel');
+  const collapseBtn = document.getElementById('panel-collapse');
+  const toggleBtn = document.getElementById('panel-toggle');
+
+  if (collapseBtn) {
+    collapseBtn.addEventListener('click', () => {
+      panel.classList.add('collapsed');
+      if (toggleBtn) toggleBtn.style.display = 'flex';
+    });
+  }
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      panel.classList.remove('collapsed');
+      toggleBtn.style.display = 'none';
+    });
+  }
+}
+
 // ─── INIT UI ───
 
 export function initUI() {
-  // Section toggle
-  window.toggleSection = function(header) {
-    header.parentElement.classList.toggle('collapsed');
-  };
+  initTabs();
+  initPanelToggle();
+
+  // Populate apartment info once config is loaded
+  // (called after config load, so may need a slight delay or direct call)
+  if (state.apartmentConfig) {
+    populateApartmentInfo();
+  } else {
+    // Retry once after a short delay (config loads async)
+    setTimeout(populateApartmentInfo, 500);
+  }
 }
+
+// Re-export for external calls (e.g. after config loads)
+export { populateApartmentInfo };

@@ -62,11 +62,27 @@ export function initScene() {
   state.objCenter = new THREE.Vector3(0, 1.22, 0);
   state.objSize = new THREE.Vector3(8.92, 2.44, 5.16);
 
+  // Compass rotation element (updated each frame)
+  const compassRing = document.getElementById('compass-ring');
+
   // Animation loop
   function animate() {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
+
+    // Rotate compass: project world north (+Z) onto screen to find angle
+    if (compassRing) {
+      const t = controls.target;
+      const origin = t.clone().project(camera);
+      const north = new THREE.Vector3(t.x, t.y, t.z + 1).project(camera);
+      // Screen-space delta (Y is inverted: screen Y goes down)
+      const sx = north.x - origin.x;
+      const sy = -(north.y - origin.y);
+      // Angle from screen-up (-Y) to north direction; compass SVG has N at top (0°)
+      const angle = Math.atan2(sx, -sy) * (180 / Math.PI);
+      compassRing.setAttribute('transform', `rotate(${angle}, 50, 50)`);
+    }
   }
   animate();
 
