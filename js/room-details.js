@@ -6,13 +6,22 @@ import { CEIL, ceilAt } from './room.js';
 
 let config = null;
 
-export async function initRoomDetails() {
-  try {
-    const resp = await fetch('config/apartment.json');
-    config = await resp.json();
-  } catch (e) {
-    console.warn('Could not load apartment config for room details:', e);
-    return;
+export function clearRoomDetails() {
+  const obj = state.scene.getObjectByName('RoomDetails');
+  if (obj) state.scene.remove(obj);
+}
+
+export async function initRoomDetails(configOverride) {
+  if (configOverride) {
+    config = configOverride;
+  } else {
+    try {
+      const resp = await fetch('config/apartment.json');
+      config = await resp.json();
+    } catch (e) {
+      console.warn('Could not load apartment config for room details:', e);
+      return;
+    }
   }
 
   const group = new THREE.Group();
@@ -224,29 +233,82 @@ function buildBaseboards(parent) {
   // North wall (back wall) — full length
   addBaseboard(bbGroup, mat, ext.minX, ext.maxX, ext.maxZ, 'north', h, d);
 
-  // West wall (left)
-  addBaseboard(bbGroup, mat, ext.minZ, ext.maxZ, ext.minX, 'west', h, d);
+  // West wall (left) — skip entrance door
+  const westSegments = _splitForExteriorDoors(ext.minZ, ext.maxZ, 'west', config.doors);
+  for (const seg of westSegments) {
+    addBaseboard(bbGroup, mat, seg[0], seg[1], ext.minX, 'west', h, d);
+  }
 
   // East wall (right)
   addBaseboard(bbGroup, mat, ext.minZ, ext.maxZ, ext.maxX, 'east', h, d);
 
-  // Interior walls — baseboards on both sides
+  // Interior walls — baseboards on both sides, skipping door openings
   if (config.walls.interior) {
     for (const wall of config.walls.interior) {
-      const len = wall.to - wall.from;
+      // Find doors on this wall and compute gap segments
+      const segments = _splitForDoors(wall.from, wall.to, wall.id, config.doors);
+
       if (wall.axis === 'x') {
-        // Vertical wall — baseboards along Z on both sides of X
-        addBaseboard(bbGroup, mat, wall.from, wall.to, wall.pos - 0.04, 'south', h, d);
-        addBaseboard(bbGroup, mat, wall.from, wall.to, wall.pos + 0.04, 'north', h, d);
+        // Wall at fixed X=pos, running along Z (from/to are Z coords)
+        // Use 'west'/'east' which correctly place strips along Z
+        for (const seg of segments) {
+          addBaseboard(bbGroup, mat, seg[0], seg[1], wall.pos - 0.04, 'west', h, d);
+          addBaseboard(bbGroup, mat, seg[0], seg[1], wall.pos + 0.04, 'east', h, d);
+        }
       } else {
-        // Horizontal wall — baseboards along X on both sides of Z
-        addBaseboard(bbGroup, mat, wall.from, wall.to, wall.pos - 0.04, 'west-inline', h, d);
-        addBaseboard(bbGroup, mat, wall.from, wall.to, wall.pos + 0.04, 'east-inline', h, d);
+        // Wall at fixed Z=pos, running along X (from/to are X coords)
+        for (const seg of segments) {
+          addBaseboard(bbGroup, mat, seg[0], seg[1], wall.pos - 0.04, 'west-inline', h, d);
+          addBaseboard(bbGroup, mat, seg[0], seg[1], wall.pos + 0.04, 'east-inline', h, d);
+        }
       }
     }
   }
 
   parent.add(bbGroup);
+}
+
+// Split a range [from, to] into segments that skip door openings on a given interior wall
+function _splitForDoors(from, to, wallId, doors) {
+  if (!doors || !doors.length) return [[from, to]];
+
+  // Find doors referencing this wall
+  const gaps = doors
+    .filter(d => d.wall === wallId)
+    .map(d => [d.from, d.to])
+    .sort((a, b) => a[0] - b[0]);
+
+  if (gaps.length === 0) return [[from, to]];
+
+  const segments = [];
+  let cursor = from;
+  for (const [gapStart, gapEnd] of gaps) {
+    if (gapStart > cursor) segments.push([cursor, gapStart]);
+    cursor = Math.max(cursor, gapEnd);
+  }
+  if (cursor < to) segments.push([cursor, to]);
+  return segments;
+}
+
+// Split a range for exterior wall doors (matched by wall name: 'south', 'west', etc.)
+function _splitForExteriorDoors(from, to, wallName, doors) {
+  if (!doors || !doors.length) return [[from, to]];
+
+  const gaps = doors
+    .filter(d => d.wall === wallName)
+    .map(d => [d.from, d.to])
+    .sort((a, b) => a[0] - b[0]);
+
+  if (gaps.length === 0) return [[from, to]];
+
+  const segments = [];
+  let cursor = from;
+  for (const [gapStart, gapEnd] of gaps) {
+    if (gapStart > cursor) segments.push([cursor, gapStart]);
+    cursor = Math.max(cursor, gapEnd);
+  }
+  if (cursor < to) segments.push([cursor, to]);
+  return segments;
 }
 
 function addBaseboard(group, mat, from, to, wallPos, side, h, d) {

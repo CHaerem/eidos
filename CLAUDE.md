@@ -27,7 +27,7 @@ Eidos skal bli et rammeverk der nye boliger kan modelleres ved a:
 |-------|--------|
 | `js/state.js` | Delt mutable state (scene, kamera, mobler, simulator, apartmentConfig) |
 | `js/scene.js` | Three.js setup, lys, kontroller, visninger (config-drevet), animate-loop |
-| `js/room.js` | OBJ-lasting, takgeometri (`ceilAt()` stotter flat/slope), CEIL + BOUNDS |
+| `js/room.js` | OBJ-lasting, takzoner (`ceilAt(x,z)` per-zone), CEIL + BOUNDS |
 | `js/room-details.js` | Vinduer, dorkarmer, fotlister (config-drevet) |
 | `js/furniture.js` | FURNITURE_CATALOG + custom builders (Besta, Soderhamn, Cana) |
 | `js/interaction.js` | Drag-and-drop, raycasting, seleksjon, snap-to-wall (BOUNDS), tastatur |
@@ -44,13 +44,30 @@ export const BOUNDS = { minX, maxX, minZ, maxZ, floorY };
 ```
 Populeres fra `config.bounds` eller `config.walls.exterior`. Erstatter direkte bruk av CEIL for vegg-grenser.
 
-### ceilAt(z) (room.js)
-Config-drevet takhoydefunksjon. Stotter:
-- `"type": "flat"` — uniform hoyde, krever `"height"`
-- `"type": "slope"` — loft-stil med skratak + hemskant (default for bakoverkompatibilitet)
+### ceilAt(x, z) (room.js)
+Zone-basert takhoydefunksjon. Sjekker hvilken takzone punktet (x,z) er i og returnerer korrekt hoyde.
+- Stotter `ceilAt(x, z)` (full) og `ceilAt(z)` (legacy, bruker x=0)
+- Zone-typer: `"flat"` (uniform hoyde) og `"slope"` (lineaer interpolasjon)
+- Fallback til `defaultHeight` hvis ingen zone matcher
+
+### Takzoner (ceiling.zones i config)
+Hver zone har bounds (minX/maxX/minZ/maxZ) og type-spesifikke parametere:
+- `"flat"`: `{ height }` — fast takhoyde (5.etg tak under 6.etg gulv)
+- `"slope"`: `{ slopeStartZ, slopeEndZ, startHeight, endHeight }` — lineaert skratak
+- **First match wins**: flat-zoner sjekkes forst, slope er fallback for "apent ned"
+- Flat-zoner rendres IKKE som geometri nar `upperFloor` finnes (handled av buildUpperFloor)
+
+### upperFloor (room.js)
+Config for 6. etasje / overetasje. Bygger gulvplan, vegger, rekkverk og trapp:
+- `floorY`: gulvhoyde (2.25m)
+- `areas[]`: gulvflater med bounds — rendres med DoubleSide, cutout for trappeapning
+- `stairwell`: spiral trapp config (centerX/Z, radius, numSteps, totalRotationDeg, startAngleDeg, bounds)
+- `walls[]`: kantvegg/rekkverk — `type: "solid"` (vegg til tak) eller `type: "railing"` (balustre + topprail)
+- OBJ InnerSide-meshes som overlapper med `stairwell.bounds` skjules automatisk
+- Gable/yttervegg over floorY bygges automatisk fra exterior bounds og roof slope
 
 ### CEIL (room.js)
-Loft-spesifikke takkonstanter (hemskant, skratakvinkler). Brukes av simulator for klaringsberegning.
+Legacy takkonstanter, populert automatisk fra zones. Brukes av simulator (hemskantZ) og room-details (windowZ).
 
 ## apartment.json skjema
 ```json
@@ -60,31 +77,64 @@ Loft-spesifikke takkonstanter (hemskant, skratakvinkler). Brukes av simulator fo
   "objScale": 0.1,
   "objYShift": 1.22,
   "ceiling": {
-    "type": "slope|flat",
-    "height": 2.50,
-    "windowZ": -2.50, "backZ": 2.50,
-    "hemskantDist": 3.10,
-    "ceilWindow": 2.214, "ceilHemskant": 3.822,
-    "ceilUnderHems": 2.25, "hemsDepth": 1.90,
-    "roomMinX": -4.38, "roomMaxX": 4.38
+    "defaultHeight": 2.50,
+    "zones": [
+      {
+        "id": "under-kontor", "type": "flat",
+        "bounds": { "minX": -4.38, "maxX": -0.77, "minZ": -2.50, "maxZ": 2.50 },
+        "height": 2.25,
+        "note": "Flat-zoner sjekkes FORST (first match wins). 5.etg tak under 6.etg gulv"
+      },
+      {
+        "id": "under-hems", "type": "flat",
+        "bounds": { "minX": -0.77, "maxX": 4.38, "minZ": 0.60, "maxZ": 2.50 },
+        "height": 2.25
+      },
+      {
+        "id": "roof", "type": "slope",
+        "bounds": { "minX": -4.38, "maxX": 4.38, "minZ": -2.50, "maxZ": 2.50 },
+        "slopeStartZ": -2.50, "slopeEndZ": 2.50,
+        "startHeight": 2.214, "endHeight": 4.81,
+        "note": "Kontinuerlig takflate — fallback for 'apent ned' omrader"
+      }
+    ]
   },
-  "bounds": {
-    "minX": -4.38, "maxX": 4.38,
-    "minZ": -2.50, "maxZ": 2.50,
-    "floorY": 0
+  "upperFloor": {
+    "floorY": 2.25,
+    "areas": [
+      { "id": "kontor-floor", "bounds": { "minX": -4.38, "maxX": -0.77, "minZ": -2.50, "maxZ": 2.50 } },
+      { "id": "hems-floor", "bounds": { "minX": -0.77, "maxX": 4.38, "minZ": 0.60, "maxZ": 2.50 } }
+    ],
+    "stairwell": {
+      "type": "spiral",
+      "centerX": -0.30, "centerZ": 0.30, "radius": 0.75,
+      "numSteps": 14, "totalRotationDeg": 270, "startAngleDeg": -90,
+      "bounds": { "minX": -1.05, "maxX": 0.45, "minZ": -0.45, "maxZ": 1.05 },
+      "note": "Spiral staircase — config-drevet. bounds brukes til gulv-cutout og OBJ-filtrering"
+    },
+    "walls": [
+      { "id": "w1", "type": "solid|railing", "axis": "x|z", "pos": 0, "fromZ|fromX": 0, "toZ|toX": 0, "railHeight": 1.0 }
+    ],
+    "rooms": [
+      { "id": "kontor", "name": "Kontor", "bounds": {} }
+    ]
   },
+  "bounds": { "minX": -4.38, "maxX": 4.38, "minZ": -2.50, "maxZ": 2.50, "floorY": 0 },
   "walls": {
-    "exterior": { "minX", "maxX", "minZ", "maxZ", "thickness" },
+    "exterior": { "minX": 0, "maxX": 0, "minZ": 0, "maxZ": 0, "thickness": 0.08 },
     "interior": [
       { "id": "A", "axis": "x|z", "pos": 0, "from": 0, "to": 0 }
     ],
-    "column": { "minX", "maxX", "minZ", "maxZ" }
+    "column": { "minX": 0, "maxX": 0, "minZ": 0, "maxZ": 0 }
   },
+  "rooms": [
+    { "id": "stue", "name": "Stue", "bounds": {}, "ceilingType": "slope|flat", "note": "" }
+  ],
   "windows": [
-    { "id": "W1", "wall": "south|west|north|east", "x1|z1", "x2|z2", "sillHeight", "topHeight" }
+    { "id": "W1", "wall": "south|west|north|east", "x1": 0, "x2": 0, "sillHeight": 1.0, "topHeight": 2.2 }
   ],
   "doors": [
-    { "id": "D1", "wall": "id", "pos", "axis": "x|z", "from", "to", "height" }
+    { "id": "D1", "wall": "id", "pos": 0, "axis": "x|z", "from": 0, "to": 0, "height": 2.0 }
   ],
   "baseboard": { "height": 0.08, "depth": 0.012, "color": "0xF0F0F0" },
   "simulator": { "hitDirection": "negZ", "screenDistance": 0.3 }
@@ -97,6 +147,8 @@ Loft-spesifikke takkonstanter (hemskant, skratakvinkler). Brukes av simulator fo
 |--------|--------|-----|
 | OBJ-lasting + skalering | ✅ Config | room.js |
 | Takgeometri | ✅ Config (`type: flat/slope`) | room.js |
+| 6. etasje (gulv/trapp/rekkverk) | ✅ Config (`upperFloor`) | room.js |
+| Spiraltrapp | ✅ Config (center, radius, steps, rotation) | room.js |
 | Vinduer/dorer/fotlister | ✅ Config | room-details.js |
 | Veggdata | ✅ Config | apartment.json |
 | Mobelkatalog | ✅ Generisk | furniture.js |
@@ -105,6 +157,7 @@ Loft-spesifikke takkonstanter (hemskant, skratakvinkler). Brukes av simulator fo
 | Kameraposisjoner | ✅ Beregnet fra BOUNDS | scene.js |
 | UI slider-ranges | ✅ Beregnet fra BOUNDS | ui.js |
 | Simulator retning/grenser | ✅ BOUNDS + config | simulator.js |
+| OBJ clipping (overetasje) | ✅ Auto fra upperFloor.floorY | room.js |
 
 ## OBJ-koordinatsystem
 Etter skalering og Y-shift (fra config):
@@ -115,12 +168,64 @@ Etter skalering og Y-shift (fra config):
 For Vibes Gate 20B: X: -4.46 til 4.46, Y: 0 til 2.44, Z: -2.58 til 2.58
 
 ## Pipeline for nye boliger
-1. **Skaff plantegning** (bilde, PDF, eller finn.no-lenke)
-2. **Generer apartment.json** — manuelt eller via Claude Vision
-3. **Skaff/lag OBJ-modell** (valgfritt — kan bygges fra veggdata)
-4. **Kjor analyze_openings.py** — finn vindus/dor-apninger i OBJ
-5. **Finjuster** — iterer pa apartment.json med AI-hjelp
-6. **Legg til mobler** — bruk FURNITURE_CATALOG eller lag nye
+
+### Trinn 1: Datainnhenting fra finn.no-annonse
+Gitt en finn.no-lenke, hent:
+- **Plantegning(er)**: Finn floor plan-bildene (typisk bilde 2-4 i annonsen)
+- **Interiorfotod**: Last ned alle bilder for taktype-analyse
+- **Salgsoppgave/tilstandsrapport** (PDF): Inneholder takhøyder, himling-info
+
+### Trinn 2: Plantegning → romgeometri
+Fra plantegning-bildet, ekstraher:
+- **Romnavn og dimensjoner** (stue, soverom, bad, kjokken, entre, etc.)
+- **Veggposisjoner** og tykkelser
+- **Vinduer og dorer** med plasseringer
+- **Etasjeplan** (loft: hems, "apent ned", kontor, etc.)
+
+Map rommal til et koordinatsystem (X = bredde, Z = dybde, Y = hoyde).
+
+### Trinn 3: Bilder → taktyper per rom (Claude Vision)
+For hver rom, analyser interiorfoto og bestem:
+
+| Signal i bilde | Taktype | Config |
+|----------------|---------|--------|
+| Synlig skraning fra vindu oppover | `slope` | `slopeStartZ`, `slopeEndZ`, `startHeight`, `endHeight` |
+| Flat hvit himling, jevn hoyde | `flat` | `height` |
+| Synlig hems/galleri over rommet | `flat` (under hems) | `height` = hemsgulv-hoyde |
+| Etasje over (kontor, soverom) | `flat` (under etasje) | `height` = gulv-hoyde over |
+| "Apent ned" pa etasjen over | `slope` (dobbelhoyde) | Skratak fortsetter opp |
+
+**Nokkelinnsikt**: I loft-leiligheter er det ofte IKKE skratak over hele bredden.
+Sjekk 6. etasje plantegning for a se hva som er over hvert rom:
+- "Apent ned" → rommet under har skratak (slope)
+- Rom (kontor, hems) → rommet under har flat tak (etasjegulv = tak)
+
+### Trinn 4: Takzoner i ceiling.zones
+Opprett en takzone per distinkt omrade:
+- En `slope`-zone for omrader med skratak
+- En `flat`-zone per omrade med flat himling
+- Zonene ma dekke hele leilighetens bounds uten hull
+
+Verifiser med `ceilAt(x, z)` at alle rom-hjorner gir korrekt takhoyde.
+
+### Trinn 5: Generer apartment.json
+Kombiner all data til en komplett config med:
+- `ceiling.zones` (per-rom takdata)
+- `rooms` (rom-definisjon med bounds og ceilingType)
+- `walls` (ytre + indre vegger)
+- `windows`, `doors`, `baseboard`
+- `bounds` (total romgrense)
+
+### Trinn 6: Finjuster iterativt
+- Start 3D-preview og sammenlign med interiorfoto
+- Juster vegg-posisjoner, tak-hoyder, vindus-plasseringer
+- Legg til mobler fra FURNITURE_CATALOG
+
+### Fremtidig automatisering
+Denne pipelinen gjores na manuelt med Claude, men malet er:
+1. `finn_url → fetch bilder + plantegning automatisk`
+2. `Claude Vision → apartment.json (forstegangs-generering)`
+3. `Menneske + AI → iterativ finjustering i 3D-preview`
 
 ## Svingformler (js/simulator.js)
 - `swingHeight(h, c)` — maks klubbhodehoyde

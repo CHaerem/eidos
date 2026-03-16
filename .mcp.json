@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "eidos": {
+      "command": "/Users/christopherhaerem/Privat/GolfSim/.venv/bin/python3",
+      "args": ["/Users/christopherhaerem/Privat/GolfSim/mcp_server.py"]
+    }
+  }
+}

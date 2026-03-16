@@ -120,4 +120,12 @@ export function initScene() {
     camera.up.set(0, 1, 0);
     controls.update();
   };
+
+  // Custom camera view — pos=[x,y,z], target=[x,y,z]
+  window.setCameraView = function(px, py, pz, tx, ty, tz) {
+    camera.position.set(px, py, pz);
+    controls.target.set(tx, ty, tz);
+    camera.up.set(0, 1, 0);
+    controls.update();
+  };
 }

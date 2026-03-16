@@ -36,19 +36,27 @@ VR-utforskning            ← Meta Quest 3 (WebXR)
 - OBJ-modell (valgfri — for eksisterende 3D-modeller)
 - Arkitektoniske detaljer (fotlister, karmer)
 
-## Fremtidig pipeline
+## Pipeline: finn.no → 3D-modell
 
 ```
 finn.no-lenke
     ↓
-Claude Vision parser plantegning + bilder
+1. Hent plantegning + interiørbilder
     ↓
-Auto-generert apartment.json
+2. Plantegning → romgeometri (vegger, vinduer, dører)
     ↓
-Menneske + AI finjusterer sammen
+3. Bilder → taktyper per rom (skråtak vs flat himling)
+   • Sjekk etasjen over: "åpent ned" = skråtak, rom over = flat tak
+   • Verifiser med interiørfoto per rom
+    ↓
+4. Generer apartment.json med per-rom takzoner
+    ↓
+5. Menneske + AI finjusterer i 3D-preview
     ↓
 Nøyaktig 3D-modell med møbler
 ```
+
+> **Status**: Trinn 1-5 er demonstrert manuelt med Vibes gate 20B. Målet er full automatisering via Claude Vision.
 
 ## Progresjon
 
@@ -57,8 +65,8 @@ Nøyaktig 3D-modell med møbler
 | 1. Modularisering | ✅ Ferdig | Monolitt → 9 ES-moduler + leilighetskonfig JSON |
 | 2. PBR + Skygger | ✅ Ferdig | MeshStandardMaterial, shadow mapping, tone mapping, bedre belysning |
 | 3. Romdetaljer | ✅ Ferdig | Vinduer, dørkarmer, fotlister, ugjennomsiktig tak |
-| 4. Generisk rammeverk | 🔲 Neste | Config-drevet rombygging, fjerne hardkoding, støtte flere taktyper |
-| 5. AI-pipeline | 🔲 Planlagt | Claude Vision for plantegning-parsing, finn.no-integrasjon |
+| 4. Generisk rammeverk | 🔄 Pågår | Config-drevet rombygging, per-rom takzoner, rooms-definisjon |
+| 5. AI-pipeline | 🔄 Pågår | Claude Vision analyserer finn.no-bilder → taktyper per rom |
 | 6. WebXR/VR | 🔲 Planlagt | Meta Quest 3, teleportering, controller-interaksjon |
 
 ## Funksjoner

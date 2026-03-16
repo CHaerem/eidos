@@ -1,19 +1,108 @@
 {
-  "name": "Vibes Gate 20B, 5. etasje",
+  "name": "Vibes Gate 20B, 5. og 6. etasje",
   "objPath": "Vibes%20Gate%2020%20-%20Ground%20Floor.obj",
   "objScale": 0.1,
   "objYShift": 1.22,
   "ceiling": {
-    "type": "slope",
-    "windowZ": -2.50,
-    "backZ": 2.50,
-    "hemskantDist": 3.10,
-    "ceilWindow": 2.214,
-    "ceilHemskant": 3.822,
-    "ceilUnderHems": 2.25,
-    "hemsDepth": 1.90,
-    "roomMinX": -4.38,
-    "roomMaxX": 4.38
+    "defaultHeight": 2.25,
+    "zones": [
+      {
+        "id": "under-kontor",
+        "type": "flat",
+        "bounds": { "minX": -4.38, "maxX": -0.77, "minZ": -2.50, "maxZ": 2.50 },
+        "height": 2.25,
+        "note": "5.etg: flat tak under kontor (6.etg gulv) — soverom, entre, bad"
+      },
+      {
+        "id": "under-hems",
+        "type": "flat",
+        "bounds": { "minX": -0.77, "maxX": 4.38, "minZ": 0.60, "maxZ": 2.50 },
+        "height": 2.25,
+        "note": "5.etg: flat tak under hems (6.etg gulv) — kjokken, spisestue"
+      },
+      {
+        "id": "roof",
+        "type": "slope",
+        "bounds": { "minX": -4.38, "maxX": 4.38, "minZ": -2.50, "maxZ": 2.50 },
+        "slopeStartZ": -2.50,
+        "slopeEndZ": 2.50,
+        "startHeight": 2.214,
+        "endHeight": 4.81,
+        "note": "Selve taket — kontinuerlig slope over hele bygget. Fallback for 'apent ned'"
+      }
+    ]
+  },
+  "upperFloor": {
+    "floorY": 2.25,
+    "areas": [
+      {
+        "id": "kontor-floor",
+        "bounds": { "minX": -4.38, "maxX": -0.77, "minZ": -2.50, "maxZ": 2.50 },
+        "note": "Kontorgulv — hele venstre side"
+      },
+      {
+        "id": "hems-floor",
+        "bounds": { "minX": -0.77, "maxX": 4.38, "minZ": 0.60, "maxZ": 2.50 },
+        "note": "Hemsgulv — hoyre bak"
+      }
+    ],
+    "stairwell": {
+      "type": "quarter-turn",
+      "width": 0.85,
+      "bounds": { "minX": 0.20, "maxX": 1.15, "minZ": -0.30, "maxZ": 1.15 },
+      "runs": [
+        {
+          "id": "lower",
+          "direction": "x",
+          "from": { "x": -1.10, "z": 0.175 },
+          "to": { "x": 0.255, "z": 0.175 },
+          "treads": 7,
+          "note": "Nedre lop — lang rett strekning ostover fra stue til svingsonen"
+        },
+        {
+          "id": "winder",
+          "pivotX": 0.255,
+          "pivotZ": 0.60,
+          "treads": 3,
+          "startAngleDeg": -90,
+          "sweepDeg": 90,
+          "note": "Kvartssving — pivot i NW-hjornet (vegg/stringer), trinn vifter mot SE (rekkverk)"
+        },
+        {
+          "id": "upper",
+          "direction": "z",
+          "from": { "x": 0.68, "z": 0.60 },
+          "to": { "x": 0.68, "z": 1.10 },
+          "treads": 2,
+          "note": "Ovre lop — kort strekning inn pa hems"
+        }
+      ],
+      "stringer": {
+        "side": "left",
+        "thickness": 0.04,
+        "color": "0xF0F0F0",
+        "note": "Hvit lukket vange"
+      },
+      "railing": {
+        "side": "right",
+        "height": 1.0,
+        "balusterSpacing": 0.12,
+        "color": "0xF0F0F0",
+        "handrailColor": "0x8B6914",
+        "note": "Apent rekkverk mot stuen — hvite sprosser, trehandrekke"
+      },
+      "note": "Kvartsvingtrapp — lang nedre lop ostover, kvartssving, kort ovre lop nordover inn pa hems"
+    },
+    "walls": [
+      { "id": "kontor-edge-x", "type": "solid", "axis": "x", "pos": -0.77, "fromZ": -2.50, "toZ": 2.50, "note": "Kontor/soverom skillevegg — hel vegg" },
+      { "id": "hems-edge-west", "type": "railing", "axis": "z", "pos": 0.60, "fromX": -0.77, "toX": 0.20, "railHeight": 1.0, "note": "Hemskant vest for trappeapning" },
+      { "id": "hems-edge-east", "type": "railing", "axis": "z", "pos": 0.60, "fromX": 1.15, "toX": 4.38, "railHeight": 1.0, "note": "Hemskant ost for trappeapning" },
+      { "id": "stairwell-east", "type": "railing", "axis": "x", "pos": 1.15, "fromZ": 0.60, "toZ": 1.15, "railHeight": 1.0, "note": "Ostside trappeapning" }
+    ],
+    "rooms": [
+      { "id": "kontor", "name": "Kontor", "bounds": { "minX": -4.38, "maxX": -0.77, "minZ": -2.50, "maxZ": 2.50 } },
+      { "id": "hems", "name": "Hems", "bounds": { "minX": -0.77, "maxX": 4.38, "minZ": 0.60, "maxZ": 2.50 } }
+    ]
   },
   "bounds": {
     "minX": -4.38, "maxX": 4.38,
@@ -50,6 +139,56 @@
     "depth": 0.012,
     "color": "0xF0F0F0"
   },
+  "rooms": [
+    {
+      "id": "soverom",
+      "name": "Soverom",
+      "floor": 5,
+      "bounds": { "minX": -4.38, "maxX": -1.946, "minZ": -2.50, "maxZ": -0.471 },
+      "ceilingType": "flat",
+      "note": "Under kontor (6. etg). 2.30m x 1.96m"
+    },
+    {
+      "id": "entre",
+      "name": "Entre",
+      "floor": 5,
+      "bounds": { "minX": -4.38, "maxX": -1.946, "minZ": -0.471, "maxZ": 0.821 },
+      "ceilingType": "flat",
+      "note": "Under kontor (6. etg). Mellom soverom og bad"
+    },
+    {
+      "id": "bad",
+      "name": "Bad",
+      "floor": 5,
+      "bounds": { "minX": -4.38, "maxX": -1.993, "minZ": 0.821, "maxZ": 2.50 },
+      "ceilingType": "flat",
+      "note": "Under kontor (6. etg). Slett himling"
+    },
+    {
+      "id": "stue",
+      "name": "Stue",
+      "floor": 5,
+      "bounds": { "minX": -0.77, "maxX": 4.38, "minZ": -2.50, "maxZ": 0.821 },
+      "ceilingType": "slope",
+      "note": "Apent ned til taket. Skratak fra 2.21m (vinduer) opp til takrygg"
+    },
+    {
+      "id": "kjokken",
+      "name": "Kjokken",
+      "floor": 5,
+      "bounds": { "minX": 0.718, "maxX": 4.38, "minZ": 0.821, "maxZ": 2.50 },
+      "ceilingType": "flat",
+      "note": "Under hemsen (6. etg gulv)"
+    },
+    {
+      "id": "spisestue",
+      "name": "Spisestue",
+      "floor": 5,
+      "bounds": { "minX": -0.77, "maxX": 0.718, "minZ": 0.821, "maxZ": 2.50 },
+      "ceilingType": "flat",
+      "note": "Under hemsen. Apent mot stue og kjokken"
+    }
+  ],
   "simulator": {
     "hitDirection": "negZ",
     "screenDistance": 0.3,
