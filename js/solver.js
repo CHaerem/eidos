@@ -72,24 +72,34 @@ function findBoundary(coord, axis, side, interiorWalls, exterior, tol) {
 export function solveConstraints({
   measurements, exterior, interiorWalls, rooms,
   defaultWallThickness = 0.08,
-  priors = { wallPositionWeight: 0.1, wallThicknessWeight: 10.0 }
+  priors = { wallPositionWeight: 0.1, wallThicknessWeight: 10.0, heightWeight: 1.0 },
+  ceilingZones = [],
+  upperFloorY = null
 }) {
   if (!measurements || measurements.length === 0) {
-    return noopResult(interiorWalls, rooms, defaultWallThickness);
+    return noopResult(interiorWalls, rooms, defaultWallThickness, ceilingZones, upperFloorY);
   }
 
   const adj = buildAdjacency(rooms, interiorWalls, exterior);
 
   // Map wall IDs to variable indices
-  // x = [pos_0, pos_1, ..., pos_n, thick_0, thick_1, ..., thick_n]
+  // x = [pos_0..n-1, thick_0..n-1, floorY, slopeStart, slopeEnd]
   const wallIds = interiorWalls.map(w => w.id);
   const n = wallIds.length;
-  const numVars = 2 * n; // n positions + n thicknesses
+
+  // Height variable indices (after wall pos + thick)
+  const IDX_FLOOR_Y = 2 * n;
+  const IDX_SLOPE_START = 2 * n + 1;
+  const IDX_SLOPE_END = 2 * n + 2;
+  const numVars = 2 * n + 3; // wall positions + thicknesses + 3 height unknowns
 
   const wallIdx = {};
   wallIds.forEach((id, i) => {
     wallIdx[id] = i;          // position index
   });
+
+  // Find slope zone for prior values
+  const slopeZone = ceilingZones.find(z => z.type === 'slope');
 
   // Build prior vector
   const xPrior = new Array(numVars).fill(0);
@@ -97,12 +107,47 @@ export function solveConstraints({
     xPrior[i] = interiorWalls[i].pos;          // position prior = current config
     xPrior[n + i] = defaultWallThickness;       // thickness prior
   }
+  xPrior[IDX_FLOOR_Y] = upperFloorY != null ? upperFloorY : 2.25;
+  xPrior[IDX_SLOPE_START] = slopeZone ? slopeZone.startHeight : 2.214;
+  xPrior[IDX_SLOPE_END] = slopeZone ? slopeZone.endHeight : 4.81;
 
   // Build A matrix and b vector from measurements
   const validRows = [];
   const bVals = [];
+  const rowKeys = []; // track which measurement each row corresponds to
+
+  // Build room ceilingType lookup
+  const roomCeilingType = {};
+  for (const r of rooms) {
+    roomCeilingType[r.id] = r.ceilingType || 'flat';
+  }
 
   for (const m of measurements) {
+    // ─── Height constraints ───
+    if (m.dim === 'height' || m.dim === 'height_low' || m.dim === 'height_high') {
+      const row = new Array(numVars).fill(0);
+      const ct = roomCeilingType[m.room];
+
+      if (m.dim === 'height' && ct !== 'slope') {
+        row[IDX_FLOOR_Y] = 1;
+        validRows.push(row);
+        bVals.push(m.value);
+        rowKeys.push(`${m.room}:${m.dim}`);
+      } else if (m.dim === 'height_low' && ct === 'slope') {
+        row[IDX_SLOPE_START] = 1;
+        validRows.push(row);
+        bVals.push(m.value);
+        rowKeys.push(`${m.room}:${m.dim}`);
+      } else if (m.dim === 'height_high' && ct === 'slope') {
+        row[IDX_SLOPE_END] = 1;
+        validRows.push(row);
+        bVals.push(m.value);
+        rowKeys.push(`${m.room}:${m.dim}`);
+      }
+      continue;
+    }
+
+    // ─── Width/depth constraints ───
     const key = `${m.room}:${m.dim}`;
     const entry = adj[key];
     if (!entry) continue; // unknown room/dim combination
@@ -208,6 +253,7 @@ export function solveConstraints({
 
     validRows.push(row);
     bVals.push(rhs);
+    rowKeys.push(key);
   }
 
   const m = validRows.length;
@@ -231,7 +277,10 @@ export function solveConstraints({
 
   // Add regularisation: Λ diagonal + Λ·xPrior
   for (let i = 0; i < numVars; i++) {
-    const lambda = i < n ? priors.wallPositionWeight : priors.wallThicknessWeight;
+    let lambda;
+    if (i < n) lambda = priors.wallPositionWeight;
+    else if (i < 2 * n) lambda = priors.wallThicknessWeight;
+    else lambda = priors.heightWeight || 1.0;
     N[i][i] += lambda;
     z[i] += lambda * xPrior[i];
   }
@@ -241,7 +290,7 @@ export function solveConstraints({
 
   if (!x) {
     console.warn('Solver: singular matrix, returning priors');
-    return noopResult(interiorWalls, rooms, defaultWallThickness);
+    return noopResult(interiorWalls, rooms, defaultWallThickness, ceilingZones, upperFloorY);
   }
 
   // Extract results
@@ -251,6 +300,13 @@ export function solveConstraints({
     wallPositions[wallIds[i]] = x[i];
     wallThicknesses[wallIds[i]] = Math.max(0.02, Math.min(0.25, x[n + i])); // clamp
   }
+
+  // Extract height results
+  const heights = {
+    floorY: x[IDX_FLOOR_Y],
+    slopeStart: x[IDX_SLOPE_START],
+    slopeEnd: x[IDX_SLOPE_END],
+  };
 
   // Compute room bounds from solved wall positions
   const roomBounds = computeRoomBounds(rooms, adj, wallPositions, wallThicknesses, exterior);
@@ -264,16 +320,14 @@ export function solveConstraints({
       predicted += validRows[i][j] * x[j];
     }
     const res = predicted - bVals[i];
-    // Find the measurement this row corresponds to
-    const meas = measurements[i];
-    if (meas) {
-      residuals[`${meas.room}:${meas.dim}`] = res;
+    if (rowKeys[i]) {
+      residuals[rowKeys[i]] = res;
     }
     sumSqRes += res * res;
   }
   const rmsResidual = Math.sqrt(sumSqRes / Math.max(1, m));
 
-  return { wallPositions, wallThicknesses, roomBounds, residuals, rmsResidual, adjacency: adj };
+  return { wallPositions, wallThicknesses, heights, roomBounds, residuals, rmsResidual, adjacency: adj };
 }
 
 // ─── APPLY TO CONFIG ───
@@ -282,7 +336,7 @@ export function solveConstraints({
  * Apply solver results back to config (mutates config in place).
  */
 export function applyToConfig(config, result) {
-  const { wallPositions, wallThicknesses, roomBounds } = result;
+  const { wallPositions, wallThicknesses, roomBounds, heights } = result;
 
   // Update interior wall positions and thicknesses
   if (config.walls && config.walls.interior) {
@@ -317,6 +371,24 @@ export function applyToConfig(config, result) {
   // Sync upper floor areas
   if (config.upperFloor && config.upperFloor.areas) {
     syncZoneBounds(config.upperFloor.areas, config.rooms, config.walls.exterior);
+  }
+
+  // Apply solved heights to ceiling zones and upper floor
+  if (heights) {
+    // Update flat ceiling zones + upperFloor.floorY
+    if (config.upperFloor) {
+      config.upperFloor.floorY = heights.floorY;
+    }
+    if (config.ceiling && config.ceiling.zones) {
+      for (const zone of config.ceiling.zones) {
+        if (zone.type === 'flat') {
+          zone.height = heights.floorY;
+        } else if (zone.type === 'slope') {
+          zone.startHeight = heights.slopeStart;
+          zone.endHeight = heights.slopeEnd;
+        }
+      }
+    }
   }
 }
 
@@ -372,7 +444,7 @@ function syncZoneBounds(zones, rooms, exterior) {
   }
 }
 
-function noopResult(interiorWalls, rooms, defaultThickness) {
+function noopResult(interiorWalls, rooms, defaultThickness, ceilingZones = [], upperFloorY = null) {
   const wallPositions = {};
   const wallThicknesses = {};
   for (const w of interiorWalls) {
@@ -383,7 +455,13 @@ function noopResult(interiorWalls, rooms, defaultThickness) {
   for (const r of rooms) {
     roomBounds[r.id] = { ...r.bounds };
   }
-  return { wallPositions, wallThicknesses, roomBounds, residuals: {}, rmsResidual: 0, adjacency: {} };
+  const slopeZone = ceilingZones.find(z => z.type === 'slope');
+  const heights = {
+    floorY: upperFloorY != null ? upperFloorY : 2.25,
+    slopeStart: slopeZone ? slopeZone.startHeight : 2.214,
+    slopeEnd: slopeZone ? slopeZone.endHeight : 4.81,
+  };
+  return { wallPositions, wallThicknesses, heights, roomBounds, residuals: {}, rmsResidual: 0, adjacency: {} };
 }
 
 function zeros2D(rows, cols) {

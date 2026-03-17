@@ -220,7 +220,84 @@ def list_walls() -> str:
         "exterior": walls.get("exterior"),
         "interior": walls.get("interior", []),
         "column": walls.get("column"),
+        "protrusions": walls.get("protrusions", []),
     }, indent=2, ensure_ascii=False)
+
+@mcp.tool()
+def list_doors() -> str:
+    """List all doors with their positions and dimensions."""
+    config = _load_config()
+    return json.dumps(config.get("doors", []), indent=2, ensure_ascii=False)
+
+@mcp.tool()
+def add_door(
+    wall: str,
+    from_coord: float,
+    to_coord: float,
+    height: float = 2.0,
+    note: str = "",
+) -> str:
+    """Add a new door to the config.
+
+    Doors are placed on walls (interior or exterior). The wall determines
+    the axis and position automatically.
+
+    Args:
+        wall: Wall reference — interior wall ID (e.g. 'A', 'B') or
+              exterior wall name ('south', 'north', 'east', 'west')
+        from_coord: Start of door opening (Z for x-axis walls, X for z-axis walls)
+        to_coord: End of door opening
+        height: Door height in meters (default 2.0m)
+        note: Optional description
+
+    Returns:
+        The new door object with auto-generated ID.
+    """
+    config = _load_config()
+    doors = config.setdefault("doors", [])
+
+    # Auto-generate ID
+    existing_ids = {d.get("id", "") for d in doors}
+    idx = len(doors) + 1
+    while f"D{idx}" in existing_ids:
+        idx += 1
+    new_id = f"D{idx}"
+
+    # Determine axis and pos from wall reference
+    exterior_walls = {"south", "north", "east", "west"}
+    interior = config.get("walls", {}).get("interior", [])
+
+    door = {"id": new_id, "wall": wall, "from": from_coord, "to": to_coord, "height": height}
+
+    if wall in exterior_walls:
+        ext = config.get("walls", {}).get("exterior", {})
+        if wall == "south":
+            door["axis"] = "z"
+            door["pos"] = ext.get("minZ", 0)
+        elif wall == "north":
+            door["axis"] = "z"
+            door["pos"] = ext.get("maxZ", 0)
+        elif wall == "east":
+            door["axis"] = "x"
+            door["pos"] = ext.get("minX", 0)
+        elif wall == "west":
+            door["axis"] = "x"
+            door["pos"] = ext.get("maxX", 0)
+    else:
+        # Interior wall — inherit axis and pos
+        iw = next((w for w in interior if w.get("id") == wall), None)
+        if iw:
+            door["axis"] = iw["axis"]
+            door["pos"] = iw["pos"]
+        else:
+            return json.dumps({"status": "error", "message": f"Wall '{wall}' not found"})
+
+    if note:
+        door["note"] = note
+
+    doors.append(door)
+    _save_config(config)
+    return json.dumps({"status": "ok", "door": door}, indent=2, ensure_ascii=False)
 
 @mcp.tool()
 def add_window(
@@ -341,11 +418,61 @@ def get_staircase_info() -> str:
     }, indent=2, ensure_ascii=False)
 
 @mcp.tool()
-def remove_element(element_type: str, element_id: str) -> str:
-    """Remove an element (window, door, interior wall, room) by its ID.
+def add_protrusion(
+    min_x: float, max_x: float,
+    min_z: float, max_z: float,
+    height: float = 0,
+    from_y: float = 0,
+    note: str = "",
+) -> str:
+    """Add a wall protrusion (beam, bump, indentation) to the config.
+
+    Protrusions are box-shaped elements that represent structural features
+    like beams in corners, pipe shafts, or wall indentations.
 
     Args:
-        element_type: Type of element ('window', 'door', 'wall', 'room')
+        min_x: Left edge X coordinate
+        max_x: Right edge X coordinate
+        min_z: Front edge Z coordinate
+        max_z: Back edge Z coordinate
+        height: Height in meters (0 = auto, uses ceiling height at center)
+        from_y: Start height from floor (default 0). Use > 0 for hanging beams.
+        note: Optional description
+
+    Returns:
+        The new protrusion object with auto-generated ID.
+    """
+    config = _load_config()
+    protrusions = config.setdefault("walls", {}).setdefault("protrusions", [])
+
+    # Auto-generate ID
+    existing_ids = {p.get("id", "") for p in protrusions}
+    idx = len(protrusions) + 1
+    while f"P{idx}" in existing_ids:
+        idx += 1
+    new_id = f"P{idx}"
+
+    prot = {
+        "id": new_id,
+        "bounds": {"minX": min_x, "maxX": max_x, "minZ": min_z, "maxZ": max_z},
+    }
+    if height > 0:
+        prot["height"] = height
+    if from_y > 0:
+        prot["fromY"] = from_y
+    if note:
+        prot["note"] = note
+
+    protrusions.append(prot)
+    _save_config(config)
+    return json.dumps({"status": "ok", "protrusion": prot}, indent=2, ensure_ascii=False)
+
+@mcp.tool()
+def remove_element(element_type: str, element_id: str) -> str:
+    """Remove an element (window, door, interior wall, room, protrusion) by its ID.
+
+    Args:
+        element_type: Type of element ('window', 'door', 'wall', 'room', 'protrusion')
         element_id: The 'id' field of the element to remove
 
     Returns:
@@ -365,6 +492,12 @@ def remove_element(element_type: str, element_id: str) -> str:
         config["walls"]["interior"] = [w for w in interior if w.get("id") != element_id]
         if len(config["walls"]["interior"]) == before:
             return json.dumps({"status": "error", "message": f"Wall '{element_id}' not found"})
+    elif element_type == "protrusion":
+        protrusions = config.get("walls", {}).get("protrusions", [])
+        before = len(protrusions)
+        config["walls"]["protrusions"] = [p for p in protrusions if p.get("id") != element_id]
+        if len(config["walls"]["protrusions"]) == before:
+            return json.dumps({"status": "error", "message": f"Protrusion '{element_id}' not found"})
     elif element_type in type_map:
         key = type_map[element_type]
         arr = config.get(key, [])
@@ -377,6 +510,67 @@ def remove_element(element_type: str, element_id: str) -> str:
 
     _save_config(config)
     return json.dumps({"status": "ok", "removed": element_type, "id": element_id})
+
+@mcp.tool()
+def update_element(element_type: str, element_id: str, updates: str) -> str:
+    """Update properties of an existing element (window, door, wall, protrusion).
+
+    Find element by type and ID, then merge the provided updates into it.
+    Use this to adjust position, size, or other properties.
+
+    Args:
+        element_type: Type of element ('window', 'door', 'wall', 'protrusion')
+        element_id: The 'id' field of the element to update
+        updates: JSON object with fields to update.
+                 Examples:
+                   Window: '{"x1": -1.5, "x2": -0.3}' or '{"sillHeight": 0.8}'
+                   Door: '{"from": -3.5, "to": -2.7}' or '{"height": 2.1}'
+                   Wall: '{"pos": -2.10, "from": -2.5, "to": 0.7}'
+                   Protrusion: '{"bounds": {"minX": 3.0, "maxX": 4.0, "minZ": 1.5, "maxZ": 2.5}}'
+
+    Returns:
+        The updated element, or error if not found.
+    """
+    config = _load_config()
+    parsed = json.loads(updates)
+
+    # Find the element
+    element = None
+    if element_type == "wall":
+        for w in config.get("walls", {}).get("interior", []):
+            if w.get("id") == element_id:
+                element = w
+                break
+    elif element_type == "protrusion":
+        for p in config.get("walls", {}).get("protrusions", []):
+            if p.get("id") == element_id:
+                element = p
+                break
+    else:
+        type_map = {"window": "windows", "door": "doors"}
+        key = type_map.get(element_type)
+        if not key:
+            return json.dumps({"status": "error", "message": f"Unknown element type: {element_type}"})
+        for item in config.get(key, []):
+            if item.get("id") == element_id:
+                element = item
+                break
+
+    if element is None:
+        return json.dumps({"status": "error", "message": f"{element_type} '{element_id}' not found"})
+
+    # Don't allow changing the ID
+    parsed.pop("id", None)
+
+    # Deep merge for nested objects like bounds
+    for k, v in parsed.items():
+        if isinstance(v, dict) and isinstance(element.get(k), dict):
+            element[k].update(v)
+        else:
+            element[k] = v
+
+    _save_config(config)
+    return json.dumps({"status": "ok", element_type: element}, indent=2, ensure_ascii=False)
 
 @mcp.tool()
 def get_bounds() -> str:

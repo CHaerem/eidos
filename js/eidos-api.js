@@ -8,6 +8,9 @@ import { initRoomDetails, clearRoomDetails } from './room-details.js';
 import { updateSimulator } from './simulator.js';
 import { solveConstraints, applyToConfig, buildAdjacency } from './solver.js';
 import { runSolver } from './ui.js';
+import { showDimensions, hideDimensions } from './dimensions.js';
+import { setRoomFocus, clearRoomFocus } from './room-focus.js';
+import { pushSnapshot, undo, redo, canUndo, canRedo, getHistorySize } from './history.js';
 
 // ─── JSON path helpers ───
 
@@ -42,6 +45,7 @@ const eidos = {
 
   // Update config in memory and optionally rebuild
   async updateConfig(path, value, shouldRebuild = true) {
+    pushSnapshot();
     setByPath(state.apartmentConfig, path, value);
     if (shouldRebuild) {
       await this.rebuild();
@@ -94,13 +98,22 @@ const eidos = {
     return state.apartmentConfig.windows || [];
   },
 
+  getDoors() {
+    return state.apartmentConfig.doors || [];
+  },
+
   getWalls() {
     const w = state.apartmentConfig.walls || {};
     return {
       exterior: w.exterior,
       interior: w.interior || [],
       column: w.column,
+      protrusions: w.protrusions || [],
     };
+  },
+
+  getProtrusions() {
+    return state.apartmentConfig.walls?.protrusions || [];
   },
 
   getStaircaseInfo() {
@@ -124,6 +137,7 @@ const eidos = {
   // ─── Measurement / Solver API ───
 
   addMeasurement(room, dim, value) {
+    pushSnapshot();
     const cfg = state.apartmentConfig;
     if (!cfg.measurements) {
       cfg.measurements = { defaultWallThickness: 0.08, priors: { wallPositionWeight: 0.1, wallThicknessWeight: 10.0 }, entries: [] };
@@ -140,6 +154,7 @@ const eidos = {
   },
 
   removeMeasurement(room, dim) {
+    pushSnapshot();
     const cfg = state.apartmentConfig;
     if (!cfg.measurements) return;
     const entries = cfg.measurements.entries;
@@ -167,6 +182,26 @@ const eidos = {
     return buildAdjacency(cfg.rooms || [], cfg.walls?.interior || [], cfg.walls?.exterior || {});
   },
 
+  // ─── Dimension lines ───
+
+  showDimensions(roomId, floor) {
+    showDimensions(roomId, floor);
+  },
+
+  hideDimensions() {
+    hideDimensions();
+  },
+
+  // ─── Room focus (visibility) ───
+
+  setRoomFocus(roomId, floor, approachSide) {
+    setRoomFocus(roomId, floor, approachSide);
+  },
+
+  clearRoomFocus() {
+    clearRoomFocus();
+  },
+
   // ─── Furniture helpers ───
 
   getFurniture() {
@@ -178,6 +213,20 @@ const eidos = {
       rotation: item.rotation,
     }));
   },
+
+  // ─── History (undo/redo) ───
+
+  async undo() {
+    return undo(() => this.rebuild());
+  },
+
+  async redo() {
+    return redo(() => this.rebuild());
+  },
+
+  canUndo() { return canUndo(); },
+  canRedo() { return canRedo(); },
+  getHistorySize() { return getHistorySize(); },
 
   // ─── Scene info ───
 

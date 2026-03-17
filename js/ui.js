@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import { state } from './state.js';
 import { FURNITURE_CATALOG } from './furniture.js';
-import { BOUNDS } from './room.js';
+import { BOUNDS, ceilAt } from './room.js';
 import { solveConstraints, applyToConfig } from './solver.js';
+import { showDimensions, hideDimensions } from './dimensions.js';
+import { setRoomFocus, clearRoomFocus } from './room-focus.js';
+import { pushSnapshot } from './history.js';
 
 // ─── FURNITURE LIST RENDERING ───
 
@@ -116,11 +119,117 @@ function initPanelToggle() {
   }
 }
 
+// ─── VISIBILITY TOGGLES ───
+
+function initVisibilityToggles() {
+  // Layer pills (floors/ceiling/terrace)
+  document.querySelectorAll('.vis-pill[data-layers]').forEach(pill => {
+    pill.addEventListener('click', () => {
+      pill.classList.toggle('on');
+      const layers = pill.dataset.layers.split(',');
+      const visible = pill.classList.contains('on');
+      if (!state.scene) return;
+      state.scene.traverse(obj => {
+        if (obj.name && layers.includes(obj.name)) obj.visible = visible;
+      });
+    });
+  });
+
+  // Wall room pills (generated dynamically)
+  populateWallRoomPills();
+}
+
+function populateWallRoomPills() {
+  const container = document.getElementById('wall-room-pills');
+  if (!container) return;
+  const cfg = state.apartmentConfig;
+  if (!cfg) return;
+
+  const rooms = [];
+  for (const r of (cfg.rooms || [])) rooms.push(r);
+  if (cfg.upperFloor?.rooms) {
+    for (const r of cfg.upperFloor.rooms) {
+      if (r.id === 'terrasse') continue; // skip terrace (no walls)
+      rooms.push(r);
+    }
+  }
+
+  container.innerHTML = '';
+  for (const room of rooms) {
+    const pill = document.createElement('span');
+    pill.className = 'vis-pill on';
+    pill.dataset.room = room.id;
+    pill.textContent = room.name;
+    pill.addEventListener('click', () => {
+      pill.classList.toggle('on');
+      toggleRoomWalls(room.id, room.bounds, pill.classList.contains('on'));
+    });
+    container.appendChild(pill);
+  }
+}
+
+function toggleRoomWalls(roomId, bounds, visible) {
+  const scene = state.scene;
+  if (!scene) return;
+  const cfg = state.apartmentConfig;
+  const ext = cfg?.walls?.exterior;
+  if (!ext || !bounds) return;
+
+  const tol = 0.15; // tolerance for adjacency detection
+  const b = bounds;
+
+  // Check if a wall mesh bbox is adjacent to this room's bounds
+  function meshTouchesRoom(minX, maxX, minZ, maxZ) {
+    // Must overlap in one axis and touch in the other
+    const overlapX = minX < b.maxX - tol && maxX > b.minX + tol;
+    const overlapZ = minZ < b.maxZ - tol && maxZ > b.minZ + tol;
+    const touchMinX = Math.abs(maxX - b.minX) < tol || Math.abs(minX - b.minX) < tol;
+    const touchMaxX = Math.abs(minX - b.maxX) < tol || Math.abs(maxX - b.maxX) < tol;
+    const touchMinZ = Math.abs(maxZ - b.minZ) < tol || Math.abs(minZ - b.minZ) < tol;
+    const touchMaxZ = Math.abs(minZ - b.maxZ) < tol || Math.abs(maxZ - b.maxZ) < tol;
+    return (overlapZ && (touchMinX || touchMaxX)) || (overlapX && (touchMinZ || touchMaxZ));
+  }
+
+  // OBJ meshes (ExternalWalls + InnerSide)
+  const objModel = scene.getObjectByName('OBJModel');
+  if (objModel) {
+    const scale = objModel.scale.x;
+    objModel.traverse(child => {
+      if (!child.isMesh) return;
+      const name = child.name || '';
+      if (!name.startsWith('ExternalWalls') && !name.startsWith('InnerSide')) return;
+      child.geometry.computeBoundingBox();
+      const bb = child.geometry.boundingBox;
+      if (meshTouchesRoom(bb.min.x * scale, bb.max.x * scale, bb.min.z * scale, bb.max.z * scale)) {
+        child.visible = visible;
+      }
+    });
+  }
+
+  // Config-built gable walls in UpperFloor
+  const uf = scene.getObjectByName('UpperFloor');
+  if (uf) {
+    uf.traverse(child => {
+      if (!child.isMesh || !child.userData.wallSide) return;
+      // Check if gable wall side matches a room edge
+      const side = child.userData.wallSide;
+      if ((side === 'south' && Math.abs(b.minZ - ext.minZ) < tol) ||
+          (side === 'north' && Math.abs(b.maxZ - ext.maxZ) < tol) ||
+          (side === 'west' && Math.abs(b.minX - ext.minX) < tol) ||
+          (side === 'east' && Math.abs(b.maxX - ext.maxX) < tol)) {
+        child.visible = visible;
+      }
+    });
+  }
+}
+
 // ─── INIT UI ───
 
 export function initUI() {
   initTabs();
   initPanelToggle();
+  initCollapsible();
+  initVisibilityToggles();
 
   // Populate apartment info and calibration once config is loaded
   if (state.apartmentConfig) {
@@ -129,6 +238,14 @@ export function initUI() {
   } else {
     setTimeout(() => { populateApartmentInfo(); populateCalibration(); }, 500);
   }
+}
+
+function initCollapsible() {
+  document.querySelectorAll('.panel-section.collapsible h3').forEach(h3 => {
+    h3.addEventListener('click', () => {
+      h3.parentElement.classList.toggle('open');
+    });
+  });
 }
 
 // ─── ROOM CALIBRATION (Tikhonov solver) ───
@@ -169,8 +286,11 @@ function populateCalibration() {
   // Get last solver result for residuals
   const lastResult = state._lastSolverResult || null;
 
-  // Progress tracking
-  const totalDims = allRooms.length * 2;
+  // Progress tracking (width + depth + height(s) per room)
+  const totalDims = allRooms.reduce((sum, r) => {
+    const ct = r.ceilingType || 'flat';
+    return sum + 2 + (ct === 'slope' ? 2 : 1);
+  }, 0);
   const measuredDims = entries.length;
   const pct = totalDims > 0 ? Math.round(measuredDims / totalDims * 100) : 0;
 
@@ -195,8 +315,59 @@ function populateCalibration() {
       const resW = lastResult && lastResult.residuals[`${room.id}:width`];
       const resD = lastResult && lastResult.residuals[`${room.id}:depth`];
 
-      // Card state class
-      const cardState = (mW && mD) ? 'measured' : (mW || mD) ? 'partial' : '';
+      // Height measurement(s)
+      const ct = room.ceilingType || 'flat';
+      const cx = (b.minX + b.maxX) / 2;
+      const cz = (b.minZ + b.maxZ) / 2;
+
+      // Card state class — count all dims
+      const allMeas = [mW, mD];
+      let heightHtml = '';
+
+      if (ct === 'slope') {
+        const mHL = entries.find(e => e.room === room.id && e.dim === 'height_low');
+        const mHH = entries.find(e => e.room === room.id && e.dim === 'height_high');
+        allMeas.push(mHL, mHH);
+        const compHL = ceilAt(cx, b.minZ).toFixed(2);
+        const compHH = ceilAt(cx, b.maxZ).toFixed(2);
+        const resHL = lastResult && lastResult.residuals[`${room.id}:height_low`];
+        const resHH = lastResult && lastResult.residuals[`${room.id}:height_high`];
+        heightHtml = `
+            <div class="room-dim-group">
+              <span class="dim-label">H&#8595;</span>
+              <input type="number" step="0.01" min="0.5" max="8"
+                value="${mHL ? mHL.value : ''}" placeholder="${compHL}"
+                data-room="${room.id}" data-floor="${floor}" data-dim="height_low">
+              <span class="unit">m</span>
+              ${resHL != null ? `<span class="residual ${residualClass(resHL)}">${(resHL * 100).toFixed(1)}cm</span>` : ''}
+            </div>
+            <div class="room-dim-group">
+              <span class="dim-label">H&#8593;</span>
+              <input type="number" step="0.01" min="0.5" max="8"
+                value="${mHH ? mHH.value : ''}" placeholder="${compHH}"
+                data-room="${room.id}" data-floor="${floor}" data-dim="height_high">
+              <span class="unit">m</span>
+              ${resHH != null ? `<span class="residual ${residualClass(resHH)}">${(resHH * 100).toFixed(1)}cm</span>` : ''}
+            </div>`;
+      } else {
+        const mH = entries.find(e => e.room === room.id && e.dim === 'height');
+        allMeas.push(mH);
+        const compH = ceilAt(cx, cz).toFixed(2);
+        const resH = lastResult && lastResult.residuals[`${room.id}:height`];
+        heightHtml = `
+            <div class="room-dim-group">
+              <span class="dim-label">H</span>
+              <input type="number" step="0.01" min="0.5" max="8"
+                value="${mH ? mH.value : ''}" placeholder="${compH}"
+                data-room="${room.id}" data-floor="${floor}" data-dim="height">
+              <span class="unit">m</span>
+              ${resH != null ? `<span class="residual ${residualClass(resH)}">${(resH * 100).toFixed(1)}cm</span>` : ''}
+            </div>`;
+      }
+
+      const hasMeas = allMeas.filter(Boolean).length;
+      const totalForRoom = allMeas.length;
+      const cardState = (hasMeas === totalForRoom) ? 'measured' : hasMeas > 0 ? 'partial' : '';
 
       html += `
         <div class="room-card ${cardState}" data-room="${room.id}" data-floor="${floor}">
@@ -221,6 +392,7 @@ function populateCalibration() {
               <span class="unit">m</span>
               ${resD != null ? `<span class="residual ${residualClass(resD)}">${(resD * 100).toFixed(1)}cm</span>` : ''}
             </div>
+            ${heightHtml}
           </div>
         </div>`;
     }
@@ -231,6 +403,10 @@ function populateCalibration() {
     html += '<div class="solver-summary"><div class="solver-summary-header">Solver</div><div class="wall-thickness-summary">';
     for (const [id, thick] of Object.entries(lastResult.wallThicknesses)) {
       html += `<span class="wall-thick">${id}: ${(thick * 100).toFixed(1)}cm</span>`;
+    }
+    if (lastResult.heights) {
+      const h = lastResult.heights;
+      html += `<span class="wall-thick">Etg: ${h.floorY.toFixed(2)}m</span>`;
     }
     if (lastResult.rmsResidual > 0) {
       html += `<span class="rms-residual">RMS ${(lastResult.rmsResidual * 100).toFixed(1)}cm</span>`;
@@ -269,6 +445,7 @@ function residualClass(res) {
 }
 
 function onMeasurementChange(input) {
+  pushSnapshot();
   const roomId = input.dataset.room;
   const floor = parseInt(input.dataset.floor);
   const dim = input.dataset.dim;
@@ -323,7 +500,9 @@ function runSolver() {
     interiorWalls: cfg.walls.interior || [],
     rooms: cfg.rooms || [],
     defaultWallThickness: meas.defaultWallThickness || 0.08,
-    priors: meas.priors || { wallPositionWeight: 0.1, wallThicknessWeight: 10.0 }
+    priors: meas.priors || { wallPositionWeight: 0.1, wallThicknessWeight: 10.0, heightWeight: 1.0 },
+    ceilingZones: (cfg.ceiling && cfg.ceiling.zones) || [],
+    upperFloorY: cfg.upperFloor ? cfg.upperFloor.floorY : null
   });
 
   // Store result for UI display
@@ -342,6 +521,7 @@ function highlightRoom(roomId, floor) {
     state.scene.remove(highlightMesh);
     highlightMesh = null;
   }
+  clearRoomFocus();
   activeRoomId = roomId;
 
   const cfg = state.apartmentConfig;
@@ -386,6 +566,17 @@ function highlightRoom(roomId, floor) {
   fill.position.set((b.minX + b.maxX) / 2, y, (b.minZ + b.maxZ) / 2);
   fill.renderOrder = 998;
   highlightMesh.add(fill);
+
+  // Show dimension lines for this room
+  showDimensions(roomId, floor);
+
+  // Fly camera to room + hide blocking geometry
+  if (window.flyToRoom) {
+    const result = window.flyToRoom(b, y - 0.15);
+    if (result) {
+      setRoomFocus(roomId, floor, result.approachSide);
+    }
+  }
 }
 
 // Re-export for external calls (e.g. after config loads)

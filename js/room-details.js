@@ -30,6 +30,7 @@ export async function initRoomDetails(configOverride) {
   buildWindows(group);
   buildDoorFrames(group);
   buildBaseboards(group);
+  buildProtrusions(group);
 
   state.scene.add(group);
 }
@@ -384,6 +385,35 @@ function addBaseboard(group, mat, from, to, wallPos, side, h, d) {
   }
 
   group.add(mesh);
+}
+
+// ─── PROTRUSIONS (beams, bumps, indentations) ───
+
+function buildProtrusions(parent) {
+  const protrusions = config.walls?.protrusions;
+  if (!protrusions?.length) return;
+
+  const group = new THREE.Group();
+  group.name = 'Protrusions';
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xF5F5F0, roughness: 0.95, metalness: 0.0
+  });
+
+  for (const p of protrusions) {
+    const b = p.bounds;
+    const w = b.maxX - b.minX;
+    const d = b.maxZ - b.minZ;
+    const fromY = p.fromY ?? 0;
+    const cx = (b.minX + b.maxX) / 2;
+    const cz = (b.minZ + b.maxZ) / 2;
+    const h = p.height ?? (ceilAt(cx, cz) - fromY);
+    const cy = fromY + h / 2;
+
+    addBox(group, mat, cx, cy, cz, w, h, d, true);
+  }
+
+  parent.add(group);
 }
 
 // ─── HELPERS ───

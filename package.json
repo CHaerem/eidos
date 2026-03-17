@@ -1,0 +1,24 @@
+{
+  "name": "golfsim",
+  "version": "1.0.0",
+  "description": "> *Eidos* (gresk: εἶδος) — form, idé. Den ideelle formen av noe, sett med sinnets øye.",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CHaerem/eidos.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/CHaerem/eidos/issues"
+  },
+  "homepage": "https://github.com/CHaerem/eidos#readme",
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}

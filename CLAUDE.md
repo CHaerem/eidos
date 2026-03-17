@@ -15,24 +15,30 @@ Eidos skal bli et rammeverk der nye boliger kan modelleres ved a:
 **Arkitekturprinsipp**: All romgeometri skal vaere config-drevet. Ingen hardkoding av romstorrelser, veggposisjoner eller takgeometri i JS-kode. Nye moduler skal folge dette prinsippet.
 
 ## Teknisk stack
-- Modulaer ES-modul-arkitektur (`js/` med 9 moduler + entry point)
+- Modulaer ES-modul-arkitektur (`js/` med 13 moduler + entry point)
 - Three.js v0.162.0 via CDN importmap (native ES modules, ingen bundler)
 - OBJ-modell lastes med OBJLoader — skala og posisjon fra config
 - Leilighetskonfig i `config/apartment.json` — komplett boligbeskrivelse
 - Python HTTP-server pa port 8765 for preview (konfigurert i `.claude/launch.json`)
+- Vitest for enhetstester (`npm test`)
 - Norsk UI
 
 ## Modulstruktur
 | Modul | Ansvar |
 |-------|--------|
 | `js/state.js` | Delt mutable state (scene, kamera, mobler, simulator, apartmentConfig) |
-| `js/scene.js` | Three.js setup, lys, kontroller, visninger (config-drevet), animate-loop |
+| `js/scene.js` | Three.js setup, lys, kontroller, visninger (config-drevet), animate-loop, flyToRoom |
 | `js/room.js` | OBJ-lasting, takzoner (`ceilAt(x,z)` per-zone), CEIL + BOUNDS |
-| `js/room-details.js` | Vinduer, dorkarmer, fotlister (config-drevet) |
+| `js/room-details.js` | Vinduer, dorkarmer, fotlister, veggprotrusjoner (config-drevet) |
 | `js/furniture.js` | FURNITURE_CATALOG + custom builders (Besta, Soderhamn, Cana) |
-| `js/interaction.js` | Drag-and-drop, raycasting, seleksjon, snap-to-wall (BOUNDS), tastatur |
+| `js/interaction.js` | Drag-and-drop, raycasting, seleksjon, snap-to-wall (BOUNDS), tastatur, undo/redo-snarvei |
 | `js/simulator.js` | Svingformler, simulator-gruppe, klaringsberegninger (BOUNDS) |
-| `js/ui.js` | Sidebar-rendering, seksjon-toggle, dynamiske slider-ranges |
+| `js/solver.js` | Tikhonov-regularisert least-squares solver for veggposisjoner og takhøyder |
+| `js/dimensions.js` | Interaktive dimensjonslinjer i 3D-viewporten, klikk-til-edit |
+| `js/room-focus.js` | Dynamisk skjuling av geometri ved rom-navigasjon (vegg/gulv/tak) |
+| `js/history.js` | Undo/redo med config-snapshot stack (maks 50 nivåer) |
+| `js/eidos-api.js` | Browser API for AI-assistert modellmanipulering (`window.eidos.*`) |
+| `js/ui.js` | Sidebar-rendering, kalibreringspanel, synlighets-toggles (etasjer/vegger per rom) |
 | `js/main.js` | Entry point — kaller init i rekkefolge |
 
 ## Kjerneabstraksjoner
@@ -68,6 +74,46 @@ Config for 6. etasje / overetasje. Bygger gulvplan, vegger, rekkverk og trapp:
 
 ### CEIL (room.js)
 Legacy takkonstanter, populert automatisk fra zones. Brukes av simulator (hemskantZ) og room-details (windowZ).
+
+### Solver (solver.js)
+Tikhonov-regularisert least-squares solver som finner optimale veggposisjoner og takhøyder fra målinger.
+- **13 ukjente**: 5 veggposisjoner + 5 veggtykkelser + floorY + slopeStart + slopeEnd
+- **Adjacency**: `buildAdjacency()` mapper rom-dimensjoner til vegg/yttervegg-grenser
+- **Priors**: wallPositionWeight (0.1), wallThicknessWeight (10.0), heightWeight (1.0)
+- **Koblede høyder**: Alle flat-rom deler `floorY` (= upperFloor.floorY), slope-rom har `slopeStart`/`slopeEnd`
+- `applyToConfig()` oppdaterer config etter solving (vegger, rom-bounds, takhøyder)
+- Measurements format: `{ room: "garderobe", dim: "width|depth|height|height_low|height_high", value: 2.20 }`
+
+### Dimensjonslinjer (dimensions.js)
+Interaktive arkitektoniske mållinjer i 3D-viewporten:
+- `showDimensions(roomId, floor)` — viser bredde/dybde/høyde-linjer for valgt rom
+- Blå labels = estimert verdi, grønne = målt verdi
+- Dobbeltklikk på label åpner floating input → lagrer → solver → rebuild
+- THREE.Sprite + CanvasTexture for labels, THREE.Line med depthTest:false for linjer
+
+### Room Focus (room-focus.js)
+Dynamisk skjuling av blokkerende geometri når kameraet flyr til et rom:
+- 5. etasje-rom: skjuler `UpperFloor`-gruppen (etasjegulvet over)
+- 6. etasje-rom: skjuler `Ceiling`-gruppen (taket)
+- Skjuler ExternalWalls-meshes på kamerasiden (approach-retning)
+- Gjenopprettes ved nytt rom-valg eller kameravisning-bytte
+
+### History (history.js)
+Undo/redo for config-endringer via deep-copy snapshots:
+- `pushSnapshot()` kalles før hver brukerhandling (kalibrering, dimensjonsredigering, API-kall)
+- `undo(rebuildFn)` / `redo(rebuildFn)` — bytter config og rebuilder
+- Maks 50 nivåer, nye handlinger invaliderer redo-stacken
+- Tastatursnarvei: ⌘Z (angre), ⌘⇧Z (gjør om)
+
+### Eidos API (eidos-api.js)
+Browser-API eksponert som `window.eidos.*` for AI-assistert modellmanipulering:
+- `getConfig(path)` / `updateConfig(path, value)` — les/skriv config
+- `rebuild()` — full geometri-rebuild fra config
+- `addMeasurement()` / `removeMeasurement()` / `solve()` — kalibrering
+- `undo()` / `redo()` — historikk
+- `showDimensions()` / `hideDimensions()` — dimensjonslinjer
+- `setRoomFocus()` / `clearRoomFocus()` — geometri-skjuling
+- `getRooms()` / `getWindows()` / `getWalls()` / `getBounds()` — spørringer
 
 ## apartment.json skjema
 ```json
@@ -125,7 +171,18 @@ Legacy takkonstanter, populert automatisk fra zones. Brukes av simulator (hemska
     "interior": [
       { "id": "A", "axis": "x|z", "pos": 0, "from": 0, "to": 0 }
     ],
-    "column": { "minX": 0, "maxX": 0, "minZ": 0, "maxZ": 0 }
+    "column": { "minX": 0, "maxX": 0, "minZ": 0, "maxZ": 0 },
+    "protrusions": [
+      { "id": "P1", "bounds": { "minX": 0, "maxX": 0, "minZ": 0, "maxZ": 0 }, "height": 0, "fromY": 0, "note": "" }
+    ]
+  },
+  "terrace": {
+    "floorY": 2.70,
+    "bounds": { "minX": 0, "maxX": 0, "minZ": 0, "maxZ": 0 },
+    "walls": [
+      { "id": "t1", "type": "railing", "axis": "x|z", "pos": 0, "fromX|fromZ": 0, "toX|toZ": 0, "railHeight": 1.0 }
+    ],
+    "steps": { "count": 2, "riseTotal": 0.45, "bounds": {} }
   },
   "rooms": [
     { "id": "stue", "name": "Stue", "bounds": {}, "ceilingType": "slope|flat", "note": "" }
@@ -158,6 +215,15 @@ Legacy takkonstanter, populert automatisk fra zones. Brukes av simulator (hemska
 | UI slider-ranges | ✅ Beregnet fra BOUNDS | ui.js |
 | Simulator retning/grenser | ✅ BOUNDS + config | simulator.js |
 | OBJ clipping (overetasje) | ✅ Auto fra upperFloor.floorY | room.js |
+| Kalibrering (solver) | ✅ Tikhonov least-squares | solver.js |
+| Dimensjonslinjer (3D) | ✅ Interaktive, klikk-til-edit | dimensions.js |
+| Veggprotrusjoner | ✅ Config (`walls.protrusions`) | room-details.js |
+| Terrasse | ✅ Config (`terrace`) | room.js |
+| Geometri-skjuling | ✅ Auto per rom-fokus | room-focus.js |
+| Synlighets-toggles | ✅ Etasjer + vegger per rom | ui.js |
+| Undo/redo | ✅ Config-snapshot stack | history.js |
+| AI-API | ✅ window.eidos.* | eidos-api.js |
+| MCP-server | ✅ Config CRUD, solver, element-mgmt | mcp_server.py |
 
 ## OBJ-koordinatsystem
 Etter skalering og Y-shift (fra config):
@@ -240,6 +306,15 @@ Denne pipelinen gjores na manuelt med Claude, men malet er:
 - Nye moduler skal vaere config-drevne fra start
 - OBJ mesh-navn (WholeFloor, ExternalWalls, etc.) brukes for materialvalg
 - `BOUNDS` for romgrenser, `CEIL` kun for loft-spesifikk takinfo
+
+## Tester
+```bash
+npm test          # Kjor alle tester (vitest)
+npx vitest        # Watch-modus
+```
+Testfiler i `tests/`:
+- `history.test.js` — Undo/redo snapshot-logikk (10 tester)
+- `solver.test.js` — Constraint solver, adjacency, height unknowns (10 tester)
 
 ## Kjore lokalt
 ```bash

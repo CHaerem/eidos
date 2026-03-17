@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { state } from './state.js';
 import { FURNITURE_CATALOG, createFurnitureMesh } from './furniture.js';
 import { BOUNDS } from './room.js';
-import { renderFurnitureList } from './ui.js';
+import { renderFurnitureList, populateCalibration } from './ui.js';
+import { undo, redo } from './history.js';
+import { hideDimensions } from './dimensions.js';
 
 // ─── DRAG & DROP STATE ───
 const raycaster = new THREE.Raycaster();
@@ -202,6 +204,26 @@ export function initInteraction() {
 
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
+    // Undo/redo — works even when input is focused
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      undo(async () => {
+        await window.eidos.rebuild();
+        populateCalibration();
+        hideDimensions();
+      });
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) {
+      e.preventDefault();
+      redo(async () => {
+        await window.eidos.rebuild();
+        populateCalibration();
+        hideDimensions();
+      });
+      return;
+    }
+
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
     if (e.key === 'r' || e.key === 'R') {
       if (state.selectedItemId !== null) {

@@ -65,7 +65,7 @@ export function ceilAt(x, z) {
 // ─── CLEAR ROOM GEOMETRY ───
 export function clearRoomGeometry() {
   const { scene } = state;
-  ['Ceiling', 'UpperFloor'].forEach(name => {
+  ['Ceiling', 'UpperFloor', 'Staircase', 'Terrace'].forEach(name => {
     const obj = scene.getObjectByName(name);
     if (obj) { scene.remove(obj); }
   });
@@ -158,6 +158,9 @@ export async function initRoom(configOverride) {
 
   // Build upper floor (6. etasje) if defined
   buildUpperFloor();
+
+  // Build rooftop terrace if defined
+  buildTerrace();
 
   // Load OBJ if specified
   if (config.objPath) {
@@ -323,18 +326,22 @@ function buildUpperFloor() {
     }
   }
 
-  // Build staircase geometry
+  // Build staircase geometry (separate group — belongs to ground floor visually)
   if (uf.stairwell) {
+    const stairGroup = new THREE.Group();
+    stairGroup.name = 'Staircase';
     if (uf.stairwell.type === 'quarter-turn') {
-      _buildQuarterTurnStaircase(floorGroup, uf.stairwell, floorY);
+      _buildQuarterTurnStaircase(stairGroup, uf.stairwell, floorY);
     } else {
-      _buildStaircase(floorGroup, uf.stairwell, floorY);
+      _buildStaircase(stairGroup, uf.stairwell, floorY);
     }
+    stairGroup.traverse(child => { if (child.isMesh) child.castShadow = false; });
+    scene.add(stairGroup);
   }
 
   // Build exterior upper walls (gable walls from OBJ top to roof line)
   if (roofZone && config.walls && config.walls.exterior) {
-    _buildExteriorUpperWalls(floorGroup, config.walls.exterior, floorY, roofZone);
+    _buildExteriorUpperWalls(floorGroup, config.walls.exterior, floorY, roofZone, config);
   }
 
   // Disable shadow casting on staircase elements to avoid confusing dark lines
@@ -343,6 +350,135 @@ function buildUpperFloor() {
   });
 
   scene.add(floorGroup);
+}
+
+// ─── TERRACE ───
+
+function buildTerrace() {
+  const config = state.apartmentConfig;
+  if (!config || !config.terrace) return;
+
+  const tc = config.terrace;
+  const floorY = tc.floorY || 2.70;
+  const b = tc.bounds;
+  const { scene } = state;
+  const terraceGroup = new THREE.Group();
+  terraceGroup.name = 'Terrace';
+
+  // Materials
+  const floorMat = new THREE.MeshStandardMaterial({
+    color: 0xC0B8A8, side: THREE.DoubleSide,
+    roughness: 0.8, metalness: 0.0
+  });
+  const railMat = new THREE.MeshStandardMaterial({
+    color: 0xF0F0F0, side: THREE.DoubleSide,
+    roughness: 0.5, metalness: 0.1
+  });
+
+  // Floor plane
+  const floorGeo = new THREE.BufferGeometry();
+  floorGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+    b.minX, floorY, b.minZ,  b.maxX, floorY, b.minZ,  b.maxX, floorY, b.maxZ,
+    b.minX, floorY, b.minZ,  b.maxX, floorY, b.maxZ,  b.minX, floorY, b.maxZ,
+  ], 3));
+  floorGeo.computeVertexNormals();
+  const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+  floorMesh.receiveShadow = true;
+  terraceGroup.add(floorMesh);
+
+  // Railings (reuse _buildEdgeWall railing pattern but at terrace floorY)
+  if (tc.walls) {
+    for (const wall of tc.walls) {
+      _buildTerraceRailing(terraceGroup, railMat, wall, floorY);
+    }
+  }
+
+  // Steps from upper floor to terrace
+  if (tc.steps) {
+    const steps = tc.steps;
+    const sb = steps.bounds;
+    const ufFloorY = config.upperFloor ? (config.upperFloor.floorY || 2.25) : 2.25;
+    const risePerStep = steps.riseTotal / steps.count;
+    const depthPerStep = (sb.maxZ - sb.minZ) / steps.count; // positive Z (north toward terrace)
+
+    const stepMat = new THREE.MeshStandardMaterial({
+      color: 0xD4C8B8, roughness: 0.7, metalness: 0.0
+    });
+
+    for (let i = 0; i < steps.count; i++) {
+      const stepY = ufFloorY + risePerStep * (i + 1);
+      const stepZ = sb.minZ + depthPerStep * i;
+      const stepW = sb.maxX - sb.minX;
+      const stepD = depthPerStep;
+      const stepH = risePerStep;
+
+      const geo = new THREE.BoxGeometry(stepW, stepH, stepD);
+      const mesh = new THREE.Mesh(geo, stepMat);
+      mesh.position.set(
+        (sb.minX + sb.maxX) / 2,
+        stepY - stepH / 2,
+        stepZ + depthPerStep / 2
+      );
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      terraceGroup.add(mesh);
+    }
+  }
+
+  scene.add(terraceGroup);
+}
+
+function _buildTerraceRailing(group, mat, wallDef, floorY) {
+  const railHeight = wallDef.railHeight || 1.0;
+  const topY = floorY + railHeight;
+  const postWidth = 0.04;
+  const postDepth = 0.04;
+  const railThick = 0.05;
+  const postSpacing = 0.12;
+  const isZAxis = wallDef.axis === 'z';
+  const pos = wallDef.pos;
+
+  if (isZAxis) {
+    const fromX = wallDef.fromX;
+    const toX = wallDef.toX;
+    const length = toX - fromX;
+    const numPosts = Math.max(2, Math.ceil(length / postSpacing) + 1);
+
+    // Top rail
+    const topGeo = new THREE.BoxGeometry(length, railThick, railThick);
+    const topMesh = new THREE.Mesh(topGeo, mat);
+    topMesh.position.set((fromX + toX) / 2, topY - railThick / 2, pos);
+    group.add(topMesh);
+
+    // Posts
+    for (let i = 0; i < numPosts; i++) {
+      const x = fromX + (length * i / (numPosts - 1));
+      const postGeo = new THREE.BoxGeometry(postWidth, railHeight, postDepth);
+      const postMesh = new THREE.Mesh(postGeo, mat);
+      postMesh.position.set(x, floorY + railHeight / 2, pos);
+      group.add(postMesh);
+    }
+  } else {
+    const fromZ = wallDef.fromZ;
+    const toZ = wallDef.toZ;
+    const length = toZ - fromZ;
+    const numPosts = Math.max(2, Math.ceil(Math.abs(length) / postSpacing) + 1);
+
+    // Top rail
+    const topGeo = new THREE.BoxGeometry(railThick, railThick, Math.abs(length));
+    const topMesh = new THREE.Mesh(topGeo, mat);
+    topMesh.position.set(pos, topY - railThick / 2, (fromZ + toZ) / 2);
+    group.add(topMesh);
+
+    // Posts
+    for (let i = 0; i < numPosts; i++) {
+      const z = fromZ + (length * i / (numPosts - 1));
+      const postGeo = new THREE.BoxGeometry(postDepth, railHeight, postWidth);
+      const postMesh = new THREE.Mesh(postGeo, mat);
+      postMesh.position.set(pos, floorY + railHeight / 2, z);
+      group.add(postMesh);
+    }
+  }
 }
 
 // Build a floor plane with a rectangular cutout for the stairwell
@@ -1053,7 +1189,7 @@ function _buildStaircase(group, stairwell, floorY) {
 }
 
 // Build exterior upper walls — gable/side walls from floor level up to roof line
-function _buildExteriorUpperWalls(group, ext, floorY, roofZone) {
+function _buildExteriorUpperWalls(group, ext, floorY, roofZone, config) {
   const extMat = new THREE.MeshStandardMaterial({
     color: 0x8899AA, side: THREE.DoubleSide,
     transparent: true, opacity: 0.4,
@@ -1103,11 +1239,12 @@ function _buildExteriorUpperWalls(group, ext, floorY, roofZone) {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
     geo.computeVertexNormals();
     const mesh = new THREE.Mesh(geo, extMat);
+    mesh.userData.wallSide = (xPos === minX) ? 'west' : 'east';
     group.add(mesh);
   }
 
-  // ── Back wall (North Z=maxZ) ── rectangular from floorY to roof height
-  if (roofAtBack > floorY) {
+  // ── Back wall (North Z=maxZ) ── skip if terrace exists (open to terrace)
+  if (roofAtBack > floorY && !(config && config.terrace)) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute([
       minX, floorY, maxZ,      maxX, floorY, maxZ,      maxX, roofAtBack, maxZ,
@@ -1115,6 +1252,7 @@ function _buildExteriorUpperWalls(group, ext, floorY, roofZone) {
     ], 3));
     geo.computeVertexNormals();
     const mesh = new THREE.Mesh(geo, extMat);
+    mesh.userData.wallSide = 'north';
     group.add(mesh);
   }
 
@@ -1127,6 +1265,7 @@ function _buildExteriorUpperWalls(group, ext, floorY, roofZone) {
     ], 3));
     geo.computeVertexNormals();
     const mesh = new THREE.Mesh(geo, extMat);
+    mesh.userData.wallSide = 'south';
     group.add(mesh);
   }
 }

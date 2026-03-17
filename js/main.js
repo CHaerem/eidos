@@ -6,6 +6,7 @@ import { initSimulator, updateSimulator } from './simulator.js';
 import { initInteraction } from './interaction.js';
 import { initUI } from './ui.js';
 import { initEidosAPI } from './eidos-api.js';
+import { initDimensionClick } from './dimensions.js';
 
 async function init() {
   initScene();
@@ -21,6 +22,9 @@ async function init() {
 
   // Initialize Eidos API for AI-assisted model manipulation
   initEidosAPI();
+
+  // Enable click-to-edit on dimension labels in 3D viewport
+  initDimensionClick();
 }
 
 init();
