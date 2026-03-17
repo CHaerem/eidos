@@ -169,7 +169,17 @@ function populateCalibration() {
   // Get last solver result for residuals
   const lastResult = state._lastSolverResult || null;
 
-  let html = '';
+  // Progress tracking
+  const totalDims = allRooms.length * 2;
+  const measuredDims = entries.length;
+  const pct = totalDims > 0 ? Math.round(measuredDims / totalDims * 100) : 0;
+
+  let html = `
+    <div class="cal-progress">
+      <div class="cal-progress-bar"><div class="cal-progress-fill" style="width:${pct}%"></div></div>
+      <span class="cal-progress-text">${measuredDims}/${totalDims} mål</span>
+    </div>`;
+
   for (const [floor, rooms] of Object.entries(floors).sort()) {
     html += `<div class="cal-floor-header">${floor}. etasje</div>`;
     for (const room of rooms) {
@@ -185,35 +195,47 @@ function populateCalibration() {
       const resW = lastResult && lastResult.residuals[`${room.id}:width`];
       const resD = lastResult && lastResult.residuals[`${room.id}:depth`];
 
+      // Card state class
+      const cardState = (mW && mD) ? 'measured' : (mW || mD) ? 'partial' : '';
+
       html += `
-        <div class="room-card" data-room="${room.id}" data-floor="${floor}">
-          <div class="room-name">${room.name}<span class="room-floor">${compW} × ${compD}</span></div>
+        <div class="room-card ${cardState}" data-room="${room.id}" data-floor="${floor}">
+          <div class="room-card-header">
+            <span class="room-name">${room.name}</span>
+            <span class="room-computed">${compW} × ${compD}</span>
+          </div>
           <div class="room-dims">
-            <label>Bredde <input type="number" step="0.01" min="0.5" max="10"
-              value="${mW ? mW.value : ''}" placeholder="${compW}"
-              data-room="${room.id}" data-floor="${floor}" data-dim="width"> <span class="unit">m</span>
+            <div class="room-dim-group">
+              <span class="dim-label">B</span>
+              <input type="number" step="0.01" min="0.5" max="10"
+                value="${mW ? mW.value : ''}" placeholder="${compW}"
+                data-room="${room.id}" data-floor="${floor}" data-dim="width">
+              <span class="unit">m</span>
               ${resW != null ? `<span class="residual ${residualClass(resW)}">${(resW * 100).toFixed(1)}cm</span>` : ''}
-            </label>
-            <label>Dybde <input type="number" step="0.01" min="0.5" max="10"
-              value="${mD ? mD.value : ''}" placeholder="${compD}"
-              data-room="${room.id}" data-floor="${floor}" data-dim="depth"> <span class="unit">m</span>
+            </div>
+            <div class="room-dim-group">
+              <span class="dim-label">D</span>
+              <input type="number" step="0.01" min="0.5" max="10"
+                value="${mD ? mD.value : ''}" placeholder="${compD}"
+                data-room="${room.id}" data-floor="${floor}" data-dim="depth">
+              <span class="unit">m</span>
               ${resD != null ? `<span class="residual ${residualClass(resD)}">${(resD * 100).toFixed(1)}cm</span>` : ''}
-            </label>
+            </div>
           </div>
         </div>`;
     }
   }
 
-  // Wall thickness summary
-  if (lastResult && Object.keys(lastResult.wallThicknesses).length > 0) {
-    html += '<div class="cal-floor-header">Veggtykkelser</div><div class="wall-thickness-summary">';
+  // Solver summary
+  if (lastResult && measuredDims > 0) {
+    html += '<div class="solver-summary"><div class="solver-summary-header">Solver</div><div class="wall-thickness-summary">';
     for (const [id, thick] of Object.entries(lastResult.wallThicknesses)) {
       html += `<span class="wall-thick">${id}: ${(thick * 100).toFixed(1)}cm</span>`;
     }
     if (lastResult.rmsResidual > 0) {
-      html += `<span class="rms-residual">RMS: ${(lastResult.rmsResidual * 100).toFixed(1)}cm</span>`;
+      html += `<span class="rms-residual">RMS ${(lastResult.rmsResidual * 100).toFixed(1)}cm</span>`;
     }
-    html += '</div>';
+    html += '</div></div>';
   }
 
   container.innerHTML = html;
