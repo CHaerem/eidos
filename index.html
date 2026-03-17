@@ -129,6 +129,41 @@ button.add-btn{
 }
 button.add-btn:hover{background:rgba(74,158,255,0.15);border-color:rgba(74,158,255,0.35)}
 
+/* ─── Calibration Room Cards ─── */
+.room-card{
+  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
+  border-radius:8px;padding:10px 12px;margin-bottom:6px;
+  transition:border-color 0.2s,background 0.2s;cursor:pointer;
+}
+.room-card:hover{border-color:rgba(255,255,255,0.15)}
+.room-card.active{border-color:rgba(74,158,255,0.5);background:rgba(74,158,255,0.06)}
+.room-card .room-name{font-size:12px;font-weight:600;color:rgba(255,255,255,0.8);margin-bottom:6px}
+.room-card .room-floor{font-size:10px;color:rgba(255,255,255,0.3);font-weight:400;margin-left:6px}
+.room-dims{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px}
+.room-dims label{font-size:11px;color:rgba(255,255,255,0.4);display:flex;align-items:center;gap:4px}
+.room-dims input[type=number]{
+  width:70px;padding:4px 6px;font-size:12px;font-family:monospace;
+  background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+  color:#d8d8d8;border-radius:5px;outline:none;text-align:right;
+  transition:border-color 0.2s;
+}
+.room-dims input[type=number]:focus{border-color:rgba(74,158,255,0.5)}
+.room-dims input[type=number]::-webkit-inner-spin-button{opacity:0.3}
+.room-dims .unit{font-size:11px;color:rgba(255,255,255,0.3)}
+.cal-total{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 10px;margin-top:2px;font-size:11px;
+  color:rgba(255,255,255,0.35);border-top:1px solid rgba(255,255,255,0.05);
+}
+.cal-total .sum{font-family:monospace;color:rgba(255,255,255,0.5)}
+.cal-total .sum.mismatch{color:#fbbf24}
+.cal-floor-header{
+  font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+  color:rgba(255,255,255,0.25);margin:12px 0 6px;padding-bottom:4px;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+}
+.cal-floor-header:first-child{margin-top:0}
+
 /* ─── Keyboard Hints ─── */
 .shortcuts{margin-top:4px}
 .shortcut-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;color:rgba(255,255,255,0.4)}
@@ -213,6 +248,10 @@ button.add-btn:hover{background:rgba(74,158,255,0.15);border-color:rgba(74,158,2
       <div id="apartment-info" class="info-grid">
         <span class="lbl">Laster...</span>
       </div>
+    </div>
+    <div class="panel-section">
+      <h3>Rommål (kalibrering)</h3>
+      <div id="room-calibration"></div>
     </div>
     <div class="panel-section">
       <h3>Hurtigtaster</h3>

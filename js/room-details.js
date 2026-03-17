@@ -147,6 +147,39 @@ function buildDoorFrames(parent) {
   const frameD = 0.10;
 
   for (const door of config.doors) {
+    if (door.type === 'diagonal') {
+      // Diagonal door — rotated frame between two points
+      const dx = door.x2 - door.x1;
+      const dz = door.z2 - door.z1;
+      const length = Math.sqrt(dx * dx + dz * dz);
+      const angle = Math.atan2(dx, dz); // rotation around Y
+      const cx = (door.x1 + door.x2) / 2;
+      const cz = (door.z1 + door.z2) / 2;
+
+      // Left jamb
+      const jamb1 = new THREE.Mesh(new THREE.BoxGeometry(frameD, door.height, frameW), frameMat);
+      jamb1.position.set(door.x1, door.height / 2, door.z1);
+      jamb1.rotation.y = angle;
+      jamb1.castShadow = true; jamb1.receiveShadow = true;
+      doorGroup.add(jamb1);
+
+      // Right jamb
+      const jamb2 = new THREE.Mesh(new THREE.BoxGeometry(frameD, door.height, frameW), frameMat);
+      jamb2.position.set(door.x2, door.height / 2, door.z2);
+      jamb2.rotation.y = angle;
+      jamb2.castShadow = true; jamb2.receiveShadow = true;
+      doorGroup.add(jamb2);
+
+      // Header
+      const header = new THREE.Mesh(new THREE.BoxGeometry(frameD, frameW, length), frameMat);
+      header.position.set(cx, door.height - frameW / 2, cz);
+      header.rotation.y = angle;
+      header.castShadow = true; header.receiveShadow = true;
+      doorGroup.add(header);
+
+      continue;
+    }
+
     const opening = door.to - door.from;
     const mid = (door.from + door.to) / 2;
 
@@ -233,13 +266,13 @@ function buildBaseboards(parent) {
   // North wall (back wall) — full length
   addBaseboard(bbGroup, mat, ext.minX, ext.maxX, ext.maxZ, 'north', h, d);
 
-  // West wall (left) — skip entrance door
-  const westSegments = _splitForExteriorDoors(ext.minZ, ext.maxZ, 'west', config.doors);
-  for (const seg of westSegments) {
+  // East wall (X=minX, real-world east) — skip entrance door
+  const eastSegments = _splitForExteriorDoors(ext.minZ, ext.maxZ, 'east', config.doors);
+  for (const seg of eastSegments) {
     addBaseboard(bbGroup, mat, seg[0], seg[1], ext.minX, 'west', h, d);
   }
 
-  // East wall (right)
+  // West wall (X=maxX, real-world west)
   addBaseboard(bbGroup, mat, ext.minZ, ext.maxZ, ext.maxX, 'east', h, d);
 
   // Interior walls — baseboards on both sides, skipping door openings

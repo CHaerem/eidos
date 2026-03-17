@@ -7,18 +7,18 @@
     "defaultHeight": 2.25,
     "zones": [
       {
-        "id": "under-kontor",
+        "id": "under-soverom",
         "type": "flat",
         "bounds": { "minX": -4.38, "maxX": -0.77, "minZ": -2.50, "maxZ": 2.50 },
         "height": 2.25,
-        "note": "5.etg: flat tak under kontor (6.etg gulv) — soverom, entre, bad"
+        "note": "5.etg: flat tak under soverom (6.etg gulv) — garderobe, entre, bad"
       },
       {
         "id": "under-hems",
         "type": "flat",
         "bounds": { "minX": -0.77, "maxX": 4.38, "minZ": 0.60, "maxZ": 2.50 },
         "height": 2.25,
-        "note": "5.etg: flat tak under hems (6.etg gulv) — kjokken, spisestue"
+        "note": "5.etg: flat tak under hems (6.etg gulv) — kjokken"
       },
       {
         "id": "roof",
@@ -36,9 +36,9 @@
     "floorY": 2.25,
     "areas": [
       {
-        "id": "kontor-floor",
+        "id": "soverom-floor",
         "bounds": { "minX": -4.38, "maxX": -0.77, "minZ": -2.50, "maxZ": 2.50 },
-        "note": "Kontorgulv — hele venstre side"
+        "note": "Soveromsgulv (tidl. kontor) — hele venstre side"
       },
       {
         "id": "hems-floor",
@@ -94,13 +94,13 @@
       "note": "Kvartsvingtrapp — lang nedre lop ostover, kvartssving, kort ovre lop nordover inn pa hems"
     },
     "walls": [
-      { "id": "kontor-edge-x", "type": "solid", "axis": "x", "pos": -0.77, "fromZ": -2.50, "toZ": 2.50, "note": "Kontor/soverom skillevegg — hel vegg" },
+      { "id": "soverom-edge-x", "type": "solid", "axis": "x", "pos": -0.77, "fromZ": -2.50, "toZ": 2.50, "note": "Soverom/hems skillevegg — hel vegg" },
       { "id": "hems-edge-west", "type": "railing", "axis": "z", "pos": 0.60, "fromX": -0.77, "toX": 0.20, "railHeight": 1.0, "note": "Hemskant vest for trappeapning" },
       { "id": "hems-edge-east", "type": "railing", "axis": "z", "pos": 0.60, "fromX": 1.15, "toX": 4.38, "railHeight": 1.0, "note": "Hemskant ost for trappeapning" },
       { "id": "stairwell-east", "type": "railing", "axis": "x", "pos": 1.15, "fromZ": 0.60, "toZ": 1.15, "railHeight": 1.0, "note": "Ostside trappeapning" }
     ],
     "rooms": [
-      { "id": "kontor", "name": "Kontor", "bounds": { "minX": -4.38, "maxX": -0.77, "minZ": -2.50, "maxZ": 2.50 } },
+      { "id": "soverom-6", "name": "Soverom", "bounds": { "minX": -4.38, "maxX": -0.77, "minZ": -2.50, "maxZ": 2.50 } },
       { "id": "hems", "name": "Hems", "bounds": { "minX": -0.77, "maxX": 4.38, "minZ": 0.60, "maxZ": 2.50 } }
     ]
   },
@@ -116,11 +116,11 @@
       "thickness": 0.08
     },
     "interior": [
-      { "id": "A", "axis": "x", "pos": -2.769, "from": 1.341, "to": 2.502 },
-      { "id": "B", "axis": "x", "pos": -1.946, "from": -2.500, "to": -0.471 },
-      { "id": "C", "axis": "x", "pos": 0.718, "from": 0.821, "to": 2.499 },
-      { "id": "D", "axis": "z", "pos": -0.471, "from": -4.378, "to": -1.946 },
-      { "id": "E", "axis": "z", "pos": 0.821, "from": -1.993, "to": 0.718 }
+      { "id": "A", "axis": "x", "pos": -2.08, "from": -2.50, "to": -0.54, "note": "Garderobe vestvegg — skiller garderobe fra stue" },
+      { "id": "B", "axis": "z", "pos": -0.54, "from": -4.38, "to": -2.08, "note": "Garderobe/entre skillevegg" },
+      { "id": "C", "axis": "x", "pos": -2.92, "from": 1.27, "to": 2.50, "note": "Bad ostvegg — forkortet for diagonal dor" },
+      { "id": "D", "axis": "z", "pos": 0.70, "from": -2.35, "to": 0.49, "note": "Bad sorvegg — forkortet for diagonal dor" },
+      { "id": "E", "axis": "x", "pos": 0.49, "from": 0.70, "to": 2.50, "note": "Bad/kjokken skillevegg" }
     ],
     "column": { "minX": 0.310, "maxX": 0.379, "minZ": -0.222, "maxZ": 0.491 }
   },
@@ -131,8 +131,9 @@
     { "id": "W4", "wall": "south", "x1": 2.902, "x2": 4.084, "sillHeight": 1.00, "topHeight": 2.20 }
   ],
   "doors": [
-    { "id": "D1", "wall": "D", "pos": -0.471, "axis": "z", "from": -3.606, "to": -2.807, "height": 2.00, "note": "Dor mellom entre og soverom" },
-    { "id": "D2", "wall": "west", "pos": -4.38, "axis": "x", "from": 1.065, "to": 1.866, "height": 2.00, "note": "Inngangsdor (hovedinngang)" }
+    { "id": "D1", "wall": "B", "pos": -0.54, "axis": "z", "from": -3.60, "to": -2.80, "height": 2.00, "note": "Dor mellom garderobe og entre" },
+    { "id": "D2", "wall": "east", "pos": -4.38, "axis": "x", "from": 1.065, "to": 1.866, "height": 2.00, "note": "Inngangsdor (hovedinngang, ostvegg)" },
+    { "id": "D3", "type": "diagonal", "x1": -2.92, "z1": 1.27, "x2": -2.35, "z2": 0.70, "height": 2.00, "note": "Dor til bad — diagonal over SE-hjornet" }
   ],
   "baseboard": {
     "height": 0.08,
@@ -141,52 +142,44 @@
   },
   "rooms": [
     {
-      "id": "soverom",
-      "name": "Soverom",
+      "id": "garderobe",
+      "name": "Garderobe",
       "floor": 5,
-      "bounds": { "minX": -4.38, "maxX": -1.946, "minZ": -2.50, "maxZ": -0.471 },
+      "bounds": { "minX": -4.38, "maxX": -2.08, "minZ": -2.50, "maxZ": -0.54 },
       "ceilingType": "flat",
-      "note": "Under kontor (6. etg). 2.30m x 1.96m"
+      "note": "Sor-ost hjorne. 2.30m x 1.96m. Under soverom (6. etg)"
     },
     {
       "id": "entre",
       "name": "Entre",
       "floor": 5,
-      "bounds": { "minX": -4.38, "maxX": -1.946, "minZ": -0.471, "maxZ": 0.821 },
+      "bounds": { "minX": -4.38, "maxX": -2.92, "minZ": -0.54, "maxZ": 2.50 },
       "ceilingType": "flat",
-      "note": "Under kontor (6. etg). Mellom soverom og bad"
+      "note": "Ostvegg-stripe. 1.46m x 3.04m. Inngangsdor pa ostvegg"
     },
     {
       "id": "bad",
       "name": "Bad",
       "floor": 5,
-      "bounds": { "minX": -4.38, "maxX": -1.993, "minZ": 0.821, "maxZ": 2.50 },
+      "bounds": { "minX": -2.92, "maxX": 0.49, "minZ": 0.70, "maxZ": 2.50 },
       "ceilingType": "flat",
-      "note": "Under kontor (6. etg). Slett himling"
+      "note": "Midt pa nordveggen, litt mot ost. 3.41m x 1.80m"
     },
     {
       "id": "stue",
       "name": "Stue",
       "floor": 5,
-      "bounds": { "minX": -0.77, "maxX": 4.38, "minZ": -2.50, "maxZ": 0.821 },
+      "bounds": { "minX": -2.08, "maxX": 4.38, "minZ": -2.50, "maxZ": 0.70 },
       "ceilingType": "slope",
-      "note": "Apent ned til taket. Skratak fra 2.21m (vinduer) opp til takrygg"
+      "note": "Apent ned til taket. Skratak. Inkluderer tidligere spisestue-omrade"
     },
     {
       "id": "kjokken",
       "name": "Kjokken",
       "floor": 5,
-      "bounds": { "minX": 0.718, "maxX": 4.38, "minZ": 0.821, "maxZ": 2.50 },
+      "bounds": { "minX": 0.49, "maxX": 4.38, "minZ": 0.70, "maxZ": 2.50 },
       "ceilingType": "flat",
-      "note": "Under hemsen (6. etg gulv)"
-    },
-    {
-      "id": "spisestue",
-      "name": "Spisestue",
-      "floor": 5,
-      "bounds": { "minX": -0.77, "maxX": 0.718, "minZ": 0.821, "maxZ": 2.50 },
-      "ceilingType": "flat",
-      "note": "Under hemsen. Apent mot stue og kjokken"
+      "note": "Under hemsen (6. etg gulv). Apent mot stue"
     }
   ],
   "simulator": {
