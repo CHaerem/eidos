@@ -192,12 +192,12 @@ function populateCalibration() {
             <label>Bredde <input type="number" step="0.01" min="0.5" max="10"
               value="${mW ? mW.value : ''}" placeholder="${compW}"
               data-room="${room.id}" data-floor="${floor}" data-dim="width"> <span class="unit">m</span>
-              ${resW !== undefined ? `<span class="residual ${residualClass(resW)}">${(resW * 100).toFixed(1)}cm</span>` : ''}
+              ${resW != null ? `<span class="residual ${residualClass(resW)}">${(resW * 100).toFixed(1)}cm</span>` : ''}
             </label>
             <label>Dybde <input type="number" step="0.01" min="0.5" max="10"
               value="${mD ? mD.value : ''}" placeholder="${compD}"
               data-room="${room.id}" data-floor="${floor}" data-dim="depth"> <span class="unit">m</span>
-              ${resD !== undefined ? `<span class="residual ${residualClass(resD)}">${(resD * 100).toFixed(1)}cm</span>` : ''}
+              ${resD != null ? `<span class="residual ${residualClass(resD)}">${(resD * 100).toFixed(1)}cm</span>` : ''}
             </label>
           </div>
         </div>`;
