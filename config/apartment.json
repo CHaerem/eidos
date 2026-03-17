@@ -182,6 +182,14 @@
       "note": "Under hemsen (6. etg gulv). Apent mot stue"
     }
   ],
+  "measurements": {
+    "defaultWallThickness": 0.08,
+    "priors": {
+      "wallPositionWeight": 0.1,
+      "wallThicknessWeight": 10.0
+    },
+    "entries": []
+  },
   "simulator": {
     "hitDirection": "negZ",
     "screenDistance": 0.3,

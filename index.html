@@ -164,6 +164,19 @@ button.add-btn:hover{background:rgba(74,158,255,0.15);border-color:rgba(74,158,2
 }
 .cal-floor-header:first-child{margin-top:0}
 
+/* ─── Solver Residuals & Wall Thickness ─── */
+.residual{font-size:9px;font-family:monospace;margin-left:2px;padding:1px 4px;border-radius:3px}
+.res-good{color:#4ade80;background:rgba(74,222,128,0.1)}
+.res-warn{color:#fbbf24;background:rgba(251,191,36,0.1)}
+.res-bad{color:#f87171;background:rgba(248,113,113,0.1)}
+.wall-thickness-summary{
+  display:flex;flex-wrap:wrap;gap:6px 10px;padding:8px 10px;
+  font-size:11px;font-family:monospace;color:rgba(255,255,255,0.5);
+}
+.wall-thick{background:rgba(255,255,255,0.04);padding:2px 6px;border-radius:4px}
+.rms-residual{color:rgba(255,255,255,0.3);font-style:italic}
+.room-dims input[type=number]::placeholder{color:rgba(255,255,255,0.2);font-style:italic}
+
 /* ─── Keyboard Hints ─── */
 .shortcuts{margin-top:4px}
 .shortcut-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;color:rgba(255,255,255,0.4)}

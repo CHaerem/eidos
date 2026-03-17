@@ -6,6 +6,8 @@ import { state } from './state.js';
 import { initRoom, clearRoomGeometry, BOUNDS, ceilAt } from './room.js';
 import { initRoomDetails, clearRoomDetails } from './room-details.js';
 import { updateSimulator } from './simulator.js';
+import { solveConstraints, applyToConfig, buildAdjacency } from './solver.js';
+import { runSolver } from './ui.js';
 
 // ─── JSON path helpers ───
 
@@ -117,6 +119,52 @@ const eidos = {
       runs: sw.runs,
       bounds: sw.bounds,
     };
+  },
+
+  // ─── Measurement / Solver API ───
+
+  addMeasurement(room, dim, value) {
+    const cfg = state.apartmentConfig;
+    if (!cfg.measurements) {
+      cfg.measurements = { defaultWallThickness: 0.08, priors: { wallPositionWeight: 0.1, wallThicknessWeight: 10.0 }, entries: [] };
+    }
+    const entries = cfg.measurements.entries;
+    const idx = entries.findIndex(e => e.room === room && e.dim === dim);
+    if (idx >= 0) {
+      entries[idx].value = value;
+    } else {
+      entries.push({ room, dim, value });
+    }
+    runSolver();
+    return this.getSolverResult();
+  },
+
+  removeMeasurement(room, dim) {
+    const cfg = state.apartmentConfig;
+    if (!cfg.measurements) return;
+    const entries = cfg.measurements.entries;
+    const idx = entries.findIndex(e => e.room === room && e.dim === dim);
+    if (idx >= 0) entries.splice(idx, 1);
+    runSolver();
+    return this.getSolverResult();
+  },
+
+  getMeasurements() {
+    return state.apartmentConfig?.measurements?.entries || [];
+  },
+
+  solve() {
+    runSolver();
+    return this.getSolverResult();
+  },
+
+  getSolverResult() {
+    return state._lastSolverResult || null;
+  },
+
+  getAdjacency() {
+    const cfg = state.apartmentConfig;
+    return buildAdjacency(cfg.rooms || [], cfg.walls?.interior || [], cfg.walls?.exterior || {});
   },
 
   // ─── Furniture helpers ───
