@@ -12,10 +12,13 @@ import { pushSnapshot } from './history.js';
 let dimGroup = null;
 let activeRoom = null;   // { roomId, floor }
 let dimSprites = [];     // { sprite, dim, roomId, floor, computedValue }
-let guideGroups = [];    // { group, axis, dim, roomId, floor, bounds, floorY, p1, p2 }
+let guideGroups = [];    // { group, axis, dim, roomId, floor, bounds, floorY, p1, p2, highlightMeshes, hitBox }
+let hitBoxes = [];       // flat array of all hitBox meshes (for fast raycast)
+let pulseObjects = [];   // flat array of meshes with pulse animation
 let floatingInput = null;
 let clickListenerAdded = false;
 let dragState = null;    // { guide, startPos, dragPlane }
+let isDragging = false;
 const clock = new THREE.Clock();
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -183,8 +186,12 @@ export function hideDimensions() {
   }
   dimSprites = [];
   guideGroups = [];
+  hitBoxes = [];
+  pulseObjects = [];
   activeRoom = null;
   dragState = null;
+  isDragging = false;
+  hoveredGuide = null;
 }
 
 export function initDimensionClick() {
@@ -217,15 +224,15 @@ function updateMouseNDC(event) {
 }
 
 function hitGuide(event) {
+  if (hitBoxes.length === 0) return null;
   updateMouseNDC(event);
   raycaster.setFromCamera(mouse, state.camera);
 
-  for (const g of guideGroups) {
-    if (!g.group.userData.draggable) continue;
-    const hits = raycaster.intersectObjects(g.group.children, true);
-    if (hits.length > 0) return g;
-  }
-  return null;
+  // Raycast only against hitBox meshes (1 per guide) instead of all children
+  const hits = raycaster.intersectObjects(hitBoxes, false);
+  if (hits.length === 0) return null;
+  const idx = hits[0].object.userData.guideIndex;
+  return guideGroups[idx] || null;
 }
 
 function onGuidePointerDown(event) {
@@ -242,40 +249,50 @@ function onGuidePointerDown(event) {
   raycaster.ray.intersectPlane(dragPlane, startPt);
 
   dragState = { guide, dragPlane, startPt, didDrag: false };
+  isDragging = true;
+  setGuideVisualState(guide, 'dragging');
 
   // CRITICAL: Stop event from reaching OrbitControls entirely
-  // This prevents OrbitControls from calling setPointerCapture
   state.controls.enabled = false;
   state.renderer.domElement.style.cursor = 'grabbing';
   event.preventDefault();
-  event.stopImmediatePropagation(); // blocks ALL other listeners on this element
+  event.stopImmediatePropagation();
 }
 
 let hoveredGuide = null;
+
+// ─── VISUAL STATE: idle / hover / dragging ───
+
+const HOVER_BRIGHTEN = 0x333333;  // added to base color
+const SNAP_THRESHOLD = 0.08;      // 8cm snap to midpoint
+
+function setGuideVisualState(guide, visualState) {
+  if (!guide?.highlightMeshes) return;
+  for (const m of guide.highlightMeshes) {
+    const orig = m.userData.originalColor;
+    if (!orig) continue;
+    if (visualState === 'idle') {
+      m.material.color.copy(orig);
+      guide.group.scale.setScalar(1.0);
+    } else if (visualState === 'hover') {
+      m.material.color.copy(orig).offsetHSL(0, 0, 0.15); // brighter
+      guide.group.scale.setScalar(1.15);
+    } else if (visualState === 'dragging') {
+      m.material.color.copy(orig).offsetHSL(0, -0.1, 0.25); // even brighter
+      guide.group.scale.setScalar(1.2);
+    }
+  }
+}
 
 function onGuideDrag(event) {
   if (!dragState) {
     // Only handle hover when moving over the canvas
     if (event.target !== state.renderer?.domElement) return;
-    // Hover cursor + highlight
+    // Hover cursor + highlight (using cached highlightMeshes)
     const guide = hitGuide(event);
     if (guide !== hoveredGuide) {
-      // Unhighlight previous
-      if (hoveredGuide) {
-        hoveredGuide.group.traverse(c => {
-          if (c.isMesh && c.material && !c.userData.isHitArea) {
-            c.material.emissive?.setHex(0x000000);
-          }
-        });
-      }
-      // Highlight new
-      if (guide) {
-        guide.group.traverse(c => {
-          if (c.isMesh && c.material && !c.userData.isHitArea) {
-            c.material.emissive?.setHex(0x333333);
-          }
-        });
-      }
+      if (hoveredGuide) setGuideVisualState(hoveredGuide, 'idle');
+      if (guide) setGuideVisualState(guide, 'hover');
       hoveredGuide = guide;
     }
     state.renderer.domElement.style.cursor = guide ? 'grab' : '';
@@ -295,30 +312,33 @@ function onGuideDrag(event) {
 
   dragState.didDrag = true;
 
-  // Compute delta along the constrained axis
+  // Compute delta along the constrained axis with midpoint snap
   if (guide.axis === 'x') {
-    // Width line: drag along Z, clamped to room bounds
+    const midZ = (b.minZ + b.maxZ) / 2;
     let newZ = Math.max(b.minZ + 0.15, Math.min(b.maxZ - 0.15, pt.z));
-    const delta = newZ - guide.p1.z;
-    guide.group.position.z = delta;
+    if (Math.abs(newZ - midZ) < SNAP_THRESHOLD) newZ = midZ; // snap!
+    guide.group.position.z = newZ - guide.p1.z;
   } else if (guide.axis === 'z') {
-    // Depth line: drag along X, clamped to room bounds
+    const midX = (b.minX + b.maxX) / 2;
     let newX = Math.max(b.minX + 0.15, Math.min(b.maxX - 0.15, pt.x));
-    const delta = newX - guide.p1.x;
-    guide.group.position.x = delta;
+    if (Math.abs(newX - midX) < SNAP_THRESHOLD) newX = midX; // snap!
+    guide.group.position.x = newX - guide.p1.x;
   }
 }
 
 function onGuidePointerUp(event) {
   if (!dragState) return;
 
+  const guide = dragState.guide;
+  isDragging = false;
+  setGuideVisualState(guide, 'idle');
+
   state.controls.enabled = true;
   state.renderer.domElement.style.cursor = '';
 
   if (dragState.didDrag) {
-    recentDrag = true; // prevent click handler from firing
+    recentDrag = true;
     // Bake the group offset into p1/p2 (for future drags) but keep group position
-    const guide = dragState.guide;
     if (guide.axis === 'x') {
       const newZ = guide.p1.z + guide.group.position.z;
       guide.p1.z = newZ;
@@ -328,7 +348,6 @@ function onGuidePointerUp(event) {
       guide.p1.x = newX;
       guide.p2.x = newX;
     }
-    // DON'T reset group position — keep the visual position where the user dragged it
   }
 
   dragState = null;
@@ -336,14 +355,15 @@ function onGuidePointerUp(event) {
 
 /** Call from animate loop to pulse unmeasured guides */
 export function updateDimensionPulse() {
-  if (!dimGroup) return;
+  if (pulseObjects.length === 0) return;
+  if (isDragging) {
+    // During drag: full opacity, no pulse distraction
+    for (const obj of pulseObjects) obj.material.opacity = 1.0;
+    return;
+  }
   const t = clock.getElapsedTime();
-  const pulse = 0.45 + 0.55 * Math.sin(t * 2.5); // oscillate 0.45 → 1.0
-  dimGroup.traverse(c => {
-    if (c.userData.pulse && c.material) {
-      c.material.opacity = pulse;
-    }
-  });
+  const pulse = 0.45 + 0.55 * Math.sin(t * 2.5);
+  for (const obj of pulseObjects) obj.material.opacity = pulse;
 }
 
 // ─── GUIDE LINE BUILDER ───
@@ -372,28 +392,36 @@ function addGuide(p1, p2, axis, value, isMeasured, dim, roomId, floor, computedV
   if (axis === 'x') beam.rotation.z = Math.PI / 2;
   else if (axis === 'z') beam.rotation.x = Math.PI / 2;
   beam.renderOrder = 999;
-  if (!isMeasured) beam.userData.pulse = true;
+  beam.userData.originalColor = beamMat.color.clone();
+  if (!isMeasured) { beam.userData.pulse = true; pulseObjects.push(beam); }
   guideGrp.add(beam);
 
+  // Track meshes for hover/drag highlighting
+  const highlightMeshes = [beam];
+
   // ─── Invisible hit area (fat box for easy grabbing) ───
-  const hitW = (axis === 'x') ? length : 0.4;
-  const hitH = 0.4;
-  const hitD = (axis === 'z') ? length : 0.4;
+  const hitW = (axis === 'x') ? length : 0.6;
+  const hitH = 0.6;
+  const hitD = (axis === 'z') ? length : 0.6;
   const hitGeo = new THREE.BoxGeometry(hitW, hitH, hitD);
   const hitMat = new THREE.MeshBasicMaterial({ visible: false });
   const hitBox = new THREE.Mesh(hitGeo, hitMat);
   hitBox.position.copy(mid);
   hitBox.renderOrder = 0;
   hitBox.userData.isHitArea = true;
+  hitBox.userData.guideIndex = guideGroups.length; // index into guideGroups
   guideGrp.add(hitBox);
 
+  // Track for fast raycast
+  hitBoxes.push(hitBox);
+
   // ─── Arrow cones at endpoints ───
-  addArrowCone(guideGrp, p1, dir.clone().normalize(), isMeasured, color);
-  addArrowCone(guideGrp, p2, dir.clone().normalize().negate(), isMeasured, color);
+  highlightMeshes.push(addArrowCone(guideGrp, p1, dir.clone().normalize(), isMeasured, color));
+  highlightMeshes.push(addArrowCone(guideGrp, p2, dir.clone().normalize().negate(), isMeasured, color));
 
   // ─── Large endpoint discs on wall surfaces ───
-  addEndpoint(guideGrp, p1, axis, isMeasured, color);
-  addEndpoint(guideGrp, p2, axis, isMeasured, color);
+  highlightMeshes.push(addEndpoint(guideGrp, p1, axis, isMeasured, color));
+  highlightMeshes.push(addEndpoint(guideGrp, p2, axis, isMeasured, color));
 
   // ─── Vertical drop lines from beam to floor (for width/depth) ───
   if (axis !== 'y') {
@@ -419,14 +447,14 @@ function addGuide(p1, p2, axis, value, isMeasured, dim, roomId, floor, computedV
   else if (axis === 'z') sprite.position.x += 0.25;
   else sprite.position.x += 0.25;
   sprite.renderOrder = 1000;
-  if (!isMeasured) sprite.userData.pulse = true;
+  if (!isMeasured) { sprite.userData.pulse = true; pulseObjects.push(sprite); }
   guideGrp.add(sprite);
 
   dimGroup.add(guideGrp);
   dimSprites.push({ sprite, dim, roomId, floor, computedValue });
 
-  // Store guide info for drag
-  guideGroups.push({ group: guideGrp, axis, dim, roomId, floor, bounds, floorY, p1: p1.clone(), p2: p2.clone() });
+  // Store guide info for drag + visual state
+  guideGroups.push({ group: guideGrp, axis, dim, roomId, floor, bounds, floorY, p1: p1.clone(), p2: p2.clone(), highlightMeshes, hitBox });
 }
 
 function addArrowCone(parent, point, direction, isMeasured, color) {
@@ -437,13 +465,15 @@ function addArrowCone(parent, point, direction, isMeasured, color) {
   const cone = new THREE.Mesh(geo, mat);
   cone.position.copy(point).add(direction.clone().multiplyScalar(coneH / 2));
   cone.renderOrder = 999;
+  cone.userData.originalColor = mat.color.clone();
 
   const up = new THREE.Vector3(0, 1, 0);
   const quat = new THREE.Quaternion().setFromUnitVectors(up, direction);
   cone.quaternion.copy(quat);
 
-  if (!isMeasured) cone.userData.pulse = true;
+  if (!isMeasured) { cone.userData.pulse = true; pulseObjects.push(cone); }
   parent.add(cone);
+  return cone;
 }
 
 function addEndpoint(parent, point, axis, isMeasured, color) {
@@ -459,8 +489,8 @@ function addEndpoint(parent, point, axis, isMeasured, color) {
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.copy(point);
   mesh.renderOrder = 998;
+  mesh.userData.originalColor = mat.color.clone();
 
-  // Rotate ring to face perpendicular to measurement axis
   if (axis === 'x') {
     mesh.rotation.y = Math.PI / 2;
   } else if (axis === 'z') {
@@ -470,7 +500,7 @@ function addEndpoint(parent, point, axis, isMeasured, color) {
     mesh.rotation.x = -Math.PI / 2;
   }
 
-  if (!isMeasured) mesh.userData.pulse = true;
+  if (!isMeasured) { mesh.userData.pulse = true; pulseObjects.push(mesh); }
   parent.add(mesh);
 
   // Center dot
@@ -483,6 +513,7 @@ function addEndpoint(parent, point, axis, isMeasured, color) {
   else if (axis === 'z') { dot.rotation.x = Math.PI / 2; dot.rotation.z = Math.PI / 2; }
   else dot.rotation.x = -Math.PI / 2;
   parent.add(dot);
+  return mesh;
 }
 
 // ─── LABEL SPRITE ───
