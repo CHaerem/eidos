@@ -633,13 +633,30 @@ function navigateToStep() {
 
   const step = calWizard.steps[calWizard.currentStep];
   const room = step.room;
+  const b = room.bounds;
+  const floorY = step.floor === 6 ? (state.apartmentConfig.upperFloor?.floorY || 2.25) : 0;
 
-  // Fly to room
-  if (window.flyToRoom && room.bounds) {
-    const y = step.floor === 6 ? (state.apartmentConfig.upperFloor?.floorY || 2.25) : 0;
-    window.flyToRoom(room.bounds, y);
-    setRoomFocus(step.roomId, step.floor, null);
+  // Set room focus first to hide blocking geometry
+  setRoomFocus(step.roomId, step.floor, null);
+
+  // Position camera looking down into the room at ~45° angle
+  // This gives the best view of horizontal measurement lines
+  const midX = (b.minX + b.maxX) / 2;
+  const midZ = (b.minZ + b.maxZ) / 2;
+  const roomW = b.maxX - b.minX;
+  const roomD = b.maxZ - b.minZ;
+  const viewDist = Math.max(roomW, roomD) * 1.1;
+
+  if (step.dim === 'width' || step.dim === 'depth') {
+    // Elevated perspective looking into the room
+    state.camera.position.set(midX - viewDist * 0.3, floorY + viewDist * 1.2, midZ - viewDist * 0.6);
+    state.controls.target.set(midX, floorY + 0.8, midZ);
+  } else {
+    // Height measurement — side view to see vertical line
+    state.camera.position.set(midX + viewDist * 0.8, floorY + 1.5, midZ - viewDist * 0.5);
+    state.controls.target.set(midX, floorY + 1.2, midZ);
   }
+  state.controls.update();
 
   // Show single dimension guide
   showSingleDimension(step.roomId, step.floor, step.dim);

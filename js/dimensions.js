@@ -209,42 +209,65 @@ export function updateDimensionPulse() {
 // ─── GUIDE LINE BUILDER ───
 
 function addGuide(p1, p2, axis, value, isMeasured, dim, roomId, floor, computedValue, floorY) {
-  const color = isMeasured ? 0x4ade80 : 0x5b8def;
+  const color = isMeasured ? 0x4ade80 : 0xffaa22;
 
-  // Main line — dashed if unmeasured, solid if measured
-  if (isMeasured) {
-    const mat = new THREE.LineBasicMaterial({ color, depthTest: false });
-    const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
-    const line = new THREE.Line(geo, mat);
-    line.renderOrder = 999;
-    dimGroup.add(line);
-  } else {
-    const mat = new THREE.LineDashedMaterial({
-      color, depthTest: false, transparent: true, opacity: 0.8,
-      dashSize: 0.08, gapSize: 0.04
-    });
-    const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
-    const line = new THREE.Line(geo, mat);
-    line.computeLineDistances();
-    line.renderOrder = 999;
-    line.userData.pulse = true;
-    dimGroup.add(line);
+  // ─── Thick cylinder beam between endpoints ───
+  const dir = new THREE.Vector3().subVectors(p2, p1);
+  const length = dir.length();
+  const mid = new THREE.Vector3().lerpVectors(p1, p2, 0.5);
+
+  const beamRadius = 0.018;
+  const beamGeo = new THREE.CylinderGeometry(beamRadius, beamRadius, length, 8);
+  const beamMat = new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: isMeasured ? 0.9 : 0.75, depthTest: false
+  });
+  const beam = new THREE.Mesh(beamGeo, beamMat);
+  beam.position.copy(mid);
+
+  // Rotate cylinder to align with direction
+  if (axis === 'x') {
+    beam.rotation.z = Math.PI / 2;
+  } else if (axis === 'z') {
+    beam.rotation.x = Math.PI / 2;
   }
+  // 'y' axis = default cylinder orientation
+  beam.renderOrder = 999;
+  if (!isMeasured) beam.userData.pulse = true;
+  dimGroup.add(beam);
 
-  // Endpoint markers (circles on wall surfaces)
+  // ─── Arrow cones at endpoints ───
+  addArrowCone(p1, dir.clone().normalize(), isMeasured, color);
+  addArrowCone(p2, dir.clone().normalize().negate(), isMeasured, color);
+
+  // ─── Large endpoint discs on wall surfaces ───
   addEndpoint(p1, axis, isMeasured, color);
   addEndpoint(p2, axis, isMeasured, color);
 
-  // Label sprite at midpoint
-  const mid = new THREE.Vector3().lerpVectors(p1, p2, 0.5);
+  // ─── Vertical drop lines from beam to floor (for width/depth) ───
+  if (axis !== 'y') {
+    const dropMat = new THREE.LineDashedMaterial({
+      color: 0xffffff, depthTest: false, transparent: true, opacity: 0.15,
+      dashSize: 0.05, gapSize: 0.03
+    });
+    for (const pt of [p1, p2]) {
+      const floorPt = pt.clone(); floorPt.y = floorY;
+      const geo = new THREE.BufferGeometry().setFromPoints([pt, floorPt]);
+      const line = new THREE.Line(geo, dropMat);
+      line.computeLineDistances();
+      line.renderOrder = 997;
+      dimGroup.add(line);
+    }
+  }
+
+  // ─── Label sprite at midpoint ───
   const text = `${value.toFixed(2)}`;
   const sprite = makeDimLabel(text, isMeasured);
   sprite.position.copy(mid);
 
   // Offset label toward camera for readability
-  if (axis === 'x') sprite.position.z += 0.15;
-  else if (axis === 'z') sprite.position.x += 0.15;
-  else sprite.position.x += 0.15;
+  if (axis === 'x') sprite.position.z += 0.25;
+  else if (axis === 'z') sprite.position.x += 0.25;
+  else sprite.position.x += 0.25;
 
   sprite.renderOrder = 1000;
   if (!isMeasured) sprite.userData.pulse = true;
@@ -253,33 +276,61 @@ function addGuide(p1, p2, axis, value, isMeasured, dim, roomId, floor, computedV
   dimSprites.push({ sprite, dim, roomId, floor, computedValue });
 }
 
+function addArrowCone(point, direction, isMeasured, color) {
+  const coneH = 0.08;
+  const coneR = 0.04;
+  const geo = new THREE.ConeGeometry(coneR, coneH, 8);
+  const mat = new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: isMeasured ? 0.9 : 0.8 });
+  const cone = new THREE.Mesh(geo, mat);
+  cone.position.copy(point).add(direction.clone().multiplyScalar(coneH / 2));
+  cone.renderOrder = 999;
+
+  // Rotate cone to point along direction
+  const up = new THREE.Vector3(0, 1, 0);
+  const quat = new THREE.Quaternion().setFromUnitVectors(up, direction);
+  cone.quaternion.copy(quat);
+
+  if (!isMeasured) cone.userData.pulse = true;
+  dimGroup.add(cone);
+}
+
 function addEndpoint(point, axis, isMeasured, color) {
-  // Small circle on the wall face
-  const radius = 0.06;
-  const segments = 16;
-  const geo = new THREE.CircleGeometry(radius, segments);
+  // Large ring on the wall face
+  const innerR = 0.06;
+  const outerR = 0.12;
+  const segments = 24;
+  const geo = new THREE.RingGeometry(innerR, outerR, segments);
   const mat = new THREE.MeshBasicMaterial({
     color, side: THREE.DoubleSide, depthTest: false,
-    transparent: true, opacity: isMeasured ? 0.9 : 0.7
+    transparent: true, opacity: isMeasured ? 0.85 : 0.7
   });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.copy(point);
   mesh.renderOrder = 998;
 
-  // Rotate circle to face perpendicular to the measurement axis
+  // Rotate ring to face perpendicular to measurement axis
   if (axis === 'x') {
-    mesh.rotation.y = Math.PI / 2; // face along X
+    mesh.rotation.y = Math.PI / 2;
   } else if (axis === 'z') {
-    // face along Z (default circle faces +Y, rotate to face +Z)
     mesh.rotation.x = Math.PI / 2;
     mesh.rotation.z = Math.PI / 2;
   } else {
-    // height — face horizontally
     mesh.rotation.x = -Math.PI / 2;
   }
 
   if (!isMeasured) mesh.userData.pulse = true;
   dimGroup.add(mesh);
+
+  // Center dot
+  const dotGeo = new THREE.CircleGeometry(0.03, 16);
+  const dotMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, depthTest: false });
+  const dot = new THREE.Mesh(dotGeo, dotMat);
+  dot.position.copy(point);
+  dot.renderOrder = 999;
+  if (axis === 'x') dot.rotation.y = Math.PI / 2;
+  else if (axis === 'z') { dot.rotation.x = Math.PI / 2; dot.rotation.z = Math.PI / 2; }
+  else dot.rotation.x = -Math.PI / 2;
+  dimGroup.add(dot);
 }
 
 // ─── LABEL SPRITE ───
@@ -294,7 +345,7 @@ function makeDimLabel(text, isMeasured) {
   ctx.shadowColor = 'rgba(0,0,0,0.35)';
   ctx.shadowBlur = 8;
   ctx.shadowOffsetY = 2;
-  const bgColor = isMeasured ? 'rgba(52,180,100,0.92)' : 'rgba(70,120,220,0.88)';
+  const bgColor = isMeasured ? 'rgba(52,180,100,0.92)' : 'rgba(255,170,34,0.92)';
   ctx.fillStyle = bgColor;
   roundRect(ctx, 12, 8, 360, 64, 16);
   ctx.fill();
@@ -311,7 +362,7 @@ function makeDimLabel(text, isMeasured) {
   tex.minFilter = THREE.LinearFilter;
   const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true });
   const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(1.0, 0.22, 1);
+  sprite.scale.set(1.4, 0.30, 1);
   return sprite;
 }
 
