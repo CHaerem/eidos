@@ -317,7 +317,7 @@ function onGuidePointerUp(event) {
 
   if (dragState.didDrag) {
     recentDrag = true; // prevent click handler from firing
-    // Update the actual p1/p2 positions to reflect the dragged position
+    // Bake the group offset into p1/p2 (for future drags) but keep group position
     const guide = dragState.guide;
     if (guide.axis === 'x') {
       const newZ = guide.p1.z + guide.group.position.z;
@@ -328,8 +328,7 @@ function onGuidePointerUp(event) {
       guide.p1.x = newX;
       guide.p2.x = newX;
     }
-    // Reset group position (already baked into p1/p2)
-    guide.group.position.set(0, 0, 0);
+    // DON'T reset group position — keep the visual position where the user dragged it
   }
 
   dragState = null;
