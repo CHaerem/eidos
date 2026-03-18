@@ -193,9 +193,11 @@ export function initDimensionClick() {
   if (!canvas) return;
 
   canvas.addEventListener('click', onDimClick);
-  // CAPTURE phase pointerdown — fires BEFORE OrbitControls can setPointerCapture
+  // CAPTURE phase — fires BEFORE OrbitControls can setPointerCapture
   canvas.addEventListener('pointerdown', onGuidePointerDown, true);
-  // pointermove/up on DOCUMENT to ensure we get events during drag
+  canvas.addEventListener('pointermove', onGuideDrag, true);
+  canvas.addEventListener('pointerup', onGuidePointerUp, true);
+  // Also on document as fallback (for pointer events outside canvas during drag)
   document.addEventListener('pointermove', onGuideDrag);
   document.addEventListener('pointerup', onGuidePointerUp);
 
@@ -255,6 +257,7 @@ function onGuidePointerDown(event) {
 let hoveredGuide = null;
 
 function onGuideDrag(event) {
+  if (dragState) console.log('[DIM] pointermove with dragState, target:', event.target?.tagName);
   if (!dragState) {
     // Only handle hover when moving over the canvas
     if (event.target !== state.renderer?.domElement) return;
