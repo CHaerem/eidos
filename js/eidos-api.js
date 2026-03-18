@@ -59,6 +59,11 @@ const eidos = {
     try {
       const resp = await fetch('config/apartment.json');
       const freshConfig = await resp.json();
+      // Preserve in-memory-only state that isn't saved to disk
+      const oldConfig = state.apartmentConfig;
+      if (oldConfig?.measurements) {
+        freshConfig.measurements = oldConfig.measurements;
+      }
       state.apartmentConfig = freshConfig;
     } catch (e) {
       console.warn('eidos.rebuild(): failed to re-fetch config, using in-memory', e);
