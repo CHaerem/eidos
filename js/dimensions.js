@@ -239,16 +239,42 @@ function onGuidePointerDown(event) {
 
   dragState = { guide, dragPlane, startPt, didDrag: false };
 
+  // CRITICAL: Release OrbitControls pointer capture so pointermove reaches us
+  const canvas = state.renderer.domElement;
+  if (canvas.hasPointerCapture(event.pointerId)) {
+    canvas.releasePointerCapture(event.pointerId);
+  }
   state.controls.enabled = false;
-  state.renderer.domElement.style.cursor = 'grabbing';
+  canvas.style.cursor = 'grabbing';
   event.preventDefault();
   event.stopPropagation();
 }
 
+let hoveredGuide = null;
+
 function onGuideDrag(event) {
   if (!dragState) {
-    // Hover cursor
+    // Hover cursor + highlight
     const guide = hitGuide(event);
+    if (guide !== hoveredGuide) {
+      // Unhighlight previous
+      if (hoveredGuide) {
+        hoveredGuide.group.traverse(c => {
+          if (c.isMesh && c.material && !c.userData.isHitArea) {
+            c.material.emissive?.setHex(0x000000);
+          }
+        });
+      }
+      // Highlight new
+      if (guide) {
+        guide.group.traverse(c => {
+          if (c.isMesh && c.material && !c.userData.isHitArea) {
+            c.material.emissive?.setHex(0x333333);
+          }
+        });
+      }
+      hoveredGuide = guide;
+    }
     state.renderer.domElement.style.cursor = guide ? 'grab' : '';
     return;
   }
