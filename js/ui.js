@@ -567,31 +567,28 @@ const DIM_INSTRUCTIONS = {
   height_high: (room) => `Mål takhøyden ved høyeste punkt (nær bakveggen)`,
 };
 
-const ROOM_ORDER = [
-  { id: 'stue', floor: 5 },
-  { id: 'kjokken', floor: 5 },
-  { id: 'bad', floor: 5 },
-  { id: 'entre', floor: 5 },
-  { id: 'garderobe', floor: 5 },
-  { id: 'soverom', floor: 6 },
-  { id: 'hems', floor: 6 },
-];
-
 function buildCalibrationSteps(cfg) {
   const steps = [];
-  for (const { id, floor } of ROOM_ORDER) {
-    const allRooms = [...(cfg.rooms || []), ...(cfg.upperFloor?.rooms || [])];
-    const room = allRooms.find(r => r.id === id);
-    if (!room) continue;
 
+  // 5th floor rooms
+  for (const room of (cfg.rooms || [])) {
     const dims = (room.ceilingType === 'slope')
       ? ['width', 'depth', 'height_low', 'height_high']
       : ['width', 'depth', 'height'];
-
     for (const dim of dims) {
-      steps.push({ roomId: id, floor, dim, roomName: room.name || id, room });
+      steps.push({ roomId: room.id, floor: 5, dim, roomName: room.name || room.id, room });
     }
   }
+
+  // 6th floor rooms (skip terrasse)
+  for (const room of (cfg.upperFloor?.rooms || [])) {
+    if (room.id === 'terrasse') continue;
+    const dims = ['width', 'depth', 'height'];
+    for (const dim of dims) {
+      steps.push({ roomId: room.id, floor: 6, dim, roomName: room.name || room.id, room });
+    }
+  }
+
   return steps;
 }
 
@@ -644,8 +641,8 @@ function exitCalibration() {
   setCalibrationFocusMode(false);
   hideDimensions();
   clearRoomFocus();
-  // Restore all floor visibility
-  for (const name of ['UpperFloor', 'Staircase', 'Terrace', 'Ceiling']) {
+  // Restore all visibility
+  for (const name of ['UpperFloor', 'Staircase', 'Terrace', 'Ceiling', 'RoomDetails']) {
     const obj = state.scene?.getObjectByName(name);
     if (obj) obj.visible = true;
   }
@@ -664,24 +661,27 @@ function navigateToStep() {
   const b = room.bounds;
   const floorY = step.floor === 6 ? (state.apartmentConfig.upperFloor?.floorY || 2.25) : 0;
 
-  // Set room focus to hide blocking geometry
-  setRoomFocus(step.roomId, step.floor, null);
+  // DON'T use setRoomFocus (it hides walls we need to see)
+  // Instead, manually hide only non-essential layers
+  clearRoomFocus();
 
-  // Hide floors not being measured for cleaner view
-  const uf = state.scene.getObjectByName('UpperFloor');
-  const staircase = state.scene.getObjectByName('Staircase');
-  const terrace = state.scene.getObjectByName('Terrace');
-  const ceiling = state.scene.getObjectByName('Ceiling');
-  if (step.floor === 5) {
-    if (uf) uf.visible = false;
-    if (staircase) staircase.visible = false;
-    if (terrace) terrace.visible = false;
-    if (ceiling) ceiling.visible = false;
-  } else {
-    if (uf) uf.visible = true;
-    if (staircase) staircase.visible = true;
-    if (terrace) terrace.visible = (step.roomId === 'terrasse');
-    if (ceiling) ceiling.visible = false;
+  // Hide layers based on which floor we're measuring
+  const layerMap = {
+    'UpperFloor': step.floor === 6,
+    'Staircase': false,
+    'Terrace': false,
+    'Ceiling': false,
+    'RoomDetails': step.floor === 5, // windows/doors only for 5th floor when measuring 5th
+  };
+  for (const [name, vis] of Object.entries(layerMap)) {
+    const obj = state.scene.getObjectByName(name);
+    if (obj) obj.visible = vis;
+  }
+
+  // For 6th floor: show UpperFloor but hide windows/doors from 5th floor
+  if (step.floor === 6) {
+    const rd = state.scene.getObjectByName('RoomDetails');
+    if (rd) rd.visible = false; // 5th floor details not relevant
   }
 
   // Position camera looking down into the room at ~45° angle
