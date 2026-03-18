@@ -3,7 +3,7 @@ import { state } from './state.js';
 import { FURNITURE_CATALOG } from './furniture.js';
 import { BOUNDS, ceilAt } from './room.js';
 import { solveConstraints, applyToConfig } from './solver.js';
-import { showDimensions, hideDimensions } from './dimensions.js';
+import { showDimensions, showSingleDimension, hideDimensions } from './dimensions.js';
 import { setRoomFocus, clearRoomFocus } from './room-focus.js';
 import { pushSnapshot, getEntries, getPointer, getFullEntries, jumpTo, setHistoryChangeListener } from './history.js';
 import { showHistoryDiff, clearHistoryDiff, computeDiff, getDiffSummary } from './history-diff.js';
@@ -399,7 +399,8 @@ function populateCalibration() {
     <div class="cal-progress">
       <div class="cal-progress-bar"><div class="cal-progress-fill" style="width:${pct}%"></div></div>
       <span class="cal-progress-text">${measuredDims}/${totalDims} mål</span>
-    </div>`;
+    </div>
+    <button class="cal-start-btn" onclick="window._startCalibration()">▶ Start guidet kalibrering</button>`;
 
   for (const [floor, rooms] of Object.entries(floors).sort()) {
     html += `<div class="cal-floor-header">${floor}. etasje</div>`;
@@ -553,6 +554,222 @@ function residualClass(res) {
   if (abs < 0.05) return 'res-warn';
   return 'res-bad';
 }
+
+// ─── CALIBRATION WIZARD ───
+
+let calWizard = null; // { steps, currentStep }
+
+const DIM_INSTRUCTIONS = {
+  width: (room) => `Mål bredden fra vegg til vegg, midt i rommet (ca 1m høyde)`,
+  depth: (room) => `Mål dybden fra vegg til vegg, midt i rommet (ca 1m høyde)`,
+  height: (room) => `Mål takhøyden fra gulv til tak, midt i rommet`,
+  height_low: (room) => `Mål takhøyden ved laveste punkt (nær vindusveggen)`,
+  height_high: (room) => `Mål takhøyden ved høyeste punkt (nær bakveggen)`,
+};
+
+const ROOM_ORDER = [
+  { id: 'stue', floor: 5 },
+  { id: 'kjokken', floor: 5 },
+  { id: 'bad', floor: 5 },
+  { id: 'entre', floor: 5 },
+  { id: 'garderobe', floor: 5 },
+  { id: 'soverom', floor: 6 },
+  { id: 'hems', floor: 6 },
+];
+
+function buildCalibrationSteps(cfg) {
+  const steps = [];
+  for (const { id, floor } of ROOM_ORDER) {
+    const allRooms = [...(cfg.rooms || []), ...(cfg.upperFloor?.rooms || [])];
+    const room = allRooms.find(r => r.id === id);
+    if (!room) continue;
+
+    const dims = (room.ceilingType === 'slope')
+      ? ['width', 'depth', 'height_low', 'height_high']
+      : ['width', 'depth', 'height'];
+
+    for (const dim of dims) {
+      steps.push({ roomId: id, floor, dim, roomName: room.name || id, room });
+    }
+  }
+  return steps;
+}
+
+function startCalibration() {
+  const cfg = state.apartmentConfig;
+  if (!cfg) return;
+
+  const steps = buildCalibrationSteps(cfg);
+  calWizard = { steps, currentStep: 0 };
+
+  // Skip already-measured steps
+  const entries = cfg.measurements?.entries || [];
+  while (calWizard.currentStep < steps.length) {
+    const s = steps[calWizard.currentStep];
+    if (entries.find(e => e.room === s.roomId && e.dim === s.dim)) {
+      calWizard.currentStep++;
+    } else {
+      break;
+    }
+  }
+
+  renderCalibrationWizard();
+  navigateToStep();
+}
+
+function exitCalibration() {
+  calWizard = null;
+  hideDimensions();
+  clearRoomFocus();
+  populateCalibration();
+}
+
+function navigateToStep() {
+  if (!calWizard || calWizard.currentStep >= calWizard.steps.length) {
+    // All done!
+    renderCalibrationWizard();
+    return;
+  }
+
+  const step = calWizard.steps[calWizard.currentStep];
+  const room = step.room;
+
+  // Fly to room
+  if (window.flyToRoom && room.bounds) {
+    const y = step.floor === 6 ? (state.apartmentConfig.upperFloor?.floorY || 2.25) : 0;
+    window.flyToRoom(room.bounds, y);
+    setRoomFocus(step.roomId, step.floor, null);
+  }
+
+  // Show single dimension guide
+  showSingleDimension(step.roomId, step.floor, step.dim);
+}
+
+function advanceCalibration(value) {
+  if (!calWizard) return;
+  const step = calWizard.steps[calWizard.currentStep];
+  const val = parseFloat(value);
+
+  if (!isNaN(val) && val >= 0.1) {
+    pushSnapshot(`Kalibrering: ${step.roomId} ${step.dim}`);
+    const cfg = state.apartmentConfig;
+    if (!cfg.measurements) {
+      cfg.measurements = { defaultWallThickness: 0.08, priors: { wallPositionWeight: 0.1, wallThicknessWeight: 10.0, heightWeight: 1.0 }, entries: [] };
+    }
+    const entries = cfg.measurements.entries;
+    const idx = entries.findIndex(e => e.room === step.roomId && e.dim === step.dim);
+    if (idx >= 0) entries[idx].value = val;
+    else entries.push({ room: step.roomId, dim: step.dim, value: val });
+
+    runSolver();
+    if (window.eidos) {
+      window.eidos.rebuild().then(() => {
+        calWizard.currentStep++;
+        renderCalibrationWizard();
+        navigateToStep();
+      });
+    }
+  }
+}
+
+function skipStep() {
+  if (!calWizard) return;
+  calWizard.currentStep++;
+  renderCalibrationWizard();
+  navigateToStep();
+}
+
+function renderCalibrationWizard() {
+  const container = document.getElementById('room-calibration');
+  if (!container) return;
+
+  if (!calWizard) {
+    // Not in wizard — show normal calibration with start button
+    populateCalibration();
+    return;
+  }
+
+  const steps = calWizard.steps;
+  const current = calWizard.currentStep;
+  const entries = state.apartmentConfig?.measurements?.entries || [];
+  const measured = entries.length;
+  const total = steps.length;
+  const pct = total > 0 ? (measured / total) * 100 : 0;
+
+  // Check if done
+  if (current >= steps.length) {
+    container.innerHTML = `
+      <div class="cal-wizard-done">
+        <div class="cal-wizard-check">✓</div>
+        <div class="cal-wizard-done-text">Kalibrering ferdig!</div>
+        <div class="cal-wizard-done-sub">${measured} av ${total} mål registrert</div>
+        <button class="cal-wizard-btn" onclick="window._exitCalibration()">Tilbake</button>
+      </div>`;
+    return;
+  }
+
+  const step = steps[current];
+  const instruction = DIM_INSTRUCTIONS[step.dim](step.room);
+  const dimLabel = { width: 'Bredde', depth: 'Dybde', height: 'Høyde', height_low: 'Høyde (lav)', height_high: 'Høyde (høy)' }[step.dim];
+
+  // Existing measurement?
+  const existing = entries.find(e => e.room === step.roomId && e.dim === step.dim);
+
+  // Room progress dots
+  const uniqueRooms = [...new Map(steps.map(s => [s.roomId, s])).values()];
+  let dotsHtml = '';
+  for (const r of uniqueRooms) {
+    const roomSteps = steps.filter(s => s.roomId === r.roomId);
+    const roomMeasured = roomSteps.filter(s => entries.find(e => e.room === s.roomId && e.dim === s.dim)).length;
+    const isCurrent = r.roomId === step.roomId;
+    const isDone = roomMeasured === roomSteps.length;
+    const cls = isDone ? 'done' : isCurrent ? 'current' : '';
+    dotsHtml += `<span class="cal-room-dot ${cls}" title="${r.roomName}">${r.roomName.substring(0, 3)}</span>`;
+  }
+
+  container.innerHTML = `
+    <div class="cal-wizard">
+      <div class="cal-progress">
+        <div class="cal-progress-bar"><div class="cal-progress-fill" style="width:${pct}%"></div></div>
+        <div class="cal-progress-text">${measured}/${total}</div>
+      </div>
+      <div class="cal-wizard-header">
+        <span class="cal-wizard-room">${step.roomName}</span>
+        <span class="cal-wizard-dim">${dimLabel}</span>
+      </div>
+      <div class="cal-wizard-instruction">${instruction}</div>
+      <div class="cal-wizard-input-row">
+        <input type="number" id="cal-wizard-input" step="0.01" min="0.1"
+          value="${existing ? existing.value : ''}"
+          placeholder="mål i meter" autofocus>
+        <span class="cal-wizard-unit">m</span>
+        <button class="cal-wizard-btn primary" onclick="window._advanceCalibration()">Lagre →</button>
+      </div>
+      <div class="cal-wizard-actions">
+        <button class="cal-wizard-btn skip" onclick="window._skipStep()">Hopp over</button>
+        <button class="cal-wizard-btn exit" onclick="window._exitCalibration()">Avslutt</button>
+      </div>
+      <div class="cal-room-dots">${dotsHtml}</div>
+    </div>`;
+
+  // Focus input and handle Enter key
+  const input = document.getElementById('cal-wizard-input');
+  if (input) {
+    setTimeout(() => input.focus(), 100);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') window._advanceCalibration();
+    });
+  }
+}
+
+// Expose wizard functions to window for onclick handlers
+window._startCalibration = startCalibration;
+window._exitCalibration = exitCalibration;
+window._advanceCalibration = () => {
+  const input = document.getElementById('cal-wizard-input');
+  if (input) advanceCalibration(input.value);
+};
+window._skipStep = skipStep;
 
 function onMeasurementChange(input) {
   pushSnapshot(`Kalibrering: ${input.dataset.room} ${input.dataset.dim}`);

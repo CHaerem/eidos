@@ -18,6 +18,78 @@ const clock = new THREE.Clock();
 
 // ─── PUBLIC API ───
 
+/**
+ * Show a SINGLE dimension guide for wizard mode.
+ * Only shows one measurement line — the one being calibrated right now.
+ */
+export function showSingleDimension(roomId, floor, dim) {
+  hideDimensions();
+
+  const cfg = state.apartmentConfig;
+  if (!cfg) return;
+
+  const room = findRoom(roomId, floor, cfg);
+  if (!room) return;
+
+  activeRoom = { roomId, floor };
+  dimGroup = new THREE.Group();
+  dimGroup.name = 'dimensions';
+  dimSprites = [];
+
+  const b = room.bounds;
+  const floorY = (floor === 6 && cfg.upperFloor) ? cfg.upperFloor.floorY : 0;
+  const entries = cfg.measurements?.entries || [];
+  const midX = (b.minX + b.maxX) / 2;
+  const midZ = (b.minZ + b.maxZ) / 2;
+  const guideY = floorY + 1.0;
+
+  if (dim === 'width') {
+    const meas = entries.find(e => e.room === roomId && e.dim === 'width');
+    const comp = b.maxX - b.minX;
+    addGuide(
+      new THREE.Vector3(b.minX, guideY, midZ),
+      new THREE.Vector3(b.maxX, guideY, midZ),
+      'x', meas ? meas.value : comp, !!meas, 'width', roomId, floor, comp, floorY
+    );
+  } else if (dim === 'depth') {
+    const meas = entries.find(e => e.room === roomId && e.dim === 'depth');
+    const comp = b.maxZ - b.minZ;
+    addGuide(
+      new THREE.Vector3(midX, guideY, b.minZ),
+      new THREE.Vector3(midX, guideY, b.maxZ),
+      'z', meas ? meas.value : comp, !!meas, 'depth', roomId, floor, comp, floorY
+    );
+  } else if (dim === 'height') {
+    const h = ceilAt(midX, midZ);
+    const meas = entries.find(e => e.room === roomId && e.dim === 'height');
+    addGuide(
+      new THREE.Vector3(midX, floorY, midZ),
+      new THREE.Vector3(midX, meas ? meas.value + floorY : h, midZ),
+      'y', meas ? meas.value : (h - floorY), !!meas, 'height', roomId, floor, h - floorY, floorY
+    );
+  } else if (dim === 'height_low') {
+    const zLow = b.minZ + 0.3;
+    const hLow = ceilAt(midX, zLow);
+    const meas = entries.find(e => e.room === roomId && e.dim === 'height_low');
+    addGuide(
+      new THREE.Vector3(midX - 0.4, floorY, zLow),
+      new THREE.Vector3(midX - 0.4, meas ? meas.value + floorY : hLow, zLow),
+      'y', meas ? meas.value : (hLow - floorY), !!meas, 'height_low', roomId, floor, hLow - floorY, floorY
+    );
+  } else if (dim === 'height_high') {
+    const zHigh = b.maxZ - 0.3;
+    const hHigh = ceilAt(midX, zHigh);
+    const meas = entries.find(e => e.room === roomId && e.dim === 'height_high');
+    addGuide(
+      new THREE.Vector3(midX + 0.4, floorY, zHigh),
+      new THREE.Vector3(midX + 0.4, meas ? meas.value + floorY : hHigh, zHigh),
+      'y', meas ? meas.value : (hHigh - floorY), !!meas, 'height_high', roomId, floor, hHigh - floorY, floorY
+    );
+  }
+
+  state.scene.add(dimGroup);
+}
+
 export function showDimensions(roomId, floor) {
   hideDimensions();
 

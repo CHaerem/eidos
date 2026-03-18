@@ -341,6 +341,51 @@ button.add-btn:active{transform:scale(0.98)}
 .room-card .room-status .status-dot.none{background:rgba(255,255,255,0.1)}
 .room-card .room-status .status-dot.partial{background:rgba(251,191,36,0.5)}
 .room-card .room-status .status-dot.complete{background:rgba(74,222,128,0.5)}
+
+/* ─── Calibration Wizard ─── */
+.cal-start-btn{
+  width:100%;padding:8px 0;margin:6px 0 10px;font-size:11px;font-weight:600;cursor:pointer;
+  border:1px solid rgba(91,141,239,0.25);border-radius:8px;
+  background:rgba(91,141,239,0.08);color:#8bb4ff;
+  transition:all 0.18s;letter-spacing:0.02em;
+}
+.cal-start-btn:hover{background:rgba(91,141,239,0.15);border-color:rgba(91,141,239,0.4)}
+.cal-wizard{padding:4px 0}
+.cal-wizard-header{display:flex;align-items:baseline;gap:8px;margin:10px 0 4px}
+.cal-wizard-room{font-size:14px;font-weight:700;color:rgba(255,255,255,0.85)}
+.cal-wizard-dim{font-size:11px;font-weight:500;color:rgba(91,141,239,0.8);text-transform:uppercase;letter-spacing:0.04em}
+.cal-wizard-instruction{font-size:11px;color:rgba(255,255,255,0.4);line-height:1.5;margin-bottom:10px}
+.cal-wizard-input-row{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.cal-wizard-input-row input{
+  flex:1;padding:8px 10px;font-size:14px;font-weight:600;
+  background:rgba(255,255,255,0.05);border:1px solid rgba(91,141,239,0.3);
+  color:#fff;border-radius:8px;outline:none;font-family:'SF Mono',ui-monospace,monospace;
+}
+.cal-wizard-input-row input:focus{border-color:rgba(91,141,239,0.6);background:rgba(91,141,239,0.06)}
+.cal-wizard-input-row input::placeholder{color:rgba(255,255,255,0.2);font-weight:400}
+.cal-wizard-unit{font-size:12px;color:rgba(255,255,255,0.3);font-weight:600}
+.cal-wizard-btn{
+  padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;
+  border:1px solid rgba(255,255,255,0.08);border-radius:6px;
+  background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.45);
+  transition:all 0.15s;
+}
+.cal-wizard-btn:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.8)}
+.cal-wizard-btn.primary{background:rgba(91,141,239,0.15);color:#8bb4ff;border-color:rgba(91,141,239,0.3)}
+.cal-wizard-btn.primary:hover{background:rgba(91,141,239,0.25)}
+.cal-wizard-actions{display:flex;gap:6px;margin-bottom:10px}
+.cal-room-dots{display:flex;gap:3px;flex-wrap:wrap}
+.cal-room-dot{
+  font-size:8px;padding:3px 5px;border-radius:4px;
+  background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.25);
+  font-weight:600;letter-spacing:0.02em;
+}
+.cal-room-dot.current{background:rgba(91,141,239,0.15);color:#8bb4ff;border:1px solid rgba(91,141,239,0.3)}
+.cal-room-dot.done{background:rgba(74,222,128,0.1);color:rgba(74,222,128,0.6)}
+.cal-wizard-done{text-align:center;padding:20px 0}
+.cal-wizard-check{font-size:36px;color:#4ade80;margin-bottom:8px}
+.cal-wizard-done-text{font-size:14px;font-weight:700;color:rgba(255,255,255,0.85);margin-bottom:4px}
+.cal-wizard-done-sub{font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:12px}
 </style>
 </head>
 <body>
