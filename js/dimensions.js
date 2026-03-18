@@ -193,9 +193,11 @@ export function initDimensionClick() {
   if (!canvas) return;
 
   canvas.addEventListener('click', onDimClick);
+  // pointerdown on canvas to detect guide click
   canvas.addEventListener('pointerdown', onGuidePointerDown);
-  canvas.addEventListener('pointermove', onGuideDrag);
-  canvas.addEventListener('pointerup', onGuidePointerUp);
+  // pointermove/up on DOCUMENT to ensure we get events even if OrbitControls captures pointer
+  document.addEventListener('pointermove', onGuideDrag);
+  document.addEventListener('pointerup', onGuidePointerUp);
 
   // Close floating input on camera move
   if (state.controls) {
@@ -254,6 +256,8 @@ let hoveredGuide = null;
 
 function onGuideDrag(event) {
   if (!dragState) {
+    // Only handle hover when moving over the canvas
+    if (event.target !== state.renderer?.domElement) return;
     // Hover cursor + highlight
     const guide = hitGuide(event);
     if (guide !== hoveredGuide) {
