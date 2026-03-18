@@ -276,6 +276,36 @@ button.add-btn:active{transform:scale(0.98)}
 #compass-ring{transition:transform 0.12s ease}
 
 /* ─── Dimension Floating Input ─── */
+/* ─── History Panel ─── */
+/* ─── History Timeline ─── */
+.history-list{max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:0;padding-left:12px;position:relative}
+.history-list::-webkit-scrollbar{width:2px}
+.history-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px}
+.history-list::before{content:'';position:absolute;left:16px;top:8px;bottom:8px;width:1px;background:rgba(255,255,255,0.06)}
+.history-empty{font-size:11px;color:rgba(255,255,255,0.15);font-style:italic;padding:8px 0}
+.history-entry{
+  display:flex;align-items:center;gap:8px;
+  padding:5px 8px 5px 14px;font-size:11px;cursor:pointer;
+  border-radius:5px;position:relative;
+  transition:all 0.15s ease;color:rgba(255,255,255,0.35);
+}
+.history-entry::before{
+  content:'';position:absolute;left:-6px;top:50%;transform:translateY(-50%);
+  width:7px;height:7px;border-radius:50%;
+  background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.08);
+  transition:all 0.15s ease;z-index:1;
+}
+.history-entry:hover{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.6)}
+.history-entry:hover::before{background:rgba(255,255,255,0.25);border-color:rgba(255,255,255,0.2)}
+.history-entry.active{background:rgba(91,141,239,0.08);color:rgba(255,255,255,0.85)}
+.history-entry.active::before{background:rgba(91,141,239,0.7);border-color:rgba(91,141,239,0.5);box-shadow:0 0 6px rgba(91,141,239,0.3)}
+.history-entry.future{opacity:0.3}
+.history-entry.future::before{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.04)}
+.history-entry .h-icon{font-size:12px;flex-shrink:0;width:16px;text-align:center}
+.history-entry .h-label{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.history-entry .h-time{font-size:9px;color:rgba(255,255,255,0.15);flex-shrink:0;margin-left:auto;font-family:'SF Mono',ui-monospace,monospace}
+.history-counter{font-size:9px;color:rgba(255,255,255,0.2);text-align:right;padding:4px 0 2px;font-family:'SF Mono',ui-monospace,monospace}
+
 /* ─── Visibility Toggles ─── */
 .vis-group{margin-bottom:10px}
 .vis-group:last-child{margin-bottom:0}
@@ -309,6 +339,7 @@ button.add-btn:active{transform:scale(0.98)}
 }
 .dim-floating-input::placeholder{color:rgba(255,255,255,0.25);font-style:italic}
 .dim-floating-input::-webkit-inner-spin-button{opacity:0.2}
+.muted-text{color:rgba(255,255,255,0.4);font-size:12px;line-height:1.5;margin:0}
 </style>
 </head>
 <body>
@@ -370,6 +401,14 @@ button.add-btn:active{transform:scale(0.98)}
         <div class="vis-pills" id="wall-room-pills"></div>
       </div>
     </div>
+    <div class="panel-section collapsible open" id="history-section">
+      <h3>Historikk</h3>
+      <div class="section-body">
+        <div id="history-list" class="history-list">
+          <div class="history-empty">Ingen endringer ennå</div>
+        </div>
+      </div>
+    </div>
     <div class="panel-section collapsible open">
       <h3>Bolig</h3>
       <div class="section-body">
@@ -396,56 +435,21 @@ button.add-btn:active{transform:scale(0.98)}
     </div>
   </div>
 
-  <!-- Tab: Møbler -->
+  <!-- Tab: Møbler (forenklet — lister fjernet) -->
   <div id="tab-mobler" class="tab-content" style="display:none">
     <div class="panel-section">
-      <h3>Legg til møbel</h3>
-      <select id="furnSelect">
-        <option value="besta_3x">BESTÅ skap (3×60cm)</option>
-        <option value="soderhamn">Söderhamn hjørnesofa 3-s</option>
-        <option value="cana_tv">Bolia Cana + Frame 50" TV</option>
-        <option value="sofa_3">Sofa (3-seter)</option>
-        <option value="sofa_2">Sofa (2-seter)</option>
-        <option value="stol">Lenestol</option>
-        <option value="sofabord">Sofabord</option>
-        <option value="spisebord">Spisebord</option>
-        <option value="tv_benk">TV-benk</option>
-        <option value="bokhylle">Bokhylle</option>
-        <option value="gulvlampe">Gulvlampe</option>
-        <option value="kjokkenbenk">Kjøkkenbenk</option>
-        <option value="spisestol">Spisestol</option>
-      </select>
-      <button class="add-btn" onclick="addFurniture()">+ Legg til</button>
-    </div>
-    <div class="panel-section">
-      <h3>Plasserte møbler</h3>
+      <p class="muted-text">Møbelplassering kommer snart. Bruk AI-assistenten (MCP) for å legge til møbler.</p>
       <div id="furnList"></div>
     </div>
   </div>
 
-  <!-- Tab: Golfsim -->
+  <!-- Tab: Golfsim (forenklet — lister fjernet) -->
   <div id="tab-golfsim" class="tab-content" style="display:none">
     <div class="panel-section">
       <label style="margin-bottom:10px"><input type="checkbox" id="simToggle" checked> <b>Vis simulator</b></label>
       <div id="simControls">
         <label><b>Spillerhøyde:</b> <span id="hVal">180</span> cm</label>
         <input type="range" id="hSlider" min="160" max="205" value="180" step="1">
-
-        <label><b>Klubb:</b></label>
-        <select id="clubSelect">
-          <option value="1.143">Driver (45")</option>
-          <option value="1.016">3-wood (40")</option>
-          <option value="0.978">Hybrid (38.5")</option>
-          <option value="0.940" selected>7-jern (37")</option>
-          <option value="0.914">9-jern (36")</option>
-          <option value="0.889">Wedge (35")</option>
-        </select>
-
-        <label><b>Retning:</b></label>
-        <div class="radio-group">
-          <label><input type="radio" name="dir" value="window" checked> Mot vindu</label>
-          <label><input type="radio" name="dir" value="along"> Langs rommet</label>
-        </div>
 
         <label><b>Posisjon X:</b> <span id="simXVal">2.5</span>m</label>
         <input type="range" id="simXSlider" min="-4" max="4" value="2.5" step="0.05">

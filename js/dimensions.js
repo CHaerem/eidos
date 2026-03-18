@@ -303,7 +303,7 @@ function showFloatingInput(dimInfo) {
 }
 
 function commitInput(dimInfo, rawVal) {
-  pushSnapshot();
+  pushSnapshot(`Dimensjon: ${dimInfo.roomId} ${dimInfo.dim}`);
   const cfg = state.apartmentConfig;
   if (!cfg.measurements) {
     cfg.measurements = { defaultWallThickness: 0.08, priors: { wallPositionWeight: 0.1, wallThicknessWeight: 10.0, heightWeight: 1.0 }, entries: [] };

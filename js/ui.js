@@ -5,7 +5,7 @@ import { BOUNDS, ceilAt } from './room.js';
 import { solveConstraints, applyToConfig } from './solver.js';
 import { showDimensions, hideDimensions } from './dimensions.js';
 import { setRoomFocus, clearRoomFocus } from './room-focus.js';
-import { pushSnapshot } from './history.js';
+import { pushSnapshot, getEntries, getPointer, jumpTo, setHistoryChangeListener } from './history.js';
 
 // ─── FURNITURE LIST RENDERING ───
 
@@ -119,6 +119,80 @@ function initPanelToggle() {
   }
 }
 
+// ─── HISTORY PANEL ───
+
+function initHistoryPanel() {
+  setHistoryChangeListener(renderHistory);
+}
+
+function historyIcon(label) {
+  const l = label.toLowerCase();
+  if (l.includes('kalibrering') || l.includes('mål')) return '📐';
+  if (l.includes('vegg') || l.includes('wall')) return '🧱';
+  if (l.includes('vindu') || l.includes('window')) return '🪟';
+  if (l.includes('dør') || l.includes('door')) return '🚪';
+  if (l.includes('tak') || l.includes('ceiling') || l.includes('roof')) return '⛺';
+  if (l.includes('terrasse') || l.includes('terrace')) return '☀️';
+  if (l.includes('møbel') || l.includes('furniture')) return '🪑';
+  if (l.includes('rom') || l.includes('room')) return '📦';
+  if (l.includes('trapp') || l.includes('stair')) return '🪜';
+  if (l.includes('protrusion') || l.includes('bjelke')) return '🔲';
+  if (l.includes('config') || l.includes('update')) return '⚙️';
+  return '✏️';
+}
+
+function renderHistory() {
+  const container = document.getElementById('history-list');
+  if (!container) return;
+
+  const entries = getEntries();
+  if (entries.length === 0) {
+    container.innerHTML = '<div class="history-empty">Ingen endringer ennå</div>';
+    return;
+  }
+
+  const pointer = getPointer();
+  const undoCount = pointer + 1;
+  const redoCount = Math.max(0, entries.length - pointer - 2);
+  let html = `<div class="history-counter">${undoCount} angre${redoCount > 0 ? ` · ${redoCount} gjør om` : ''}</div>`;
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const e = entries[i];
+    const isActive = i === pointer;
+    const isFuture = i > pointer;
+    const cls = `history-entry${isActive ? ' active' : ''}${isFuture ? ' future' : ''}`;
+    const ago = timeAgo(e.timestamp);
+    const icon = historyIcon(e.label);
+    html += `<div class="${cls}" data-index="${i}"><span class="h-icon">${icon}</span><span class="h-label">${e.label}</span><span class="h-time">${ago}</span></div>`;
+  }
+  container.innerHTML = html;
+
+  // Click handlers
+  container.querySelectorAll('.history-entry').forEach(el => {
+    el.addEventListener('click', async () => {
+      const idx = parseInt(el.dataset.index);
+      if (window.eidos) {
+        await jumpTo(idx, () => window.eidos.rebuild());
+        populateCalibration();
+        populateApartmentInfo();
+      }
+    });
+  });
+
+  // Auto-open section when history exists
+  const section = document.getElementById('history-section');
+  if (section && !section.classList.contains('open') && entries.length > 0) {
+    section.classList.add('open');
+  }
+}
+
+function timeAgo(ts) {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 5) return 'nå';
+  if (diff < 60) return `${diff}s`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  return `${Math.floor(diff / 3600)}t`;
+}
+
 // ─── VISIBILITY TOGGLES ───
 
 function initVisibilityToggles() {
@@ -230,6 +304,7 @@ export function initUI() {
   initPanelToggle();
   initCollapsible();
   initVisibilityToggles();
+  initHistoryPanel();
 
   // Populate apartment info and calibration once config is loaded
   if (state.apartmentConfig) {
@@ -445,7 +520,7 @@ function residualClass(res) {
 }
 
 function onMeasurementChange(input) {
-  pushSnapshot();
+  pushSnapshot(`Kalibrering: ${input.dataset.room} ${input.dataset.dim}`);
   const roomId = input.dataset.room;
   const floor = parseInt(input.dataset.floor);
   const dim = input.dataset.dim;

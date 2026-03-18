@@ -10,7 +10,7 @@ import { solveConstraints, applyToConfig, buildAdjacency } from './solver.js';
 import { runSolver } from './ui.js';
 import { showDimensions, hideDimensions } from './dimensions.js';
 import { setRoomFocus, clearRoomFocus } from './room-focus.js';
-import { pushSnapshot, undo, redo, canUndo, canRedo, getHistorySize } from './history.js';
+import { pushSnapshot, undo, redo, canUndo, canRedo, getHistorySize, getEntries, jumpTo } from './history.js';
 
 // ─── JSON path helpers ───
 
@@ -45,7 +45,7 @@ const eidos = {
 
   // Update config in memory and optionally rebuild
   async updateConfig(path, value, shouldRebuild = true) {
-    pushSnapshot();
+    pushSnapshot(`Oppdater ${path}`);
     setByPath(state.apartmentConfig, path, value);
     if (shouldRebuild) {
       await this.rebuild();
@@ -137,7 +137,7 @@ const eidos = {
   // ─── Measurement / Solver API ───
 
   addMeasurement(room, dim, value) {
-    pushSnapshot();
+    pushSnapshot(`Måling: ${room} ${dim}`);
     const cfg = state.apartmentConfig;
     if (!cfg.measurements) {
       cfg.measurements = { defaultWallThickness: 0.08, priors: { wallPositionWeight: 0.1, wallThicknessWeight: 10.0 }, entries: [] };
@@ -154,7 +154,7 @@ const eidos = {
   },
 
   removeMeasurement(room, dim) {
-    pushSnapshot();
+    pushSnapshot(`Fjern måling: ${room} ${dim}`);
     const cfg = state.apartmentConfig;
     if (!cfg.measurements) return;
     const entries = cfg.measurements.entries;

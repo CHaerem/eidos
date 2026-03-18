@@ -88,7 +88,10 @@ export function selectFurniture(id) {
 }
 
 export function addFurniture(type) {
-  if (!type) type = document.getElementById('furnSelect').value;
+  if (!type) {
+    const sel = document.getElementById('furnSelect');
+    type = sel ? sel.value : 'sofa_3';
+  }
   const cat = FURNITURE_CATALOG[type];
   if (!cat) return;
 

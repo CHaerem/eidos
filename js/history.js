@@ -1,14 +1,17 @@
 // ─── EDIT HISTORY ───
 // Undo/redo system for apartment config changes.
-// Stores deep-copy snapshots of the entire config (~5-10 KB each).
+// Stores deep-copy snapshots with labels for visual history panel.
 
 import { state } from './state.js';
 
 const MAX_STACK = 50;
-const undoStack = [];
-const redoStack = [];
 
-// Listeners notified on history change (for UI updates)
+// History is a linear list of entries. `pointer` points to current state.
+// Entries before pointer = past (undo), after pointer = future (redo).
+const entries = [];  // { config, label, timestamp }
+let pointer = -1;    // -1 = no history yet (initial state)
+
+// Listener notified on history change (for UI updates)
 let onChange = null;
 
 export function setHistoryChangeListener(fn) {
@@ -16,23 +19,46 @@ export function setHistoryChangeListener(fn) {
 }
 
 function notify() {
-  if (onChange) onChange({ undoCount: undoStack.length, redoCount: redoStack.length });
+  if (onChange) onChange();
 }
 
 // Call BEFORE mutating state.apartmentConfig
-export function pushSnapshot() {
+export function pushSnapshot(label = 'Endring') {
   if (!state.apartmentConfig) return;
-  undoStack.push(JSON.parse(JSON.stringify(state.apartmentConfig)));
-  if (undoStack.length > MAX_STACK) undoStack.shift();
-  redoStack.length = 0; // new action invalidates redo
+
+  // Discard any future entries (redo branch)
+  if (pointer < entries.length - 1) {
+    entries.length = pointer + 1;
+  }
+
+  entries.push({
+    config: JSON.parse(JSON.stringify(state.apartmentConfig)),
+    label,
+    timestamp: Date.now()
+  });
+
+  // Trim oldest if over limit
+  if (entries.length > MAX_STACK) {
+    entries.shift();
+  }
+
+  pointer = entries.length - 1;
   notify();
 }
 
 // Restore previous state
 export async function undo(rebuildFn) {
-  if (undoStack.length === 0) return false;
-  redoStack.push(JSON.parse(JSON.stringify(state.apartmentConfig)));
-  state.apartmentConfig = undoStack.pop();
+  if (pointer < 0) return false;
+  // Save current state as future entry if we're at the tip
+  if (pointer === entries.length - 1) {
+    entries.push({
+      config: JSON.parse(JSON.stringify(state.apartmentConfig)),
+      label: '(nåværende)',
+      timestamp: Date.now()
+    });
+  }
+  state.apartmentConfig = JSON.parse(JSON.stringify(entries[pointer].config));
+  pointer--;
   if (rebuildFn) await rebuildFn();
   notify();
   return true;
@@ -40,22 +66,56 @@ export async function undo(rebuildFn) {
 
 // Re-apply undone state
 export async function redo(rebuildFn) {
-  if (redoStack.length === 0) return false;
-  undoStack.push(JSON.parse(JSON.stringify(state.apartmentConfig)));
-  state.apartmentConfig = redoStack.pop();
+  if (pointer >= entries.length - 2) return false;
+  pointer += 2;
+  const entry = entries[pointer] || entries[entries.length - 1];
+  state.apartmentConfig = JSON.parse(JSON.stringify(entry.config));
   if (rebuildFn) await rebuildFn();
   notify();
   return true;
 }
 
+// Jump to any point in history
+export async function jumpTo(index, rebuildFn) {
+  if (index < 0 || index >= entries.length) return false;
+
+  // Save current state at tip if needed
+  if (pointer === entries.length - 1) {
+    entries.push({
+      config: JSON.parse(JSON.stringify(state.apartmentConfig)),
+      label: '(nåværende)',
+      timestamp: Date.now()
+    });
+  }
+
+  state.apartmentConfig = JSON.parse(JSON.stringify(entries[index].config));
+  pointer = index;
+  if (rebuildFn) await rebuildFn();
+  notify();
+  return true;
+}
+
+// Get display-friendly list of history entries
+export function getEntries() {
+  return entries.map((e, i) => ({
+    index: i,
+    label: e.label,
+    timestamp: e.timestamp,
+    active: i === pointer
+  }));
+}
+
+// Current pointer position (which entry is active, or -1)
+export function getPointer() { return pointer; }
+
 export function clearHistory() {
-  undoStack.length = 0;
-  redoStack.length = 0;
+  entries.length = 0;
+  pointer = -1;
   notify();
 }
 
-export function canUndo() { return undoStack.length > 0; }
-export function canRedo() { return redoStack.length > 0; }
+export function canUndo() { return pointer >= 0; }
+export function canRedo() { return pointer < entries.length - 2; }
 export function getHistorySize() {
-  return { undoCount: undoStack.length, redoCount: redoStack.length };
+  return { undoCount: pointer + 1, redoCount: Math.max(0, entries.length - pointer - 2) };
 }

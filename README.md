@@ -88,7 +88,7 @@ Nøyaktig 3D-modell med møbler
 - Synlighets-toggles: skjul/vis etasjer og vegger per rom
 - Flere visningsvinkler (ovenfra, 3D, front, side)
 - Tikhonov-regularisert kalibrering med interaktive dimensjonslinjer
-- Undo/redo (⌘Z / ⌘⇧Z) for alle config-endringer
+- Undo/redo (⌘Z / ⌘⇧Z) med visuell historikk-tidslinje og jump-to
 - MCP-server for AI-assistert modellmanipulering
 - Leilighetskonfig via JSON — gjenbrukbart for andre bygg
 

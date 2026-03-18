@@ -182,7 +182,7 @@ Browser-API eksponert som `window.eidos.*` for AI-assistert modellmanipulering:
     "walls": [
       { "id": "t1", "type": "railing", "axis": "x|z", "pos": 0, "fromX|fromZ": 0, "toX|toZ": 0, "railHeight": 1.0 }
     ],
-    "steps": { "count": 2, "riseTotal": 0.45, "bounds": {} }
+    "steps": { "count": 2, "riseTotal": 0.45, "direction": "toTerrace|fromTerrace", "bounds": {} }
   },
   "rooms": [
     { "id": "stue", "name": "Stue", "bounds": {}, "ceilingType": "slope|flat", "note": "" }
@@ -218,10 +218,11 @@ Browser-API eksponert som `window.eidos.*` for AI-assistert modellmanipulering:
 | Kalibrering (solver) | ✅ Tikhonov least-squares | solver.js |
 | Dimensjonslinjer (3D) | ✅ Interaktive, klikk-til-edit | dimensions.js |
 | Veggprotrusjoner | ✅ Config (`walls.protrusions`) | room-details.js |
-| Terrasse | ✅ Config (`terrace`) | room.js |
+| Terrasse | ✅ Config (`terrace`) med trinn, retning, rekkverk | room.js |
 | Geometri-skjuling | ✅ Auto per rom-fokus | room-focus.js |
-| Synlighets-toggles | ✅ Etasjer + vegger per rom | ui.js |
-| Undo/redo | ✅ Config-snapshot stack | history.js |
+| Synlighets-toggles | ✅ Etasjer + rombasert veggskjuling | ui.js |
+| Undo/redo | ✅ Config-snapshot stack med tidslinje-UI | history.js, ui.js |
+| Historikk-tidslinje | ✅ Visuell tidslinje med ikoner og jump-to | ui.js |
 | AI-API | ✅ window.eidos.* | eidos-api.js |
 | MCP-server | ✅ Config CRUD, solver, element-mgmt | mcp_server.py |
 
@@ -313,8 +314,10 @@ npm test          # Kjor alle tester (vitest)
 npx vitest        # Watch-modus
 ```
 Testfiler i `tests/`:
-- `history.test.js` — Undo/redo snapshot-logikk (10 tester)
+- `history.test.js` — Undo/redo snapshot-logikk, jumpTo, labels (20 tester)
 - `solver.test.js` — Constraint solver, adjacency, height unknowns (10 tester)
+- `config-elements.test.js` — Protrusjoner, vinduer, dører, auto-ID, update_element (17 tester)
+- `terrace-visibility.test.js` — Terrassetrinn, vegg-rom-adjacency, historikk-ikoner (21 tester)
 
 ## Kjore lokalt
 ```bash

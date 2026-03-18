@@ -29,7 +29,7 @@ export async function initRoomDetails(configOverride) {
 
   buildWindows(group);
   buildDoorFrames(group);
-  buildBaseboards(group);
+  // buildBaseboards(group);  // Deaktivert — passer ikke modellen foreløpig
   buildProtrusions(group);
 
   state.scene.add(group);

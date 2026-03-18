@@ -80,7 +80,8 @@ export function initSimulator() {
 
   // Control wiring
   document.getElementById('hSlider').addEventListener('input', updateSimulator);
-  document.getElementById('clubSelect').addEventListener('change', updateSimulator);
+  const clubEl = document.getElementById('clubSelect');
+  if (clubEl) clubEl.addEventListener('change', updateSimulator);
   document.querySelectorAll('input[name="dir"]').forEach(r => r.addEventListener('change', updateSimulator));
   document.getElementById('simXSlider').addEventListener('input', updateSimulator);
   document.getElementById('simZSlider').addEventListener('input', updateSimulator);
@@ -94,8 +95,10 @@ function setVal(id, val, unit) {
 
 export function updateSimulator() {
   const heightCm = parseInt(document.getElementById('hSlider').value);
-  const clubLen = parseFloat(document.getElementById('clubSelect').value);
-  const dir = document.querySelector('input[name="dir"]:checked').value;
+  const clubEl = document.getElementById('clubSelect');
+  const clubLen = clubEl ? parseFloat(clubEl.value) : 0.940; // default 7-iron
+  const dirEl = document.querySelector('input[name="dir"]:checked');
+  const dir = dirEl ? dirEl.value : 'window';
   const simX = parseFloat(document.getElementById('simXSlider').value);
   const simZ = parseFloat(document.getElementById('simZSlider').value);
 

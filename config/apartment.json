@@ -203,7 +203,7 @@
         "bounds": {
           "minX": -4.48,
           "maxX": 4.48,
-          "minZ": 2.50,
+          "minZ": 2.5,
           "maxZ": 7.61
         }
       }
@@ -211,18 +211,56 @@
     "note": "6. etasje rom"
   },
   "terrace": {
-    "floorY": 2.70,
-    "bounds": { "minX": -4.48, "maxX": 4.48, "minZ": 2.50, "maxZ": 7.61 },
+    "floorY": 2.7,
+    "bounds": {
+      "minX": -4.48,
+      "maxX": 4.48,
+      "minZ": 2.5,
+      "maxZ": 7.61
+    },
     "walls": [
-      { "id": "terrace-north", "type": "railing", "axis": "z", "pos": 7.61, "fromX": -4.48, "toX": 4.48, "railHeight": 1.0, "note": "Nordkant rekkverk" },
-      { "id": "terrace-east", "type": "railing", "axis": "x", "pos": 4.48, "fromZ": 2.50, "toZ": 7.61, "railHeight": 1.0, "note": "Ostkant rekkverk" },
-      { "id": "terrace-west", "type": "railing", "axis": "x", "pos": -4.48, "fromZ": 2.50, "toZ": 7.61, "railHeight": 1.0, "note": "Vestkant rekkverk" }
+      {
+        "id": "terrace-north",
+        "type": "railing",
+        "axis": "z",
+        "pos": 7.61,
+        "fromX": -4.48,
+        "toX": 4.48,
+        "railHeight": 1.0,
+        "note": "Nordkant rekkverk"
+      },
+      {
+        "id": "terrace-east",
+        "type": "railing",
+        "axis": "x",
+        "pos": 4.48,
+        "fromZ": 2.5,
+        "toZ": 7.61,
+        "railHeight": 1.0,
+        "note": "Ostkant rekkverk"
+      },
+      {
+        "id": "terrace-west",
+        "type": "railing",
+        "axis": "x",
+        "pos": -4.48,
+        "fromZ": 2.5,
+        "toZ": 7.61,
+        "railHeight": 1.0,
+        "note": "Vestkant rekkverk"
+      }
     ],
     "steps": {
       "count": 2,
       "riseTotal": 0.45,
-      "bounds": { "minX": 0.5, "maxX": 2.0, "minZ": 2.50, "maxZ": 2.80 },
-      "note": "2 trinn opp fra hems til terrasse"
+      "direction": "toTerrace",
+      "bounds": {
+        "minX": 0.5,
+        "maxX": 2.0,
+        "minZ": 2.50,
+        "maxZ": 3.10
+      },
+      "note": "2 trinn opp fra hems til terrasse, retning: høyeste trinn nærmest innvendig"
     },
     "note": "Takterrasse — nordsiden, tilgjengelig fra 6. etasje via 2 trinn"
   },

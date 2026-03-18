@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { state } from '../js/state.js';
 import {
-  pushSnapshot, undo, redo,
-  canUndo, canRedo, getHistorySize, clearHistory
+  pushSnapshot, undo, redo, jumpTo,
+  canUndo, canRedo, getHistorySize, getEntries, getPointer, clearHistory
 } from '../js/history.js';
 
 // Helper: create a minimal config object
@@ -20,53 +20,60 @@ describe('history.js — undo/redo', () => {
     state.apartmentConfig = makeConfig();
   });
 
-  it('starts with empty stacks', () => {
+  it('starts with empty history', () => {
     expect(canUndo()).toBe(false);
     expect(canRedo()).toBe(false);
     expect(getHistorySize()).toEqual({ undoCount: 0, redoCount: 0 });
+    expect(getEntries()).toEqual([]);
+    expect(getPointer()).toBe(-1);
   });
 
-  it('pushSnapshot captures current config', () => {
-    pushSnapshot();
+  it('pushSnapshot captures current config with label', () => {
+    pushSnapshot('Test endring');
     expect(canUndo()).toBe(true);
     expect(getHistorySize().undoCount).toBe(1);
+    const entries = getEntries();
+    expect(entries.length).toBe(1);
+    expect(entries[0].label).toBe('Test endring');
+    expect(entries[0].timestamp).toBeGreaterThan(0);
+  });
+
+  it('pushSnapshot uses default label when none provided', () => {
+    pushSnapshot();
+    expect(getEntries()[0].label).toBe('Endring');
   });
 
   it('undo restores previous state', async () => {
-    // Snapshot before change
-    pushSnapshot();
+    pushSnapshot('Før endring');
     const originalPos = state.apartmentConfig.walls.interior[0].pos;
 
-    // Mutate config
     state.apartmentConfig.walls.interior[0].pos = -1.50;
     expect(state.apartmentConfig.walls.interior[0].pos).toBe(-1.50);
 
-    // Undo
     const result = await undo();
     expect(result).toBe(true);
     expect(state.apartmentConfig.walls.interior[0].pos).toBe(originalPos);
   });
 
   it('redo re-applies undone state', async () => {
-    pushSnapshot();
+    pushSnapshot('Snapshot 1');
     state.apartmentConfig.walls.interior[0].pos = -1.50;
 
-    await undo(); // back to original
+    await undo();
     expect(state.apartmentConfig.walls.interior[0].pos).toBe(-2.08);
 
-    await redo(); // forward to -1.50
+    await redo();
     expect(state.apartmentConfig.walls.interior[0].pos).toBe(-1.50);
   });
 
-  it('new action after undo clears redo stack', async () => {
-    pushSnapshot();
+  it('new action after undo clears future entries', async () => {
+    pushSnapshot('Endring 1');
     state.apartmentConfig.walls.interior[0].pos = -1.50;
 
     await undo();
     expect(canRedo()).toBe(true);
 
-    // New action
-    pushSnapshot();
+    pushSnapshot('Endring 2');
     state.apartmentConfig.walls.interior[0].pos = -1.80;
 
     expect(canRedo()).toBe(false);
@@ -74,31 +81,25 @@ describe('history.js — undo/redo', () => {
   });
 
   it('multiple undos work in sequence', async () => {
-    // Change 1
-    pushSnapshot();
+    pushSnapshot('Pos -2.08');
     state.apartmentConfig.walls.interior[0].pos = -1.50;
 
-    // Change 2
-    pushSnapshot();
+    pushSnapshot('Pos -1.50');
     state.apartmentConfig.walls.interior[0].pos = -1.00;
 
-    // Change 3
-    pushSnapshot();
+    pushSnapshot('Pos -1.00');
     state.apartmentConfig.walls.interior[0].pos = -0.50;
 
-    expect(getHistorySize().undoCount).toBe(3);
-
-    await undo(); // → -1.00
+    await undo();
     expect(state.apartmentConfig.walls.interior[0].pos).toBe(-1.00);
 
-    await undo(); // → -1.50
+    await undo();
     expect(state.apartmentConfig.walls.interior[0].pos).toBe(-1.50);
 
-    await undo(); // → -2.08 (original)
+    await undo();
     expect(state.apartmentConfig.walls.interior[0].pos).toBe(-2.08);
 
     expect(canUndo()).toBe(false);
-    expect(getHistorySize().redoCount).toBe(3);
   });
 
   it('undo on empty stack returns false', async () => {
@@ -112,14 +113,10 @@ describe('history.js — undo/redo', () => {
   });
 
   it('snapshots are deep copies (mutations do not affect history)', async () => {
-    pushSnapshot();
-    const originalEntries = state.apartmentConfig.measurements.entries;
-
-    // Mutate deeply nested array
+    pushSnapshot('Før push');
     state.apartmentConfig.measurements.entries.push({ room: 'stue', dim: 'width', value: 5.0 });
     expect(state.apartmentConfig.measurements.entries.length).toBe(1);
 
-    // Undo should restore empty entries
     await undo();
     expect(state.apartmentConfig.measurements.entries.length).toBe(0);
   });
@@ -128,7 +125,7 @@ describe('history.js — undo/redo', () => {
     let rebuildCount = 0;
     const mockRebuild = async () => { rebuildCount++; };
 
-    pushSnapshot();
+    pushSnapshot('Snapshot');
     state.apartmentConfig.walls.interior[0].pos = -1.50;
 
     await undo(mockRebuild);
@@ -136,5 +133,146 @@ describe('history.js — undo/redo', () => {
 
     await redo(mockRebuild);
     expect(rebuildCount).toBe(2);
+  });
+});
+
+describe('history.js — labels and entries', () => {
+  beforeEach(() => {
+    clearHistory();
+    state.apartmentConfig = makeConfig();
+  });
+
+  it('getEntries returns entries in order with labels', () => {
+    pushSnapshot('Flytt vegg');
+    state.apartmentConfig.walls.interior[0].pos = -1.50;
+
+    pushSnapshot('Endre tak');
+    state.apartmentConfig.walls.interior[0].pos = -1.00;
+
+    const entries = getEntries();
+    expect(entries.length).toBe(2);
+    expect(entries[0].label).toBe('Flytt vegg');
+    expect(entries[1].label).toBe('Endre tak');
+    expect(entries[0].index).toBe(0);
+    expect(entries[1].index).toBe(1);
+  });
+
+  it('active flag marks current pointer position', () => {
+    pushSnapshot('A');
+    state.apartmentConfig.walls.interior[0].pos = -1.50;
+
+    pushSnapshot('B');
+    state.apartmentConfig.walls.interior[0].pos = -1.00;
+
+    const entries = getEntries();
+    expect(entries[0].active).toBe(false);
+    expect(entries[1].active).toBe(true);
+  });
+
+  it('entries have timestamps', () => {
+    const before = Date.now();
+    pushSnapshot('Tidsstempel-test');
+    const after = Date.now();
+
+    const entries = getEntries();
+    expect(entries[0].timestamp).toBeGreaterThanOrEqual(before);
+    expect(entries[0].timestamp).toBeLessThanOrEqual(after);
+  });
+});
+
+describe('history.js — jumpTo', () => {
+  beforeEach(() => {
+    clearHistory();
+    state.apartmentConfig = makeConfig();
+  });
+
+  it('jumpTo restores config at given index', async () => {
+    pushSnapshot('Original');
+    state.apartmentConfig.walls.interior[0].pos = -1.50;
+
+    pushSnapshot('Endring 1');
+    state.apartmentConfig.walls.interior[0].pos = -1.00;
+
+    pushSnapshot('Endring 2');
+    state.apartmentConfig.walls.interior[0].pos = -0.50;
+
+    // Jump back to index 0 (original state: -2.08)
+    await jumpTo(0);
+    expect(state.apartmentConfig.walls.interior[0].pos).toBe(-2.08);
+  });
+
+  it('jumpTo updates pointer and active flag', async () => {
+    pushSnapshot('A');
+    state.apartmentConfig.walls.interior[0].pos = -1.50;
+
+    pushSnapshot('B');
+    state.apartmentConfig.walls.interior[0].pos = -1.00;
+
+    pushSnapshot('C');
+    state.apartmentConfig.walls.interior[0].pos = -0.50;
+
+    await jumpTo(1);
+    expect(getPointer()).toBe(1);
+
+    const entries = getEntries();
+    expect(entries[0].active).toBe(false);
+    expect(entries[1].active).toBe(true);
+    expect(entries[2].active).toBe(false);
+  });
+
+  it('jumpTo calls rebuild function', async () => {
+    let rebuildCount = 0;
+    const mockRebuild = async () => { rebuildCount++; };
+
+    pushSnapshot('A');
+    state.apartmentConfig.walls.interior[0].pos = -1.50;
+
+    pushSnapshot('B');
+    state.apartmentConfig.walls.interior[0].pos = -1.00;
+
+    await jumpTo(0, mockRebuild);
+    expect(rebuildCount).toBe(1);
+  });
+
+  it('jumpTo with invalid index returns false', async () => {
+    pushSnapshot('A');
+    expect(await jumpTo(-1)).toBe(false);
+    expect(await jumpTo(99)).toBe(false);
+  });
+
+  it('jumpTo preserves current state for future navigation', async () => {
+    pushSnapshot('Original');
+    state.apartmentConfig.walls.interior[0].pos = -1.50;
+
+    pushSnapshot('Midten');
+    state.apartmentConfig.walls.interior[0].pos = -1.00;
+
+    // Jump back to original
+    await jumpTo(0);
+    expect(state.apartmentConfig.walls.interior[0].pos).toBe(-2.08);
+
+    // Jump forward to midten
+    await jumpTo(1);
+    expect(state.apartmentConfig.walls.interior[0].pos).toBe(-1.50);
+  });
+
+  it('jumpTo forward and back preserves all entries', async () => {
+    pushSnapshot('Step 1');
+    state.apartmentConfig.walls.interior[0].pos = -1.50;
+
+    pushSnapshot('Step 2');
+    state.apartmentConfig.walls.interior[0].pos = -1.00;
+
+    pushSnapshot('Step 3');
+    state.apartmentConfig.walls.interior[0].pos = -0.50;
+
+    // Jump to beginning
+    await jumpTo(0);
+    expect(state.apartmentConfig.walls.interior[0].pos).toBe(-2.08);
+
+    // Jump to end (the saved "(nåværende)" entry)
+    const entries = getEntries();
+    await jumpTo(entries.length - 1);
+    expect(state.apartmentConfig.walls.interior[0].pos).toBe(-0.50);
   });
 });

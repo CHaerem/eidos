@@ -394,29 +394,34 @@ function buildTerrace() {
   }
 
   // Steps from upper floor to terrace
+  // Steps ascend from south (interior, low) toward north (terrace, high).
+  // Each step is a solid block extending from ufFloorY to its tread height.
+  // direction config: "toTerrace" (default, ascending toward maxZ) or "fromTerrace" (ascending toward minZ)
   if (tc.steps) {
     const steps = tc.steps;
     const sb = steps.bounds;
     const ufFloorY = config.upperFloor ? (config.upperFloor.floorY || 2.25) : 2.25;
     const risePerStep = steps.riseTotal / steps.count;
-    const depthPerStep = (sb.maxZ - sb.minZ) / steps.count; // positive Z (north toward terrace)
+    const depthPerStep = (sb.maxZ - sb.minZ) / steps.count;
+    const direction = steps.direction || 'toTerrace'; // ascending toward maxZ by default
 
     const stepMat = new THREE.MeshStandardMaterial({
       color: 0xD4C8B8, roughness: 0.7, metalness: 0.0
     });
 
     for (let i = 0; i < steps.count; i++) {
-      const stepY = ufFloorY + risePerStep * (i + 1);
+      // Step index 0 is nearest the interior (minZ), ascending toward terrace (maxZ)
+      const stepIdx = direction === 'fromTerrace' ? (steps.count - 1 - i) : i;
+      const treadHeight = ufFloorY + risePerStep * (stepIdx + 1);
+      const totalH = treadHeight - ufFloorY; // solid block from floor to tread
       const stepZ = sb.minZ + depthPerStep * i;
       const stepW = sb.maxX - sb.minX;
-      const stepD = depthPerStep;
-      const stepH = risePerStep;
 
-      const geo = new THREE.BoxGeometry(stepW, stepH, stepD);
+      const geo = new THREE.BoxGeometry(stepW, totalH, depthPerStep);
       const mesh = new THREE.Mesh(geo, stepMat);
       mesh.position.set(
         (sb.minX + sb.maxX) / 2,
-        stepY - stepH / 2,
+        ufFloorY + totalH / 2,
         stepZ + depthPerStep / 2
       );
       mesh.castShadow = true;
