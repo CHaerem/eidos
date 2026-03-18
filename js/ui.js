@@ -641,11 +641,8 @@ function exitCalibration() {
   setCalibrationFocusMode(false);
   hideDimensions();
   clearRoomFocus();
-  // Restore all visibility
-  for (const name of ['UpperFloor', 'Staircase', 'Terrace', 'Ceiling', 'RoomDetails']) {
-    const obj = state.scene?.getObjectByName(name);
-    if (obj) obj.visible = true;
-  }
+  // Restore visibility
+  clearRoomFocus();
   populateCalibration();
 }
 
@@ -661,28 +658,8 @@ function navigateToStep() {
   const b = room.bounds;
   const floorY = step.floor === 6 ? (state.apartmentConfig.upperFloor?.floorY || 2.25) : 0;
 
-  // DON'T use setRoomFocus (it hides walls we need to see)
-  // Instead, manually hide only non-essential layers
-  clearRoomFocus();
-
-  // Hide layers based on which floor we're measuring
-  const layerMap = {
-    'UpperFloor': step.floor === 6,
-    'Staircase': false,
-    'Terrace': false,
-    'Ceiling': false,
-    'RoomDetails': step.floor === 5, // windows/doors only for 5th floor when measuring 5th
-  };
-  for (const [name, vis] of Object.entries(layerMap)) {
-    const obj = state.scene.getObjectByName(name);
-    if (obj) obj.visible = vis;
-  }
-
-  // For 6th floor: show UpperFloor but hide windows/doors from 5th floor
-  if (step.floor === 6) {
-    const rd = state.scene.getObjectByName('RoomDetails');
-    if (rd) rd.visible = false; // 5th floor details not relevant
-  }
+  // Show full apartment with room focus — hides blocking geometry only
+  setRoomFocus(step.roomId, step.floor, null);
 
   // Position camera looking down into the room at ~45° angle
   // This gives the best view of horizontal measurement lines
