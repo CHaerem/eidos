@@ -600,6 +600,20 @@ function setCalibrationFocusMode(active) {
   const panel = document.getElementById('panel');
   if (!panel) return;
   panel.classList.toggle('cal-focus', active);
+
+  // Hide/show 3D distractions (furniture, simulator, compass)
+  if (!state.scene) return;
+  const hideNames = ['Furniture', 'SimulatorGroup', 'Protrusions'];
+  for (const name of hideNames) {
+    const obj = state.scene.getObjectByName(name);
+    if (obj) obj.visible = !active;
+  }
+  // Hide simulator
+  const simToggle = document.getElementById('simToggle');
+  if (simToggle && active) { simToggle.checked = false; simToggle.dispatchEvent(new Event('change')); }
+  // Hide compass
+  const compass = document.getElementById('compass-wrap');
+  if (compass) compass.style.display = active ? 'none' : '';
 }
 
 function startCalibration() {
@@ -630,6 +644,11 @@ function exitCalibration() {
   setCalibrationFocusMode(false);
   hideDimensions();
   clearRoomFocus();
+  // Restore all floor visibility
+  for (const name of ['UpperFloor', 'Staircase', 'Terrace', 'Ceiling']) {
+    const obj = state.scene?.getObjectByName(name);
+    if (obj) obj.visible = true;
+  }
   populateCalibration();
 }
 
@@ -645,8 +664,25 @@ function navigateToStep() {
   const b = room.bounds;
   const floorY = step.floor === 6 ? (state.apartmentConfig.upperFloor?.floorY || 2.25) : 0;
 
-  // Set room focus first to hide blocking geometry
+  // Set room focus to hide blocking geometry
   setRoomFocus(step.roomId, step.floor, null);
+
+  // Hide floors not being measured for cleaner view
+  const uf = state.scene.getObjectByName('UpperFloor');
+  const staircase = state.scene.getObjectByName('Staircase');
+  const terrace = state.scene.getObjectByName('Terrace');
+  const ceiling = state.scene.getObjectByName('Ceiling');
+  if (step.floor === 5) {
+    if (uf) uf.visible = false;
+    if (staircase) staircase.visible = false;
+    if (terrace) terrace.visible = false;
+    if (ceiling) ceiling.visible = false;
+  } else {
+    if (uf) uf.visible = true;
+    if (staircase) staircase.visible = true;
+    if (terrace) terrace.visible = (step.roomId === 'terrasse');
+    if (ceiling) ceiling.visible = false;
+  }
 
   // Position camera looking down into the room at ~45° angle
   // This gives the best view of horizontal measurement lines
@@ -755,27 +791,20 @@ function renderCalibrationWizard() {
 
   container.innerHTML = `
     <div class="cal-wizard">
-      <div class="cal-progress">
-        <div class="cal-progress-bar"><div class="cal-progress-fill" style="width:${pct}%"></div></div>
-        <div class="cal-progress-text">${measured}/${total}</div>
-      </div>
       <div class="cal-wizard-header">
         <span class="cal-wizard-room">${step.roomName}</span>
         <span class="cal-wizard-dim">${dimLabel}</span>
+        <span class="cal-progress-text">${current + 1}/${total}</span>
       </div>
-      <div class="cal-wizard-instruction">${instruction}</div>
       <div class="cal-wizard-input-row">
         <input type="number" id="cal-wizard-input" step="0.01" min="0.1"
           value="${existing ? existing.value : ''}"
-          placeholder="mål i meter" autofocus>
+          placeholder="meter" autofocus>
         <span class="cal-wizard-unit">m</span>
-        <button class="cal-wizard-btn primary" onclick="window._advanceCalibration()">Lagre →</button>
+        <button class="cal-wizard-btn primary" onclick="window._advanceCalibration()">→</button>
+        <button class="cal-wizard-btn skip" onclick="window._skipStep()">Hopp</button>
+        <button class="cal-wizard-btn exit" onclick="window._exitCalibration()">✕</button>
       </div>
-      <div class="cal-wizard-actions">
-        <button class="cal-wizard-btn skip" onclick="window._skipStep()">Hopp over</button>
-        <button class="cal-wizard-btn exit" onclick="window._exitCalibration()">Avslutt</button>
-      </div>
-      <div class="cal-room-dots">${dotsHtml}</div>
     </div>`;
 
   // Focus input and handle Enter key
