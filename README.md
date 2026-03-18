@@ -85,20 +85,22 @@ Nøyaktig 3D-modell med møbler
 - Drag-and-drop plassering med snap-to-wall
 - Rotasjonsknapper (0°/90°/180°/270°) og tastatursnarveier (R, Delete)
 - Golfsimulator med svingbue og klaringsberegninger
-- Synlighets-toggles: skjul/vis etasjer og vegger per rom
-- Flere visningsvinkler (ovenfra, 3D, front, side)
-- Tikhonov-regularisert kalibrering med interaktive dimensjonslinjer
-- Undo/redo (⌘Z / ⌘⇧Z) med visuell historikk-tidslinje og jump-to
-- MCP-server for AI-assistert modellmanipulering
+- Synlighets-toggles: skjul/vis etasjer og vegger per rom (rombasert)
+- Kompakt enhetlig glasspanel (ingen tabs) med collapsible seksjoner
+- Kameravisning med aktiv-state (ovenfra, 3D, front, side)
+- Tikhonov-regularisert kalibrering med kompakte rom-kort og interaktive dimensjonslinjer
+- Undo/redo (⌘Z / ⌘⇧Z) med visuell historikk-tidslinje, jump-to og 3D-diff
+- MCP-server for AI-assistert modellmanipulering (vinduer, dører, vegger, protrusjoner)
+- Dynamisk cache-busting dev-server (filendringer reflekteres ved refresh)
 - Leilighetskonfig via JSON — gjenbrukbart for andre bygg
 
 ## Kjør lokalt
 
 ```bash
-python3 -m http.server 8765
+python3 server.py
 ```
 
-Åpne `http://localhost:8765/index.html` i nettleseren.
+Åpne `http://localhost:8765/index.html` i nettleseren. Dev-serveren har dynamisk cache-busting — filendringer reflekteres automatisk ved refresh.
 
 ## Prosjektstruktur
 
@@ -118,12 +120,14 @@ eidos/
     solver.js             Tikhonov-regularisert kalibrerings-solver
     dimensions.js         Interaktive dimensjonslinjer i 3D
     history.js            Undo/redo med config-snapshot stack
+    history-diff.js       3D visuell diff mellom config-snapshots
     eidos-api.js          Browser API for AI-assistert manipulering
-    ui.js                 Panel, kalibrering, synlighets-toggles
+    ui.js                 Enhetlig glasspanel, kalibrering, synlighets-toggles
   config/
     apartment.json        Leilighetskonfigurasjon (komplett boligbeskrivelse)
+  server.py               Dev-server med dynamisk cache-busting for ES-moduler
   mcp_server.py           MCP-server for AI-verktøy (les/skriv config, CRUD elementer)
-  tests/                  Vitest enhetstester (solver, history, config-elements)
+  tests/                  Vitest enhetstester (84 tester: solver, history, config-elements, diff)
 ```
 
 ## Teknologi

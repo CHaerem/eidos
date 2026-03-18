@@ -3,7 +3,7 @@
 ## Prosjekt
 **Eidos** — Generisk rammeverk for 3D-modellering av boliger fra plantegninger.
 Config-drevet arkitektur: alt romspesifikt i `apartment.json`, ikke i kode.
-Forste bolig: Vibes gate 20B, 5. etasje (loft), Oslo.
+Forste bolig: Vibes gate 20B, 5. og 6. etasje (loft) med takterrasse, Oslo.
 
 ## Hovedvisjon
 Eidos skal bli et rammeverk der nye boliger kan modelleres ved a:
@@ -15,11 +15,11 @@ Eidos skal bli et rammeverk der nye boliger kan modelleres ved a:
 **Arkitekturprinsipp**: All romgeometri skal vaere config-drevet. Ingen hardkoding av romstorrelser, veggposisjoner eller takgeometri i JS-kode. Nye moduler skal folge dette prinsippet.
 
 ## Teknisk stack
-- Modulaer ES-modul-arkitektur (`js/` med 13 moduler + entry point)
+- Modulaer ES-modul-arkitektur (`js/` med 14 moduler + entry point)
 - Three.js v0.162.0 via CDN importmap (native ES modules, ingen bundler)
 - OBJ-modell lastes med OBJLoader — skala og posisjon fra config
 - Leilighetskonfig i `config/apartment.json` — komplett boligbeskrivelse
-- Python HTTP-server pa port 8765 for preview (konfigurert i `.claude/launch.json`)
+- Python HTTP-server pa port 8765 med dynamisk cache-busting (konfigurert i `.claude/launch.json`)
 - Vitest for enhetstester (`npm test`)
 - Norsk UI
 
@@ -29,7 +29,7 @@ Eidos skal bli et rammeverk der nye boliger kan modelleres ved a:
 | `js/state.js` | Delt mutable state (scene, kamera, mobler, simulator, apartmentConfig) |
 | `js/scene.js` | Three.js setup, lys, kontroller, visninger (config-drevet), animate-loop, flyToRoom |
 | `js/room.js` | OBJ-lasting, takzoner (`ceilAt(x,z)` per-zone), CEIL + BOUNDS |
-| `js/room-details.js` | Vinduer, dorkarmer, fotlister, veggprotrusjoner (config-drevet) |
+| `js/room-details.js` | Vinduer (sor/nord/vest), dorkarmer, fotlister, veggprotrusjoner (config-drevet) |
 | `js/furniture.js` | FURNITURE_CATALOG + custom builders (Besta, Soderhamn, Cana) |
 | `js/interaction.js` | Drag-and-drop, raycasting, seleksjon, snap-to-wall (BOUNDS), tastatur, undo/redo-snarvei |
 | `js/simulator.js` | Svingformler, simulator-gruppe, klaringsberegninger (BOUNDS) |
@@ -37,8 +37,9 @@ Eidos skal bli et rammeverk der nye boliger kan modelleres ved a:
 | `js/dimensions.js` | Interaktive dimensjonslinjer i 3D-viewporten, klikk-til-edit |
 | `js/room-focus.js` | Dynamisk skjuling av geometri ved rom-navigasjon (vegg/gulv/tak) |
 | `js/history.js` | Undo/redo med config-snapshot stack (maks 50 nivåer) |
-| `js/eidos-api.js` | Browser API for AI-assistert modellmanipulering (`window.eidos.*`) |
-| `js/ui.js` | Sidebar-rendering, kalibreringspanel, synlighets-toggles (etasjer/vegger per rom) |
+| `js/history-diff.js` | 3D visuell diff mellom config-snapshots (gronne/rode highlight-bokser) |
+| `js/eidos-api.js` | Browser API for AI-assistert modellmanipulering (`window.eidos.*`), rebuild re-fetcher config |
+| `js/ui.js` | Enhetlig glasspanel (ingen tabs), kompakte kalibreringskort, rombasert veggskjuling |
 | `js/main.js` | Entry point — kaller init i rekkefolge |
 
 ## Kjerneabstraksjoner
@@ -188,10 +189,10 @@ Browser-API eksponert som `window.eidos.*` for AI-assistert modellmanipulering:
     { "id": "stue", "name": "Stue", "bounds": {}, "ceilingType": "slope|flat", "note": "" }
   ],
   "windows": [
-    { "id": "W1", "wall": "south|west|north|east", "x1": 0, "x2": 0, "sillHeight": 1.0, "topHeight": 2.2 }
+    { "id": "W1", "wall": "south|west|north|east", "x1": 0, "x2": 0, "sillHeight": 1.0, "topHeight": 2.2, "floor": 6, "note": "" }
   ],
   "doors": [
-    { "id": "D1", "wall": "id", "pos": 0, "axis": "x|z", "from": 0, "to": 0, "height": 2.0 }
+    { "id": "D1", "wall": "id", "pos": 0, "axis": "x|z", "from": 0, "to": 0, "height": 2.0, "floor": 6, "note": "" }
   ],
   "baseboard": { "height": 0.08, "depth": 0.012, "color": "0xF0F0F0" },
   "simulator": { "hitDirection": "negZ", "screenDistance": 0.3 }
@@ -223,8 +224,11 @@ Browser-API eksponert som `window.eidos.*` for AI-assistert modellmanipulering:
 | Synlighets-toggles | ✅ Etasjer + rombasert veggskjuling | ui.js |
 | Undo/redo | ✅ Config-snapshot stack med tidslinje-UI | history.js, ui.js |
 | Historikk-tidslinje | ✅ Visuell tidslinje med ikoner og jump-to | ui.js |
-| AI-API | ✅ window.eidos.* | eidos-api.js |
+| Historikk 3D-diff | ✅ Gronne/rode highlight-bokser i viewporten | history-diff.js |
+| AI-API | ✅ window.eidos.* (rebuild re-fetcher config) | eidos-api.js |
 | MCP-server | ✅ Config CRUD, solver, element-mgmt | mcp_server.py |
+| Cache-busting | ✅ Dynamisk mtime-basert versjonering | server.py |
+| Vinduer nord/sor/vest | ✅ Config med floor-offset for 6. etasje | room-details.js |
 
 ## OBJ-koordinatsystem
 Etter skalering og Y-shift (fra config):
@@ -313,15 +317,17 @@ Denne pipelinen gjores na manuelt med Claude, men malet er:
 npm test          # Kjor alle tester (vitest)
 npx vitest        # Watch-modus
 ```
-Testfiler i `tests/`:
+Testfiler i `tests/` (84 tester totalt):
 - `history.test.js` — Undo/redo snapshot-logikk, jumpTo, labels (20 tester)
 - `solver.test.js` — Constraint solver, adjacency, height unknowns (10 tester)
 - `config-elements.test.js` — Protrusjoner, vinduer, dører, auto-ID, update_element (17 tester)
 - `terrace-visibility.test.js` — Terrassetrinn, vegg-rom-adjacency, historikk-ikoner (21 tester)
+- `history-diff.test.js` — Config-diffing, endringskategorisering, label-generering (16 tester)
 
 ## Kjore lokalt
 ```bash
 cd /Users/christopherhaerem/Privat/GolfSim
-python3 -m http.server 8765
+python3 server.py
 # Apne http://localhost:8765/index.html
+# server.py har dynamisk cache-busting — filendringer reflekteres ved refresh
 ```
