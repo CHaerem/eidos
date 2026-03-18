@@ -193,9 +193,9 @@ export function initDimensionClick() {
   if (!canvas) return;
 
   canvas.addEventListener('click', onDimClick);
-  // pointerdown on canvas to detect guide click
-  canvas.addEventListener('pointerdown', onGuidePointerDown);
-  // pointermove/up on DOCUMENT to ensure we get events even if OrbitControls captures pointer
+  // CAPTURE phase pointerdown — fires BEFORE OrbitControls can setPointerCapture
+  canvas.addEventListener('pointerdown', onGuidePointerDown, true);
+  // pointermove/up on DOCUMENT to ensure we get events during drag
   document.addEventListener('pointermove', onGuideDrag);
   document.addEventListener('pointerup', onGuidePointerUp);
 
@@ -244,16 +244,12 @@ function onGuidePointerDown(event) {
   dragState = { guide, dragPlane, startPt, didDrag: false };
   console.log('[DIM] dragState SET, guide:', guide.dim);
 
-  // CRITICAL: Release OrbitControls pointer capture so pointermove reaches us
-  const canvas = state.renderer.domElement;
-  if (canvas.hasPointerCapture(event.pointerId)) {
-    canvas.releasePointerCapture(event.pointerId);
-    console.log('[DIM] released pointer capture');
-  }
+  // CRITICAL: Stop event from reaching OrbitControls entirely
+  // This prevents OrbitControls from calling setPointerCapture
   state.controls.enabled = false;
-  canvas.style.cursor = 'grabbing';
+  state.renderer.domElement.style.cursor = 'grabbing';
   event.preventDefault();
-  event.stopPropagation();
+  event.stopImmediatePropagation(); // blocks ALL other listeners on this element
 }
 
 let hoveredGuide = null;
