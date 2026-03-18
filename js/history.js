@@ -3,6 +3,7 @@
 // Stores deep-copy snapshots with labels for visual history panel.
 
 import { state } from './state.js';
+import { clearHistoryDiff } from './history-diff.js';
 
 const MAX_STACK = 50;
 
@@ -25,6 +26,7 @@ function notify() {
 // Call BEFORE mutating state.apartmentConfig
 export function pushSnapshot(label = 'Endring') {
   if (!state.apartmentConfig) return;
+  clearHistoryDiff();  // Remove any active diff overlay
 
   // Discard any future entries (redo branch)
   if (pointer < entries.length - 1) {
@@ -107,6 +109,9 @@ export function getEntries() {
 
 // Current pointer position (which entry is active, or -1)
 export function getPointer() { return pointer; }
+
+// Get raw entries with config references (read-only, do not mutate)
+export function getFullEntries() { return entries; }
 
 export function clearHistory() {
   entries.length = 0;

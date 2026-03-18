@@ -5,7 +5,8 @@ import { BOUNDS, ceilAt } from './room.js';
 import { solveConstraints, applyToConfig } from './solver.js';
 import { showDimensions, hideDimensions } from './dimensions.js';
 import { setRoomFocus, clearRoomFocus } from './room-focus.js';
-import { pushSnapshot, getEntries, getPointer, jumpTo, setHistoryChangeListener } from './history.js';
+import { pushSnapshot, getEntries, getPointer, getFullEntries, jumpTo, setHistoryChangeListener } from './history.js';
+import { showHistoryDiff, clearHistoryDiff, computeDiff, getDiffSummary } from './history-diff.js';
 
 // ─── FURNITURE LIST RENDERING ───
 
@@ -152,6 +153,7 @@ function renderHistory() {
   }
 
   const pointer = getPointer();
+  const fullEntries = getFullEntries();
   const undoCount = pointer + 1;
   const redoCount = Math.max(0, entries.length - pointer - 2);
   let html = `<div class="history-counter">${undoCount} angre${redoCount > 0 ? ` · ${redoCount} gjør om` : ''}</div>`;
@@ -162,16 +164,40 @@ function renderHistory() {
     const cls = `history-entry${isActive ? ' active' : ''}${isFuture ? ' future' : ''}`;
     const ago = timeAgo(e.timestamp);
     const icon = historyIcon(e.label);
-    html += `<div class="${cls}" data-index="${i}"><span class="h-icon">${icon}</span><span class="h-label">${e.label}</span><span class="h-time">${ago}</span></div>`;
+
+    // Compute change count badge
+    let badge = '';
+    if (i > 0 && fullEntries[i] && fullEntries[i - 1]) {
+      try {
+        const diff = computeDiff(fullEntries[i].config, fullEntries[i - 1].config);
+        const count = getDiffSummary(diff);
+        if (count > 0) badge = `<span class="h-diff-count">${count}</span>`;
+      } catch (_) { /* ignore */ }
+    }
+
+    html += `<div class="${cls}" data-index="${i}"><span class="h-icon">${icon}</span><span class="h-label">${e.label}</span>${badge}<span class="h-time">${ago}</span></div>`;
   }
   container.innerHTML = html;
 
-  // Click handlers
+  // Click handlers — jump to history state and show 3D diff overlay
   container.querySelectorAll('.history-entry').forEach(el => {
     el.addEventListener('click', async () => {
       const idx = parseInt(el.dataset.index);
       if (window.eidos) {
+        // Get configs for diff BEFORE jumping (entries include full configs)
+        const fullEntries = getFullEntries();
+        const prevConfig = idx > 0 ? fullEntries[idx - 1].config : null;
+        const currentConfig = fullEntries[idx].config;
+
         await jumpTo(idx, () => window.eidos.rebuild());
+
+        // Show 3D diff overlay if there's a previous state to compare against
+        if (prevConfig) {
+          showHistoryDiff(currentConfig, prevConfig);
+        } else {
+          clearHistoryDiff();
+        }
+
         populateCalibration();
         populateApartmentInfo();
       }
