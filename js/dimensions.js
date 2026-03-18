@@ -227,8 +227,10 @@ function hitGuide(event) {
 }
 
 function onGuidePointerDown(event) {
-  if (floatingInput) return; // editing mode
+  console.log('[DIM] pointerdown', { clientX: event.clientX, clientY: event.clientY, button: event.button, target: event.target?.tagName });
+  if (floatingInput) { console.log('[DIM] blocked: floatingInput active'); return; }
   const guide = hitGuide(event);
+  console.log('[DIM] hitGuide result:', guide ? guide.dim : 'null');
   if (!guide) return;
 
   // Create horizontal drag plane at guide Y height
@@ -240,11 +242,13 @@ function onGuidePointerDown(event) {
   raycaster.ray.intersectPlane(dragPlane, startPt);
 
   dragState = { guide, dragPlane, startPt, didDrag: false };
+  console.log('[DIM] dragState SET, guide:', guide.dim);
 
   // CRITICAL: Release OrbitControls pointer capture so pointermove reaches us
   const canvas = state.renderer.domElement;
   if (canvas.hasPointerCapture(event.pointerId)) {
     canvas.releasePointerCapture(event.pointerId);
+    console.log('[DIM] released pointer capture');
   }
   state.controls.enabled = false;
   canvas.style.cursor = 'grabbing';
@@ -295,6 +299,7 @@ function onGuideDrag(event) {
   if (!b) return;
 
   dragState.didDrag = true;
+  console.log('[DIM] dragging, pt:', pt.x.toFixed(2), pt.z.toFixed(2));
 
   // Compute delta along the constrained axis
   if (guide.axis === 'x') {
