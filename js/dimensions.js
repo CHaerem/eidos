@@ -12,9 +12,13 @@ import { pushSnapshot } from './history.js';
 let dimGroup = null;
 let activeRoom = null;   // { roomId, floor }
 let dimSprites = [];     // { sprite, dim, roomId, floor, computedValue }
+let guideGroups = [];    // { group, axis, dim, roomId, floor, bounds, floorY, p1, p2 }
 let floatingInput = null;
 let clickListenerAdded = false;
+let dragState = null;    // { guide, startPos, dragPlane }
 const clock = new THREE.Clock();
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
 
 // ─── PUBLIC API ───
 
@@ -117,7 +121,7 @@ export function showDimensions(roomId, floor) {
   addGuide(
     new THREE.Vector3(b.minX, guideY, midZ),
     new THREE.Vector3(b.maxX, guideY, midZ),
-    'x', wMeas ? wMeas.value : compW, !!wMeas, 'width', roomId, floor, compW, floorY
+    'x', wMeas ? wMeas.value : compW, !!wMeas, 'width', roomId, floor, compW, floorY, b
   );
 
   // ─── Depth line (along Z, INSIDE room at midX) ───
@@ -126,7 +130,7 @@ export function showDimensions(roomId, floor) {
   addGuide(
     new THREE.Vector3(midX, guideY, b.minZ),
     new THREE.Vector3(midX, guideY, b.maxZ),
-    'z', dMeas ? dMeas.value : compD, !!dMeas, 'depth', roomId, floor, compD, floorY
+    'z', dMeas ? dMeas.value : compD, !!dMeas, 'depth', roomId, floor, compD, floorY, b
   );
 
   // ─── Height line(s) — vertical, in center of room ───
@@ -140,7 +144,7 @@ export function showDimensions(roomId, floor) {
     addGuide(
       new THREE.Vector3(midX - 0.4, floorY, zLow),
       new THREE.Vector3(midX - 0.4, mHL ? mHL.value + floorY : hLow, zLow),
-      'y', mHL ? mHL.value : (hLow - floorY), !!mHL, 'height_low', roomId, floor, hLow - floorY, floorY
+      'y', mHL ? mHL.value : (hLow - floorY), !!mHL, 'height_low', roomId, floor, hLow - floorY, floorY, b
     );
     // High height near back wall (maxZ - 0.3m inside)
     const zHigh = b.maxZ - 0.3;
@@ -149,7 +153,7 @@ export function showDimensions(roomId, floor) {
     addGuide(
       new THREE.Vector3(midX + 0.4, floorY, zHigh),
       new THREE.Vector3(midX + 0.4, mHH ? mHH.value + floorY : hHigh, zHigh),
-      'y', mHH ? mHH.value : (hHigh - floorY), !!mHH, 'height_high', roomId, floor, hHigh - floorY, floorY
+      'y', mHH ? mHH.value : (hHigh - floorY), !!mHH, 'height_high', roomId, floor, hHigh - floorY, floorY, b
     );
   } else {
     const h = ceilAt(midX, midZ);
@@ -157,7 +161,7 @@ export function showDimensions(roomId, floor) {
     addGuide(
       new THREE.Vector3(midX, floorY, midZ),
       new THREE.Vector3(midX, mH ? mH.value + floorY : h, midZ),
-      'y', mH ? mH.value : (h - floorY), !!mH, 'height', roomId, floor, h - floorY, floorY
+      'y', mH ? mH.value : (h - floorY), !!mH, 'height', roomId, floor, h - floorY, floorY, b
     );
   }
 
@@ -178,7 +182,9 @@ export function hideDimensions() {
     dimGroup = null;
   }
   dimSprites = [];
+  guideGroups = [];
   activeRoom = null;
+  dragState = null;
 }
 
 export function initDimensionClick() {
@@ -187,11 +193,117 @@ export function initDimensionClick() {
   if (!canvas) return;
 
   canvas.addEventListener('click', onDimClick);
+  canvas.addEventListener('pointerdown', onGuidePointerDown);
+  canvas.addEventListener('pointermove', onGuideDrag);
+  canvas.addEventListener('pointerup', onGuidePointerUp);
+
   // Close floating input on camera move
   if (state.controls) {
     state.controls.addEventListener('start', () => removeFloatingInput());
   }
   clickListenerAdded = true;
+}
+
+// ─── DRAG HANDLERS ───
+
+function updateMouseNDC(event) {
+  const rect = state.renderer.domElement.getBoundingClientRect();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+}
+
+function hitGuide(event) {
+  updateMouseNDC(event);
+  raycaster.setFromCamera(mouse, state.camera);
+
+  for (const g of guideGroups) {
+    if (!g.group.userData.draggable) continue;
+    const hits = raycaster.intersectObjects(g.group.children, true);
+    if (hits.length > 0) return g;
+  }
+  return null;
+}
+
+function onGuidePointerDown(event) {
+  if (floatingInput) return; // editing mode
+  const guide = hitGuide(event);
+  if (!guide) return;
+
+  // Create horizontal drag plane at guide Y height
+  const guideY = guide.p1.y;
+  const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -guideY);
+
+  // Get initial intersection
+  const startPt = new THREE.Vector3();
+  raycaster.ray.intersectPlane(dragPlane, startPt);
+
+  dragState = { guide, dragPlane, startPt, didDrag: false };
+
+  state.controls.enabled = false;
+  state.renderer.domElement.style.cursor = 'grabbing';
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function onGuideDrag(event) {
+  if (!dragState) {
+    // Hover cursor
+    const guide = hitGuide(event);
+    state.renderer.domElement.style.cursor = guide ? 'grab' : '';
+    return;
+  }
+
+  updateMouseNDC(event);
+  raycaster.setFromCamera(mouse, state.camera);
+
+  const pt = new THREE.Vector3();
+  raycaster.ray.intersectPlane(dragState.dragPlane, pt);
+  if (!pt) return;
+
+  const guide = dragState.guide;
+  const b = guide.bounds;
+  if (!b) return;
+
+  dragState.didDrag = true;
+
+  // Compute delta along the constrained axis
+  if (guide.axis === 'x') {
+    // Width line: drag along Z, clamped to room bounds
+    let newZ = Math.max(b.minZ + 0.15, Math.min(b.maxZ - 0.15, pt.z));
+    const delta = newZ - guide.p1.z;
+    guide.group.position.z = delta;
+  } else if (guide.axis === 'z') {
+    // Depth line: drag along X, clamped to room bounds
+    let newX = Math.max(b.minX + 0.15, Math.min(b.maxX - 0.15, pt.x));
+    const delta = newX - guide.p1.x;
+    guide.group.position.x = delta;
+  }
+}
+
+function onGuidePointerUp(event) {
+  if (!dragState) return;
+
+  state.controls.enabled = true;
+  state.renderer.domElement.style.cursor = '';
+
+  if (dragState.didDrag) {
+    recentDrag = true; // prevent click handler from firing
+    // Update the actual p1/p2 positions to reflect the dragged position
+    const guide = dragState.guide;
+    if (guide.axis === 'x') {
+      const newZ = guide.p1.z + guide.group.position.z;
+      guide.p1.z = newZ;
+      guide.p2.z = newZ;
+    } else if (guide.axis === 'z') {
+      const newX = guide.p1.x + guide.group.position.x;
+      guide.p1.x = newX;
+      guide.p2.x = newX;
+    }
+    // Reset group position (already baked into p1/p2)
+    guide.group.position.set(0, 0, 0);
+  }
+
+  dragState = null;
 }
 
 /** Call from animate loop to pulse unmeasured guides */
@@ -208,7 +320,12 @@ export function updateDimensionPulse() {
 
 // ─── GUIDE LINE BUILDER ───
 
-function addGuide(p1, p2, axis, value, isMeasured, dim, roomId, floor, computedValue, floorY) {
+function addGuide(p1, p2, axis, value, isMeasured, dim, roomId, floor, computedValue, floorY, bounds) {
+  // Create a sub-group so we can move the entire guide as one unit
+  const guideGrp = new THREE.Group();
+  guideGrp.name = `guide-${dim}`;
+  guideGrp.userData.draggable = (axis === 'x' || axis === 'z'); // height not draggable
+
   const color = isMeasured ? 0x4ade80 : 0xffaa22;
 
   // ─── Thick cylinder beam between endpoints ───
@@ -224,24 +341,19 @@ function addGuide(p1, p2, axis, value, isMeasured, dim, roomId, floor, computedV
   const beam = new THREE.Mesh(beamGeo, beamMat);
   beam.position.copy(mid);
 
-  // Rotate cylinder to align with direction
-  if (axis === 'x') {
-    beam.rotation.z = Math.PI / 2;
-  } else if (axis === 'z') {
-    beam.rotation.x = Math.PI / 2;
-  }
-  // 'y' axis = default cylinder orientation
+  if (axis === 'x') beam.rotation.z = Math.PI / 2;
+  else if (axis === 'z') beam.rotation.x = Math.PI / 2;
   beam.renderOrder = 999;
   if (!isMeasured) beam.userData.pulse = true;
-  dimGroup.add(beam);
+  guideGrp.add(beam);
 
   // ─── Arrow cones at endpoints ───
-  addArrowCone(p1, dir.clone().normalize(), isMeasured, color);
-  addArrowCone(p2, dir.clone().normalize().negate(), isMeasured, color);
+  addArrowCone(guideGrp, p1, dir.clone().normalize(), isMeasured, color);
+  addArrowCone(guideGrp, p2, dir.clone().normalize().negate(), isMeasured, color);
 
   // ─── Large endpoint discs on wall surfaces ───
-  addEndpoint(p1, axis, isMeasured, color);
-  addEndpoint(p2, axis, isMeasured, color);
+  addEndpoint(guideGrp, p1, axis, isMeasured, color);
+  addEndpoint(guideGrp, p2, axis, isMeasured, color);
 
   // ─── Vertical drop lines from beam to floor (for width/depth) ───
   if (axis !== 'y') {
@@ -255,7 +367,7 @@ function addGuide(p1, p2, axis, value, isMeasured, dim, roomId, floor, computedV
       const line = new THREE.Line(geo, dropMat);
       line.computeLineDistances();
       line.renderOrder = 997;
-      dimGroup.add(line);
+      guideGrp.add(line);
     }
   }
 
@@ -263,20 +375,21 @@ function addGuide(p1, p2, axis, value, isMeasured, dim, roomId, floor, computedV
   const text = `${value.toFixed(2)}`;
   const sprite = makeDimLabel(text, isMeasured);
   sprite.position.copy(mid);
-
-  // Offset label toward camera for readability
   if (axis === 'x') sprite.position.z += 0.25;
   else if (axis === 'z') sprite.position.x += 0.25;
   else sprite.position.x += 0.25;
-
   sprite.renderOrder = 1000;
   if (!isMeasured) sprite.userData.pulse = true;
-  dimGroup.add(sprite);
+  guideGrp.add(sprite);
 
+  dimGroup.add(guideGrp);
   dimSprites.push({ sprite, dim, roomId, floor, computedValue });
+
+  // Store guide info for drag
+  guideGroups.push({ group: guideGrp, axis, dim, roomId, floor, bounds, floorY, p1: p1.clone(), p2: p2.clone() });
 }
 
-function addArrowCone(point, direction, isMeasured, color) {
+function addArrowCone(parent, point, direction, isMeasured, color) {
   const coneH = 0.08;
   const coneR = 0.04;
   const geo = new THREE.ConeGeometry(coneR, coneH, 8);
@@ -285,16 +398,15 @@ function addArrowCone(point, direction, isMeasured, color) {
   cone.position.copy(point).add(direction.clone().multiplyScalar(coneH / 2));
   cone.renderOrder = 999;
 
-  // Rotate cone to point along direction
   const up = new THREE.Vector3(0, 1, 0);
   const quat = new THREE.Quaternion().setFromUnitVectors(up, direction);
   cone.quaternion.copy(quat);
 
   if (!isMeasured) cone.userData.pulse = true;
-  dimGroup.add(cone);
+  parent.add(cone);
 }
 
-function addEndpoint(point, axis, isMeasured, color) {
+function addEndpoint(parent, point, axis, isMeasured, color) {
   // Large ring on the wall face
   const innerR = 0.06;
   const outerR = 0.12;
@@ -319,7 +431,7 @@ function addEndpoint(point, axis, isMeasured, color) {
   }
 
   if (!isMeasured) mesh.userData.pulse = true;
-  dimGroup.add(mesh);
+  parent.add(mesh);
 
   // Center dot
   const dotGeo = new THREE.CircleGeometry(0.03, 16);
@@ -330,7 +442,7 @@ function addEndpoint(point, axis, isMeasured, color) {
   if (axis === 'x') dot.rotation.y = Math.PI / 2;
   else if (axis === 'z') { dot.rotation.x = Math.PI / 2; dot.rotation.z = Math.PI / 2; }
   else dot.rotation.x = -Math.PI / 2;
-  dimGroup.add(dot);
+  parent.add(dot);
 }
 
 // ─── LABEL SPRITE ───
@@ -382,9 +494,11 @@ function roundRect(ctx, x, y, w, h, r) {
 
 // ─── CLICK-TO-EDIT ───
 
+let recentDrag = false;
 function onDimClick(event) {
   if (dimSprites.length === 0) return;
   if (floatingInput) return; // already editing
+  if (recentDrag) { recentDrag = false; return; } // skip click after drag
 
   // Project all sprites to screen and find closest to click
   const rect = state.renderer.domElement.getBoundingClientRect();
