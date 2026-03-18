@@ -347,6 +347,18 @@ function addGuide(p1, p2, axis, value, isMeasured, dim, roomId, floor, computedV
   if (!isMeasured) beam.userData.pulse = true;
   guideGrp.add(beam);
 
+  // ─── Invisible hit area (fat box for easy grabbing) ───
+  const hitW = (axis === 'x') ? length : 0.4;
+  const hitH = 0.4;
+  const hitD = (axis === 'z') ? length : 0.4;
+  const hitGeo = new THREE.BoxGeometry(hitW, hitH, hitD);
+  const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+  const hitBox = new THREE.Mesh(hitGeo, hitMat);
+  hitBox.position.copy(mid);
+  hitBox.renderOrder = 0;
+  hitBox.userData.isHitArea = true;
+  guideGrp.add(hitBox);
+
   // ─── Arrow cones at endpoints ───
   addArrowCone(guideGrp, p1, dir.clone().normalize(), isMeasured, color);
   addArrowCone(guideGrp, p2, dir.clone().normalize().negate(), isMeasured, color);
