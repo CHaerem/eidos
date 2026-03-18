@@ -595,6 +595,13 @@ function buildCalibrationSteps(cfg) {
   return steps;
 }
 
+function setCalibrationFocusMode(active) {
+  // Hide/show all non-essential panel sections during calibration
+  const panel = document.getElementById('panel');
+  if (!panel) return;
+  panel.classList.toggle('cal-focus', active);
+}
+
 function startCalibration() {
   const cfg = state.apartmentConfig;
   if (!cfg) return;
@@ -613,12 +620,14 @@ function startCalibration() {
     }
   }
 
+  setCalibrationFocusMode(true);
   renderCalibrationWizard();
   navigateToStep();
 }
 
 function exitCalibration() {
   calWizard = null;
+  setCalibrationFocusMode(false);
   hideDimensions();
   clearRoomFocus();
   populateCalibration();
