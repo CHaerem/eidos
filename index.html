@@ -29,23 +29,14 @@ canvas{display:block;width:100%;height:100%}
 
 /* ─── Panel Header / Tabs ─── */
 #panel-header{
-  display:flex;align-items:center;
-  padding:6px 8px 6px 10px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 8px 8px 14px;flex-shrink:0;
   border-bottom:1px solid rgba(255,255,255,0.04);
   background:rgba(255,255,255,0.015);
 }
-#panel-tabs{display:flex;flex:1;gap:2px;background:rgba(255,255,255,0.04);border-radius:8px;padding:2px}
-#panel-tabs .tab{
-  flex:1;padding:7px 0;background:none;border:none;
-  color:rgba(255,255,255,0.38);font-size:11px;font-weight:600;letter-spacing:0.04em;
-  cursor:pointer;border-radius:6px;
-  transition:all 0.2s ease;text-transform:uppercase;
-}
-#panel-tabs .tab:hover{color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.03)}
-#panel-tabs .tab.active{
-  color:rgba(255,255,255,0.92);
-  background:rgba(255,255,255,0.08);
-  box-shadow:0 1px 3px rgba(0,0,0,0.2);
+#panel-title{
+  font-size:13px;font-weight:700;letter-spacing:0.06em;
+  color:rgba(255,255,255,0.5);text-transform:uppercase;
 }
 #panel-collapse{
   background:none;border:none;color:rgba(255,255,255,0.25);
@@ -82,7 +73,7 @@ canvas{display:block;width:100%;height:100%}
   overflow:hidden;max-height:0;opacity:0;
   transition:max-height 0.25s ease,opacity 0.2s ease;
 }
-.panel-section.collapsible.open .section-body{max-height:400px;opacity:1}
+.panel-section.collapsible.open .section-body{max-height:800px;opacity:1}
 
 /* ─── Dark theme overrides (inside panel) ─── */
 .glass-panel label{display:block;font-size:12px;color:rgba(255,255,255,0.50);margin-bottom:3px}
@@ -111,17 +102,17 @@ canvas{display:block;width:100%;height:100%}
 .glass-panel input[type=checkbox]{accent-color:#5b8def}
 .glass-panel h2{font-size:13px;color:rgba(255,255,255,0.65);margin-bottom:6px}
 
-/* ─── View Buttons (2×2 grid) ─── */
-.view-btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+/* ─── View Buttons (inline pills) ─── */
+.view-btn-row{display:flex;gap:3px}
 button.view-btn{
-  padding:10px 0;font-size:11.5px;font-weight:500;cursor:pointer;
-  border:1px solid rgba(255,255,255,0.06);border-radius:8px;
-  background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.55);
-  transition:all 0.18s ease;
-  letter-spacing:0.01em;
+  flex:1;padding:6px 0;font-size:10.5px;font-weight:500;cursor:pointer;
+  border:1px solid rgba(255,255,255,0.06);border-radius:6px;
+  background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.45);
+  transition:all 0.18s ease;letter-spacing:0.01em;
 }
 button.view-btn:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.9);border-color:rgba(255,255,255,0.12)}
-button.view-btn:active{background:rgba(91,141,239,0.12);border-color:rgba(91,141,239,0.25);color:#8bb4ff;transform:scale(0.97)}
+button.view-btn:active{transform:scale(0.97)}
+button.view-btn.active{background:rgba(91,141,239,0.12);border-color:rgba(91,141,239,0.25);color:#8bb4ff}
 
 /* ─── Info Grid ─── */
 .info-grid{
@@ -341,6 +332,15 @@ button.add-btn:active{transform:scale(0.98)}
 .dim-floating-input::placeholder{color:rgba(255,255,255,0.25);font-style:italic}
 .dim-floating-input::-webkit-inner-spin-button{opacity:0.2}
 .muted-text{color:rgba(255,255,255,0.4);font-size:12px;line-height:1.5;margin:0}
+
+/* ─── Compact Calibration Cards ─── */
+.room-card .room-dims{max-height:0;overflow:hidden;opacity:0;transition:max-height 0.25s ease,opacity 0.2s ease,margin 0.2s ease;margin-top:0}
+.room-card.expanded .room-dims{max-height:120px;opacity:1;margin-top:6px}
+.room-card .room-status{display:flex;align-items:center;gap:4px;font-size:9px;color:rgba(255,255,255,0.2)}
+.room-card .room-status .status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.room-card .room-status .status-dot.none{background:rgba(255,255,255,0.1)}
+.room-card .room-status .status-dot.partial{background:rgba(251,191,36,0.5)}
+.room-card .room-status .status-dot.complete{background:rgba(74,222,128,0.5)}
 </style>
 </head>
 <body>
@@ -364,26 +364,20 @@ button.add-btn:active{transform:scale(0.98)}
   </div>
 </div>
 
-<!-- ─── Glass Panel ─── -->
+<!-- ─── Glass Panel (single pane, no tabs) ─── -->
 <div id="panel" class="glass-panel">
   <div id="panel-header">
-    <div id="panel-tabs">
-      <button class="tab active" data-tab="oversikt">Oversikt</button>
-      <button class="tab" data-tab="mobler">Møbler</button>
-      <button class="tab" data-tab="golfsim">Golfsim</button>
-    </div>
+    <span id="panel-title">Eidos</span>
     <button id="panel-collapse" title="Skjul panel">&times;</button>
   </div>
 
-  <!-- Tab: Oversikt -->
   <div id="tab-oversikt" class="tab-content">
     <div class="panel-section">
-      <h3>Kameravisning</h3>
-      <div class="view-btn-grid">
-        <button class="view-btn" onclick="setTopDown()">Ovenfra</button>
-        <button class="view-btn" onclick="set3DView()">3D</button>
-        <button class="view-btn" onclick="setFrontView()">Front</button>
-        <button class="view-btn" onclick="setSideView()">Side</button>
+      <div class="view-btn-row">
+        <button class="view-btn" onclick="setTopDown()" data-view="top">Ovenfra</button>
+        <button class="view-btn" onclick="set3DView()" data-view="3d">3D</button>
+        <button class="view-btn" onclick="setFrontView()" data-view="front">Front</button>
+        <button class="view-btn" onclick="setSideView()" data-view="side">Side</button>
       </div>
     </div>
     <div class="panel-section" id="visibility-section">
@@ -398,7 +392,7 @@ button.add-btn:active{transform:scale(0.98)}
         </div>
       </div>
       <div class="vis-group">
-        <div class="vis-label">Vegger</div>
+        <div class="vis-label">Rom</div>
         <div class="vis-pills" id="wall-room-pills"></div>
       </div>
     </div>
@@ -410,7 +404,7 @@ button.add-btn:active{transform:scale(0.98)}
         </div>
       </div>
     </div>
-    <div class="panel-section collapsible open">
+    <div class="panel-section collapsible">
       <h3>Bolig</h3>
       <div class="section-body">
         <div id="apartment-info" class="info-grid">
@@ -418,9 +412,33 @@ button.add-btn:active{transform:scale(0.98)}
         </div>
       </div>
     </div>
-    <div class="panel-section">
+    <div class="panel-section collapsible open">
       <h3>Kalibrering</h3>
-      <div id="room-calibration"></div>
+      <div class="section-body">
+        <div id="room-calibration"></div>
+      </div>
+    </div>
+    <div class="panel-section collapsible">
+      <h3>Golfsimulator</h3>
+      <div class="section-body">
+        <label style="margin-bottom:10px"><input type="checkbox" id="simToggle" checked> <b>Vis simulator</b></label>
+        <div id="simControls">
+          <label><b>Spillerhøyde:</b> <span id="hVal">180</span> cm</label>
+          <input type="range" id="hSlider" min="160" max="205" value="180" step="1">
+          <label><b>Posisjon X:</b> <span id="simXVal">2.5</span>m</label>
+          <input type="range" id="simXSlider" min="-4" max="4" value="2.5" step="0.05">
+          <label><b>Posisjon Z:</b> <span id="simZVal">0.5</span>m</label>
+          <input type="range" id="simZSlider" min="-2.5" max="2.5" value="0.5" step="0.05">
+        </div>
+        <div class="info-grid" style="margin-top:8px">
+          <span class="lbl">Tak-klaring:</span><span class="val" id="cCeil">–</span>
+          <span class="lbl">Hemskant:</span><span class="val" id="cHems">–</span>
+          <span class="lbl">Side V:</span><span class="val" id="cSideL">–</span>
+          <span class="lbl">Side H:</span><span class="val" id="cSideR">–</span>
+          <span class="lbl">Skjerm:</span><span class="val" id="cScreen">–</span>
+          <span class="lbl">Svingradius:</span><span class="val" id="cSwing">–</span>
+        </div>
+      </div>
     </div>
     <div class="panel-section collapsible">
       <h3>Hurtigtaster</h3>
@@ -435,51 +453,13 @@ button.add-btn:active{transform:scale(0.98)}
       </div>
     </div>
   </div>
-
-  <!-- Tab: Møbler (forenklet — lister fjernet) -->
-  <div id="tab-mobler" class="tab-content" style="display:none">
-    <div class="panel-section">
-      <p class="muted-text">Møbelplassering kommer snart. Bruk AI-assistenten (MCP) for å legge til møbler.</p>
-      <div id="furnList"></div>
-    </div>
-  </div>
-
-  <!-- Tab: Golfsim (forenklet — lister fjernet) -->
-  <div id="tab-golfsim" class="tab-content" style="display:none">
-    <div class="panel-section">
-      <label style="margin-bottom:10px"><input type="checkbox" id="simToggle" checked> <b>Vis simulator</b></label>
-      <div id="simControls">
-        <label><b>Spillerhøyde:</b> <span id="hVal">180</span> cm</label>
-        <input type="range" id="hSlider" min="160" max="205" value="180" step="1">
-
-        <label><b>Posisjon X:</b> <span id="simXVal">2.5</span>m</label>
-        <input type="range" id="simXSlider" min="-4" max="4" value="2.5" step="0.05">
-
-        <label><b>Posisjon Z:</b> <span id="simZVal">0.5</span>m</label>
-        <input type="range" id="simZSlider" min="-2.5" max="2.5" value="0.5" step="0.05">
-      </div>
-    </div>
-    <div class="panel-section">
-      <h3>Klaringer</h3>
-      <div class="info-grid">
-        <span class="lbl">Tak-klaring:</span><span class="val" id="cCeil">–</span>
-        <span class="lbl">Hemskant:</span><span class="val" id="cHems">–</span>
-        <span class="lbl">Side V:</span><span class="val" id="cSideL">–</span>
-        <span class="lbl">Side H:</span><span class="val" id="cSideR">–</span>
-        <span class="lbl">Skjerm:</span><span class="val" id="cScreen">–</span>
-        <span class="lbl">Svingradius:</span><span class="val" id="cSwing">–</span>
-      </div>
-    </div>
-  </div>
+  <div id="furnList" style="display:none"></div>
 </div>
 
 <!-- ─── Panel Toggle (visible when collapsed) ─── -->
 <button id="panel-toggle" style="display:none" title="Vis panel">
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="14" height="2" rx="1" fill="currentColor"/><rect x="2" y="8" width="14" height="2" rx="1" fill="currentColor"/><rect x="2" y="13" width="14" height="2" rx="1" fill="currentColor"/></svg>
 </button>
-
-<!-- ─── Status ─── -->
-<div id="status">Laster...</div>
 
 <script type="importmap">
 {

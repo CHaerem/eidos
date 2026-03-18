@@ -1389,12 +1389,14 @@ function loadOBJ(objPath, scale, yShift) {
         state.camera.position.set(state.objCenter.x + 6, state.objCenter.y + 5, state.objCenter.z + 8);
         state.controls.update();
 
-        document.getElementById('status').textContent = 'OBJ lastet. Juster kontrollene i sidepanelet.';
+        const statusEl = document.getElementById('status');
+        if (statusEl) statusEl.textContent = 'OBJ lastet. Juster kontrollene i sidepanelet.';
         resolve();
       },
       null,
       (err) => {
-        document.getElementById('status').textContent = 'Feil: ' + err.message;
+        const statusEl = document.getElementById('status');
+        if (statusEl) statusEl.textContent = 'Feil: ' + err.message;
         reject(err);
       }
     );

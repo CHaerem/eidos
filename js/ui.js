@@ -76,24 +76,13 @@ function populateApartmentInfo() {
   `;
 }
 
-// ─── TAB SWITCHING ───
+// ─── VIEW BUTTON ACTIVE STATE ───
 
-function initTabs() {
-  const tabs = document.querySelectorAll('#panel-tabs .tab');
-  const contents = document.querySelectorAll('.tab-content');
-
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = tab.dataset.tab;
-
-      // Update tab active states
-      tabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-
-      // Show/hide tab content (display toggle, not DOM removal)
-      contents.forEach(c => {
-        c.style.display = c.id === `tab-${target}` ? '' : 'none';
-      });
+function initViewButtons() {
+  document.querySelectorAll('.view-btn[data-view]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
     });
   });
 }
@@ -260,9 +249,19 @@ function populateWallRoomPills() {
     pill.className = 'vis-pill on';
     pill.dataset.room = room.id;
     pill.textContent = room.name;
+    // Click: toggle wall visibility
     pill.addEventListener('click', () => {
       pill.classList.toggle('on');
       toggleRoomWalls(room.id, room.bounds, pill.classList.contains('on'));
+    });
+    // Double-click: fly to room
+    pill.addEventListener('dblclick', () => {
+      if (window.flyToRoom && room.bounds) {
+        const floor = (cfg.upperFloor?.rooms || []).some(r => r.id === room.id) ? 6 : 5;
+        const y = floor === 6 ? (cfg.upperFloor?.floorY || 2.25) : 0;
+        window.flyToRoom(room.bounds, y);
+        setRoomFocus(room.id, floor, null);
+      }
     });
     container.appendChild(pill);
   }
@@ -326,18 +325,19 @@ function toggleRoomWalls(roomId, bounds, visible) {
 // ─── INIT UI ───
 
 export function initUI() {
-  initTabs();
+  initViewButtons();
   initPanelToggle();
   initCollapsible();
   initVisibilityToggles();
   initHistoryPanel();
 
-  // Populate apartment info and calibration once config is loaded
+  // Populate apartment info, calibration, and room pills once config is loaded
   if (state.apartmentConfig) {
     populateApartmentInfo();
     populateCalibration();
+    populateWallRoomPills();
   } else {
-    setTimeout(() => { populateApartmentInfo(); populateCalibration(); }, 500);
+    setTimeout(() => { populateApartmentInfo(); populateCalibration(); populateWallRoomPills(); }, 500);
   }
 }
 
@@ -469,11 +469,14 @@ function populateCalibration() {
       const hasMeas = allMeas.filter(Boolean).length;
       const totalForRoom = allMeas.length;
       const cardState = (hasMeas === totalForRoom) ? 'measured' : hasMeas > 0 ? 'partial' : '';
+      const dotClass = hasMeas === totalForRoom ? 'complete' : hasMeas > 0 ? 'partial' : 'none';
+      const statusText = `${hasMeas}/${totalForRoom}`;
 
       html += `
         <div class="room-card ${cardState}" data-room="${room.id}" data-floor="${floor}">
           <div class="room-card-header">
             <span class="room-name">${room.name}</span>
+            <span class="room-status"><span class="status-dot ${dotClass}"></span>${statusText}</span>
             <span class="room-computed">${compW} × ${compD}</span>
           </div>
           <div class="room-dims">
@@ -517,11 +520,17 @@ function populateCalibration() {
 
   container.innerHTML = html;
 
-  // Event listeners
+  // Event listeners — click to expand/collapse + highlight room
   container.querySelectorAll('.room-card').forEach(card => {
-    card.addEventListener('click', () => {
-      container.querySelectorAll('.room-card').forEach(c => c.classList.remove('active'));
+    card.addEventListener('click', (e) => {
+      if (e.target.tagName === 'INPUT') return; // don't toggle when clicking input
+      const wasExpanded = card.classList.contains('expanded');
+      container.querySelectorAll('.room-card').forEach(c => {
+        c.classList.remove('active');
+        c.classList.remove('expanded');
+      });
       card.classList.add('active');
+      if (!wasExpanded) card.classList.add('expanded');
       highlightRoom(card.dataset.room, parseInt(card.dataset.floor));
     });
   });
