@@ -137,13 +137,22 @@
     },
     "walls": [
       {
-        "id": "soverom-edge-x",
+        "id": "soverom-edge-south",
         "type": "solid",
         "axis": "x",
         "pos": -0.77,
         "fromZ": -2.5,
+        "toZ": 0.8,
+        "note": "Soverom skillevegg — sor for dor"
+      },
+      {
+        "id": "soverom-edge-north",
+        "type": "solid",
+        "axis": "x",
+        "pos": -0.77,
+        "fromZ": 1.6,
         "toZ": 2.5,
-        "note": "Soverom/hems skillevegg — hel vegg"
+        "note": "Soverom skillevegg — nord for dor"
       },
       {
         "id": "hems-edge-west",
@@ -257,8 +266,8 @@
       "bounds": {
         "minX": 0.5,
         "maxX": 2.0,
-        "minZ": 2.50,
-        "maxZ": 3.10
+        "minZ": 2.5,
+        "maxZ": 3.1
       },
       "note": "2 trinn opp fra hems til terrasse, retning: høyeste trinn nærmest innvendig"
     },
@@ -361,6 +370,36 @@
       "x2": 4.084,
       "sillHeight": 1.0,
       "topHeight": 2.2
+    },
+    {
+      "id": "W5",
+      "wall": "north",
+      "floor": 6,
+      "x1": -2.5,
+      "x2": -1.5,
+      "sillHeight": 0.45,
+      "topHeight": 2.1,
+      "note": "Soverom vindu nordvegg — sill ned til verandagulv (0.45m), 6. etasje"
+    },
+    {
+      "id": "W6",
+      "wall": "north",
+      "floor": 6,
+      "x1": 0.5,
+      "x2": 2.0,
+      "sillHeight": 0.0,
+      "topHeight": 2.1,
+      "note": "Terrassedør — østsiden, ved terrassetrappen, 6. etasje"
+    },
+    {
+      "id": "W7",
+      "wall": "north",
+      "sillHeight": 0.0,
+      "topHeight": 2.1,
+      "x1": 2.0,
+      "x2": 3.8,
+      "floor": 6,
+      "note": "Hems fast glass — vest for døren, mot vestvegg, 6. etasje"
     }
   ],
   "doors": [
@@ -393,6 +432,28 @@
       "z2": 0.7,
       "height": 2.0,
       "note": "Dor til bad — diagonal over SE-hjornet"
+    },
+    {
+      "id": "D4",
+      "wall": "soverom-edge",
+      "pos": -0.77,
+      "axis": "x",
+      "from": 0.8,
+      "to": 1.6,
+      "height": 2.0,
+      "floor": 6,
+      "note": "Soveromsdor 6. etasje — i skilleveggen mellom soverom og hems"
+    },
+    {
+      "id": "D5",
+      "wall": "north",
+      "pos": 2.5,
+      "axis": "z",
+      "from": 0.5,
+      "to": 2.0,
+      "height": 2.1,
+      "floor": 6,
+      "note": "Verandador fra hems til takterrasse — nordvegg 6. etasje"
     }
   ],
   "baseboard": {

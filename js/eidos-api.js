@@ -53,8 +53,17 @@ const eidos = {
     return this.getConfig(path);
   },
 
-  // Full rebuild: clear existing geometry and re-init from current config
+  // Full rebuild: re-fetch config from disk and re-init all geometry
   async rebuild() {
+    // Always re-fetch config from disk to pick up MCP tool changes
+    try {
+      const resp = await fetch('config/apartment.json');
+      const freshConfig = await resp.json();
+      state.apartmentConfig = freshConfig;
+    } catch (e) {
+      console.warn('eidos.rebuild(): failed to re-fetch config, using in-memory', e);
+    }
+
     const config = state.apartmentConfig;
     if (!config) {
       console.warn('eidos.rebuild(): no config loaded');
@@ -65,7 +74,7 @@ const eidos = {
     clearRoomGeometry();
     clearRoomDetails();
 
-    // Rebuild from current in-memory config
+    // Rebuild from fresh config
     await initRoom(config);
     await initRoomDetails(config);
 

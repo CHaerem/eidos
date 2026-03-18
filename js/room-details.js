@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { state } from './state.js';
-import { CEIL, ceilAt } from './room.js';
+import { CEIL, BOUNDS, ceilAt } from './room.js';
 
 // ─── ROOM DETAILS: windows, door frames, baseboards ───
 
@@ -59,8 +59,12 @@ function buildWindows(parent) {
   });
 
   for (const win of config.windows) {
-    const h = win.topHeight - win.sillHeight;
-    const cy = (win.sillHeight + win.topHeight) / 2;
+    // Y offset for upper floor windows
+    const baseY = (win.floor === 6 && config.upperFloor) ? config.upperFloor.floorY : 0;
+    const sillY = baseY + win.sillHeight;
+    const topY = baseY + win.topHeight;
+    const h = topY - sillY;
+    const cy = (sillY + topY) / 2;
 
     if (win.wall === 'west') {
       // West wall window — oriented along Z axis
@@ -78,8 +82,8 @@ function buildWindows(parent) {
       windowGroup.add(glass);
 
       // Frame bars
-      addBox(windowGroup, frameMat, x, win.topHeight - frameWidth / 2, cz, frameDepth, frameWidth, w);
-      addBox(windowGroup, frameMat, x, win.sillHeight + frameWidth / 2, cz, frameDepth, frameWidth, w);
+      addBox(windowGroup, frameMat, x, topY - frameWidth / 2, cz, frameDepth, frameWidth, w);
+      addBox(windowGroup, frameMat, x, sillY + frameWidth / 2, cz, frameDepth, frameWidth, w);
       addBox(windowGroup, frameMat, x, cy, win.z1 + frameWidth / 2, frameDepth, h, frameWidth);
       addBox(windowGroup, frameMat, x, cy, win.z2 - frameWidth / 2, frameDepth, h, frameWidth);
 
@@ -91,7 +95,42 @@ function buildWindows(parent) {
         new THREE.BoxGeometry(0.15, 0.03, w + 0.04),
         sillMat
       );
-      sill.position.set(x + 0.06, win.sillHeight - 0.015, cz);
+      sill.position.set(x + 0.06, sillY - 0.015, cz);
+      sill.castShadow = true;
+      sill.receiveShadow = true;
+      windowGroup.add(sill);
+
+    } else if (win.wall === 'north') {
+      // North wall window — oriented along X axis at maxZ
+      const zPos = BOUNDS.maxZ;
+      const ext = config.walls?.exterior;
+      const northZ = ext ? ext.maxZ : zPos;
+      const w = win.x2 - win.x1;
+      const cx = (win.x1 + win.x2) / 2;
+
+      // Glass pane
+      const glass = new THREE.Mesh(
+        new THREE.PlaneGeometry(w - frameWidth * 2, h - frameWidth * 2),
+        glassMat
+      );
+      glass.position.set(cx, cy, northZ - 0.01);
+      windowGroup.add(glass);
+
+      // Frame bars
+      addBox(windowGroup, frameMat, cx, topY - frameWidth / 2, northZ, w, frameWidth, frameDepth);
+      addBox(windowGroup, frameMat, cx, sillY + frameWidth / 2, northZ, w, frameWidth, frameDepth);
+      addBox(windowGroup, frameMat, win.x1 + frameWidth / 2, cy, northZ, frameWidth, h, frameDepth);
+      addBox(windowGroup, frameMat, win.x2 - frameWidth / 2, cy, northZ, frameWidth, h, frameDepth);
+
+      // Center vertical mullion
+      addBox(windowGroup, frameMat, cx, cy, northZ, frameWidth * 0.7, h - frameWidth * 2, frameDepth * 0.8);
+
+      // Windowsill (extends inward = negative Z)
+      const sill = new THREE.Mesh(
+        new THREE.BoxGeometry(w + 0.04, 0.03, 0.15),
+        sillMat
+      );
+      sill.position.set(cx, sillY - 0.015, northZ - 0.06);
       sill.castShadow = true;
       sill.receiveShadow = true;
       windowGroup.add(sill);
@@ -110,8 +149,8 @@ function buildWindows(parent) {
       windowGroup.add(glass);
 
       // Frame bars
-      addBox(windowGroup, frameMat, cx, win.topHeight - frameWidth / 2, z, w, frameWidth, frameDepth);
-      addBox(windowGroup, frameMat, cx, win.sillHeight + frameWidth / 2, z, w, frameWidth, frameDepth);
+      addBox(windowGroup, frameMat, cx, topY - frameWidth / 2, z, w, frameWidth, frameDepth);
+      addBox(windowGroup, frameMat, cx, sillY + frameWidth / 2, z, w, frameWidth, frameDepth);
       addBox(windowGroup, frameMat, win.x1 + frameWidth / 2, cy, z, frameWidth, h, frameDepth);
       addBox(windowGroup, frameMat, win.x2 - frameWidth / 2, cy, z, frameWidth, h, frameDepth);
 
@@ -123,7 +162,7 @@ function buildWindows(parent) {
         new THREE.BoxGeometry(w + 0.04, 0.03, 0.15),
         sillMat
       );
-      sill.position.set(cx, win.sillHeight - 0.015, z + 0.06);
+      sill.position.set(cx, sillY - 0.015, z + 0.06);
       sill.castShadow = true;
       sill.receiveShadow = true;
       windowGroup.add(sill);
@@ -183,36 +222,38 @@ function buildDoorFrames(parent) {
 
     const opening = door.to - door.from;
     const mid = (door.from + door.to) / 2;
+    // Y offset for upper floor doors
+    const baseY = (door.floor === 6 && config.upperFloor) ? config.upperFloor.floorY : 0;
 
     if (door.axis === 'x') {
       // Vertical wall — door opens along Z
       const x = door.pos;
       // Left jamb
       addBox(doorGroup, frameMat,
-        x, door.height / 2, door.from + frameW / 2,
+        x, baseY + door.height / 2, door.from + frameW / 2,
         frameD, door.height, frameW, true);
       // Right jamb
       addBox(doorGroup, frameMat,
-        x, door.height / 2, door.to - frameW / 2,
+        x, baseY + door.height / 2, door.to - frameW / 2,
         frameD, door.height, frameW, true);
       // Header
       addBox(doorGroup, frameMat,
-        x, door.height - frameW / 2, mid,
+        x, baseY + door.height - frameW / 2, mid,
         frameD, frameW, opening, true);
     } else {
       // Horizontal wall — door opens along X
       const z = door.pos;
       // Left jamb
       addBox(doorGroup, frameMat,
-        door.from + frameW / 2, door.height / 2, z,
+        door.from + frameW / 2, baseY + door.height / 2, z,
         frameW, door.height, frameD, true);
       // Right jamb
       addBox(doorGroup, frameMat,
-        door.to - frameW / 2, door.height / 2, z,
+        door.to - frameW / 2, baseY + door.height / 2, z,
         frameW, door.height, frameD, true);
       // Header
       addBox(doorGroup, frameMat,
-        mid, door.height - frameW / 2, z,
+        mid, baseY + door.height - frameW / 2, z,
         opening, frameW, frameD, true);
     }
   }

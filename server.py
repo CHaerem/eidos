@@ -2,12 +2,21 @@
 import http.server
 import os
 import re
-import time
+import glob
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-# Bump this to force all browsers to reload JS modules
-VERSION = str(int(time.time()))
+
+def _version():
+    """Compute version from newest mtime across all JS/JSON/HTML files."""
+    newest = 0
+    for pattern in ['js/*.js', 'config/*.json', '*.html']:
+        for f in glob.glob(pattern):
+            try:
+                newest = max(newest, int(os.path.getmtime(f)))
+            except OSError:
+                pass
+    return str(newest)
 
 class DevHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -32,9 +41,10 @@ class DevHandler(http.server.SimpleHTTPRequestHandler):
                     content = f.read()
 
                 # Rewrite script src with version: src="js/main.js?v=3" → src="js/main.js?v=TIMESTAMP"
+                v = _version()
                 content = re.sub(
                     r'(src="[^"]+\.js)(\?v=[^"]*)?(")',
-                    rf'\1?v={VERSION}\3',
+                    rf'\1?v={v}\3',
                     content
                 )
 
@@ -55,21 +65,22 @@ class DevHandler(http.server.SimpleHTTPRequestHandler):
                 with open(file_path, 'r') as f:
                     content = f.read()
 
+                v = _version()
                 # Add version query to relative imports: './foo.js' → './foo.js?v=123'
                 content = re.sub(
                     r"""(from\s+['"])(\./[^'"]+\.js)(['"])""",
-                    rf'\1\2?v={VERSION}\3',
+                    rf'\1\2?v={v}\3',
                     content
                 )
                 content = re.sub(
                     r"""(import\s*\(\s*['"])(\./[^'"]+\.js)(['"])""",
-                    rf'\1\2?v={VERSION}\3',
+                    rf'\1\2?v={v}\3',
                     content
                 )
                 # Add version query to fetch/load calls for JSON/OBJ files
                 content = re.sub(
                     r"""(['"])([^'"]*\.(json|obj))(['"])""",
-                    rf'\1\2?v={VERSION}\4',
+                    rf'\1\2?v={v}\4',
                     content
                 )
 
@@ -86,5 +97,5 @@ class DevHandler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
 if __name__ == '__main__':
-    print(f'Serving on port 8765 (module version: {VERSION})')
+    print(f'Serving on port 8765 (dynamic cache-busting from file mtime)')
     http.server.HTTPServer(('', 8765), DevHandler).serve_forever()
