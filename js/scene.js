@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { state } from './state.js';
 import { BOUNDS } from './room.js';
 import { clearRoomFocus } from './room-focus.js';
+import { updateDimensionPulse } from './dimensions.js';
 
 // ─── THREE.JS SCENE SETUP ───
 
@@ -70,6 +71,7 @@ export function initScene() {
   function animate() {
     requestAnimationFrame(animate);
     controls.update();
+    updateDimensionPulse();
     renderer.render(scene, camera);
 
     // Rotate compass: project world north (+Z) onto screen to find angle
