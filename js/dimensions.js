@@ -53,7 +53,7 @@ export function showSingleDimension(roomId, floor, dim) {
     addGuide(
       new THREE.Vector3(b.minX, guideY, midZ),
       new THREE.Vector3(b.maxX, guideY, midZ),
-      'x', meas ? meas.value : comp, !!meas, 'width', roomId, floor, comp, floorY
+      'x', meas ? meas.value : comp, !!meas, 'width', roomId, floor, comp, floorY, b
     );
   } else if (dim === 'depth') {
     const meas = entries.find(e => e.room === roomId && e.dim === 'depth');
@@ -61,7 +61,7 @@ export function showSingleDimension(roomId, floor, dim) {
     addGuide(
       new THREE.Vector3(midX, guideY, b.minZ),
       new THREE.Vector3(midX, guideY, b.maxZ),
-      'z', meas ? meas.value : comp, !!meas, 'depth', roomId, floor, comp, floorY
+      'z', meas ? meas.value : comp, !!meas, 'depth', roomId, floor, comp, floorY, b
     );
   } else if (dim === 'height') {
     const h = ceilAt(midX, midZ);
@@ -69,7 +69,7 @@ export function showSingleDimension(roomId, floor, dim) {
     addGuide(
       new THREE.Vector3(midX, floorY, midZ),
       new THREE.Vector3(midX, meas ? meas.value + floorY : h, midZ),
-      'y', meas ? meas.value : (h - floorY), !!meas, 'height', roomId, floor, h - floorY, floorY
+      'y', meas ? meas.value : (h - floorY), !!meas, 'height', roomId, floor, h - floorY, floorY, b
     );
   } else if (dim === 'height_low') {
     const zLow = b.minZ + 0.3;
@@ -78,7 +78,7 @@ export function showSingleDimension(roomId, floor, dim) {
     addGuide(
       new THREE.Vector3(midX - 0.4, floorY, zLow),
       new THREE.Vector3(midX - 0.4, meas ? meas.value + floorY : hLow, zLow),
-      'y', meas ? meas.value : (hLow - floorY), !!meas, 'height_low', roomId, floor, hLow - floorY, floorY
+      'y', meas ? meas.value : (hLow - floorY), !!meas, 'height_low', roomId, floor, hLow - floorY, floorY, b
     );
   } else if (dim === 'height_high') {
     const zHigh = b.maxZ - 0.3;
@@ -87,7 +87,7 @@ export function showSingleDimension(roomId, floor, dim) {
     addGuide(
       new THREE.Vector3(midX + 0.4, floorY, zHigh),
       new THREE.Vector3(midX + 0.4, meas ? meas.value + floorY : hHigh, zHigh),
-      'y', meas ? meas.value : (hHigh - floorY), !!meas, 'height_high', roomId, floor, hHigh - floorY, floorY
+      'y', meas ? meas.value : (hHigh - floorY), !!meas, 'height_high', roomId, floor, hHigh - floorY, floorY, b
     );
   }
 
@@ -229,10 +229,8 @@ function hitGuide(event) {
 }
 
 function onGuidePointerDown(event) {
-  console.log('[DIM] pointerdown', { clientX: event.clientX, clientY: event.clientY, button: event.button, target: event.target?.tagName });
-  if (floatingInput) { console.log('[DIM] blocked: floatingInput active'); return; }
+  if (floatingInput) return;
   const guide = hitGuide(event);
-  console.log('[DIM] hitGuide result:', guide ? guide.dim : 'null');
   if (!guide) return;
 
   // Create horizontal drag plane at guide Y height
@@ -244,7 +242,6 @@ function onGuidePointerDown(event) {
   raycaster.ray.intersectPlane(dragPlane, startPt);
 
   dragState = { guide, dragPlane, startPt, didDrag: false };
-  console.log('[DIM] dragState SET, guide:', guide.dim);
 
   // CRITICAL: Stop event from reaching OrbitControls entirely
   // This prevents OrbitControls from calling setPointerCapture
@@ -257,19 +254,6 @@ function onGuidePointerDown(event) {
 let hoveredGuide = null;
 
 function onGuideDrag(event) {
-  if (dragState) {
-    updateMouseNDC(event);
-    raycaster.setFromCamera(mouse, state.camera);
-    const testPt = new THREE.Vector3();
-    const intersected = raycaster.ray.intersectPlane(dragState.dragPlane, testPt);
-    console.log('[DIM] drag-check:', {
-      mouse: `${mouse.x.toFixed(3)},${mouse.y.toFixed(3)}`,
-      intersected: !!intersected,
-      pt: intersected ? `${testPt.x.toFixed(2)},${testPt.z.toFixed(2)}` : 'null',
-      bounds: !!dragState.guide?.bounds,
-      axis: dragState.guide?.axis
-    });
-  }
   if (!dragState) {
     // Only handle hover when moving over the canvas
     if (event.target !== state.renderer?.domElement) return;
@@ -310,7 +294,6 @@ function onGuideDrag(event) {
   if (!b) return;
 
   dragState.didDrag = true;
-  console.log('[DIM] dragging, pt:', pt.x.toFixed(2), pt.z.toFixed(2));
 
   // Compute delta along the constrained axis
   if (guide.axis === 'x') {
