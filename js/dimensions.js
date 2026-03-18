@@ -353,17 +353,10 @@ function onGuidePointerUp(event) {
   dragState = null;
 }
 
-/** Call from animate loop to pulse unmeasured guides */
+/** Call from animate loop — steady glow for unmeasured guides (no blinking) */
 export function updateDimensionPulse() {
-  if (pulseObjects.length === 0) return;
-  if (isDragging) {
-    // During drag: full opacity, no pulse distraction
-    for (const obj of pulseObjects) obj.material.opacity = 1.0;
-    return;
-  }
-  const t = clock.getElapsedTime();
-  const pulse = 0.45 + 0.55 * Math.sin(t * 2.5);
-  for (const obj of pulseObjects) obj.material.opacity = pulse;
+  // No-op now — unmeasured guides have constant opacity set at creation time
+  // Kept for API compatibility with scene.js animate loop
 }
 
 // ─── GUIDE LINE BUILDER ───
