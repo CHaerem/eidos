@@ -257,7 +257,19 @@ function onGuidePointerDown(event) {
 let hoveredGuide = null;
 
 function onGuideDrag(event) {
-  if (dragState) console.log('[DIM] pointermove with dragState, target:', event.target?.tagName);
+  if (dragState) {
+    updateMouseNDC(event);
+    raycaster.setFromCamera(mouse, state.camera);
+    const testPt = new THREE.Vector3();
+    const intersected = raycaster.ray.intersectPlane(dragState.dragPlane, testPt);
+    console.log('[DIM] drag-check:', {
+      mouse: `${mouse.x.toFixed(3)},${mouse.y.toFixed(3)}`,
+      intersected: !!intersected,
+      pt: intersected ? `${testPt.x.toFixed(2)},${testPt.z.toFixed(2)}` : 'null',
+      bounds: !!dragState.guide?.bounds,
+      axis: dragState.guide?.axis
+    });
+  }
   if (!dragState) {
     // Only handle hover when moving over the canvas
     if (event.target !== state.renderer?.domElement) return;
