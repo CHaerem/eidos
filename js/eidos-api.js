@@ -53,20 +53,24 @@ const eidos = {
     return this.getConfig(path);
   },
 
-  // Full rebuild: re-fetch config from disk and re-init all geometry
-  async rebuild() {
-    // Always re-fetch config from disk to pick up MCP tool changes
-    try {
-      const resp = await fetch('config/apartment.json');
-      const freshConfig = await resp.json();
-      // Preserve in-memory-only state that isn't saved to disk
-      const oldConfig = state.apartmentConfig;
-      if (oldConfig?.measurements) {
-        freshConfig.measurements = oldConfig.measurements;
+  // Full rebuild: re-init all geometry from config
+  // Set fromDisk=true (default) to re-fetch config from disk (for MCP changes)
+  // Set fromDisk=false to rebuild from in-memory config (for solver/calibration)
+  async rebuild(fromDisk = true) {
+    if (fromDisk) {
+      // Re-fetch config from disk to pick up MCP tool changes
+      try {
+        const resp = await fetch('config/apartment.json');
+        const freshConfig = await resp.json();
+        // Preserve in-memory-only state that isn't saved to disk
+        const oldConfig = state.apartmentConfig;
+        if (oldConfig?.measurements) {
+          freshConfig.measurements = oldConfig.measurements;
+        }
+        state.apartmentConfig = freshConfig;
+      } catch (e) {
+        console.warn('eidos.rebuild(): failed to re-fetch config, using in-memory', e);
       }
-      state.apartmentConfig = freshConfig;
-    } catch (e) {
-      console.warn('eidos.rebuild(): failed to re-fetch config, using in-memory', e);
     }
 
     const config = state.apartmentConfig;

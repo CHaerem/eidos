@@ -535,7 +535,58 @@
       "wallThicknessWeight": 10.0,
       "heightWeight": 1.0
     },
-    "entries": []
+    "entries": [
+      {
+        "room": "stue",
+        "dim": "width",
+        "value": 6.343
+      },
+      {
+        "room": "stue",
+        "dim": "depth",
+        "value": 2.957
+      },
+      {
+        "room": "stue",
+        "dim": "height_low",
+        "value": 2.182
+      },
+      {
+        "room": "stue",
+        "dim": "height_high",
+        "value": 3.886
+      },
+      {
+        "room": "kjokken",
+        "dim": "width",
+        "value": 3.606
+      },
+      {
+        "room": "kjokken",
+        "dim": "depth",
+        "value": 1.939
+      },
+      {
+        "room": "kjokken",
+        "dim": "height",
+        "value": 2.245
+      },
+      {
+        "room": "bad",
+        "dim": "width",
+        "value": 3.415
+      },
+      {
+        "room": "bad",
+        "dim": "depth",
+        "value": 1.815
+      },
+      {
+        "room": "bad",
+        "dim": "height",
+        "value": 2.106
+      }
+    ]
   },
   "simulator": {
     "hitDirection": "negZ",

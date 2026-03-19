@@ -746,7 +746,8 @@ function advanceCalibration(value) {
 
     runSolver();
     if (window.eidos) {
-      window.eidos.rebuild().then(() => {
+      // Use fromDisk=false to preserve solver results in memory
+      window.eidos.rebuild(false).then(() => {
         calWizard.currentStep++;
         renderCalibrationWizard();
         navigateToStep();
@@ -879,9 +880,9 @@ function onMeasurementChange(input) {
   // Run solver with ALL measurements
   runSolver();
 
-  // Rebuild and refresh
+  // Rebuild from memory (not disk) to preserve solver results
   if (window.eidos) {
-    window.eidos.rebuild().then(() => {
+    window.eidos.rebuild(false).then(() => {
       populateCalibration();
       populateApartmentInfo();
       highlightRoom(roomId, floor);
