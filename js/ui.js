@@ -333,11 +333,27 @@ export function initUI() {
 
   // Populate apartment info, calibration, and room pills once config is loaded
   if (state.apartmentConfig) {
+    // Run solver on startup if there are existing measurements
+    const entries = state.apartmentConfig.measurements?.entries;
+    if (entries && entries.length > 0) {
+      runSolver();
+      // Rebuild geometry from solver-adjusted config (don't re-fetch from disk)
+      if (window.eidos) window.eidos.rebuild(false);
+    }
     populateApartmentInfo();
     populateCalibration();
     populateWallRoomPills();
   } else {
-    setTimeout(() => { populateApartmentInfo(); populateCalibration(); populateWallRoomPills(); }, 500);
+    setTimeout(() => {
+      const entries = state.apartmentConfig?.measurements?.entries;
+      if (entries && entries.length > 0) {
+        runSolver();
+        if (window.eidos) window.eidos.rebuild(false);
+      }
+      populateApartmentInfo();
+      populateCalibration();
+      populateWallRoomPills();
+    }, 500);
   }
 }
 
@@ -847,6 +863,7 @@ window._advanceCalibration = () => {
   if (input) advanceCalibration(input.value);
 };
 window._skipStep = skipStep;
+window._runSolver = runSolver;
 
 function onMeasurementChange(input) {
   pushSnapshot(`Kalibrering: ${input.dataset.room} ${input.dataset.dim}`);
