@@ -202,11 +202,11 @@ export function initDimensionClick() {
   canvas.addEventListener('click', onDimClick);
   // CAPTURE phase — fires BEFORE OrbitControls can setPointerCapture
   canvas.addEventListener('pointerdown', onGuidePointerDown, true);
-  canvas.addEventListener('pointermove', onGuideDrag, true);
-  canvas.addEventListener('pointerup', onGuidePointerUp, true);
-  // Also on document as fallback (for pointer events outside canvas during drag)
+  // Use document-level listeners for move/up to catch events even when pointer leaves canvas
   document.addEventListener('pointermove', onGuideDrag);
   document.addEventListener('pointerup', onGuidePointerUp);
+  // Invalidate rect cache on resize
+  window.addEventListener('resize', () => { cachedRect = null; });
 
   // Close floating input on camera move
   if (state.controls) {
@@ -217,10 +217,18 @@ export function initDimensionClick() {
 
 // ─── DRAG HANDLERS ───
 
+// Cache canvas rect to avoid layout thrash on every pointermove
+let cachedRect = null;
+let rectCacheFrame = -1;
+
 function updateMouseNDC(event) {
-  const rect = state.renderer.domElement.getBoundingClientRect();
-  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  const frame = state.renderer?.info?.render?.frame || 0;
+  if (!cachedRect || frame !== rectCacheFrame) {
+    cachedRect = state.renderer.domElement.getBoundingClientRect();
+    rectCacheFrame = frame;
+  }
+  mouse.x = ((event.clientX - cachedRect.left) / cachedRect.width) * 2 - 1;
+  mouse.y = -((event.clientY - cachedRect.top) / cachedRect.height) * 2 + 1;
 }
 
 function hitGuide(event) {
@@ -284,11 +292,18 @@ function setGuideVisualState(guide, visualState) {
   }
 }
 
+// Throttle hover raycast to max ~30fps (33ms)
+let lastHoverTime = 0;
+
 function onGuideDrag(event) {
   if (!dragState) {
     // Only handle hover when moving over the canvas
     if (event.target !== state.renderer?.domElement) return;
-    // Hover cursor + highlight (using cached highlightMeshes)
+    // Throttle hover raycasting to avoid jank
+    const now = performance.now();
+    if (now - lastHoverTime < 33) return;
+    lastHoverTime = now;
+
     const guide = hitGuide(event);
     if (guide !== hoveredGuide) {
       if (hoveredGuide) setGuideVisualState(hoveredGuide, 'idle');
@@ -299,12 +314,12 @@ function onGuideDrag(event) {
     return;
   }
 
+  // ─── DRAG: lightweight plane intersection, no raycast against scene ───
   updateMouseNDC(event);
   raycaster.setFromCamera(mouse, state.camera);
 
   const pt = new THREE.Vector3();
-  raycaster.ray.intersectPlane(dragState.dragPlane, pt);
-  if (!pt) return;
+  if (!raycaster.ray.intersectPlane(dragState.dragPlane, pt)) return;
 
   const guide = dragState.guide;
   const b = guide.bounds;
@@ -312,16 +327,16 @@ function onGuideDrag(event) {
 
   dragState.didDrag = true;
 
-  // Compute delta along the constrained axis with midpoint snap
+  // Move guide along constrained axis with midpoint snap
   if (guide.axis === 'x') {
     const midZ = (b.minZ + b.maxZ) / 2;
     let newZ = Math.max(b.minZ + 0.15, Math.min(b.maxZ - 0.15, pt.z));
-    if (Math.abs(newZ - midZ) < SNAP_THRESHOLD) newZ = midZ; // snap!
+    if (Math.abs(newZ - midZ) < SNAP_THRESHOLD) newZ = midZ;
     guide.group.position.z = newZ - guide.p1.z;
   } else if (guide.axis === 'z') {
     const midX = (b.minX + b.maxX) / 2;
     let newX = Math.max(b.minX + 0.15, Math.min(b.maxX - 0.15, pt.x));
-    if (Math.abs(newX - midX) < SNAP_THRESHOLD) newX = midX; // snap!
+    if (Math.abs(newX - midX) < SNAP_THRESHOLD) newX = midX;
     guide.group.position.x = newX - guide.p1.x;
   }
 }
