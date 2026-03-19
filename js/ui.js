@@ -570,8 +570,23 @@ const DIM_INSTRUCTIONS = {
 function buildCalibrationSteps(cfg) {
   const steps = [];
 
-  // 5th floor rooms
-  for (const room of (cfg.rooms || [])) {
+  // Optimal room order: largest/most-connected rooms first for best solver results
+  // Each room measurement constrains shared walls, so starting with the most
+  // connected room gives the solver the most information early.
+  const floorRooms = cfg.rooms || [];
+  const upperRooms = (cfg.upperFloor?.rooms || []).filter(r => r.id !== 'terrasse');
+
+  // Sort 5th floor rooms by number of shared walls (descending), then by area (descending)
+  const sorted5 = [...floorRooms].sort((a, b) => {
+    const areaA = (a.bounds.maxX - a.bounds.minX) * (a.bounds.maxZ - a.bounds.minZ);
+    const areaB = (b.bounds.maxX - b.bounds.minX) * (b.bounds.maxZ - b.bounds.minZ);
+    const sharedA = countSharedWalls(a, floorRooms, cfg);
+    const sharedB = countSharedWalls(b, floorRooms, cfg);
+    if (sharedB !== sharedA) return sharedB - sharedA;
+    return areaB - areaA;
+  });
+
+  for (const room of sorted5) {
     const dims = (room.ceilingType === 'slope')
       ? ['width', 'depth', 'height_low', 'height_high']
       : ['width', 'depth', 'height'];
@@ -580,9 +595,14 @@ function buildCalibrationSteps(cfg) {
     }
   }
 
-  // 6th floor rooms (skip terrasse)
-  for (const room of (cfg.upperFloor?.rooms || [])) {
-    if (room.id === 'terrasse') continue;
+  // 6th floor rooms sorted by area
+  const sorted6 = [...upperRooms].sort((a, b) => {
+    const areaA = (a.bounds.maxX - a.bounds.minX) * (a.bounds.maxZ - a.bounds.minZ);
+    const areaB = (b.bounds.maxX - b.bounds.minX) * (b.bounds.maxZ - b.bounds.minZ);
+    return areaB - areaA;
+  });
+
+  for (const room of sorted6) {
     const dims = ['width', 'depth', 'height'];
     for (const dim of dims) {
       steps.push({ roomId: room.id, floor: 6, dim, roomName: room.name || room.id, room });
@@ -590,6 +610,30 @@ function buildCalibrationSteps(cfg) {
   }
 
   return steps;
+}
+
+function countSharedWalls(room, allRooms, cfg) {
+  const tol = 0.15;
+  const b = room.bounds;
+  let count = 0;
+  for (const other of allRooms) {
+    if (other.id === room.id) continue;
+    const ob = other.bounds;
+    // Check if any edge of room is adjacent to other room (within tolerance)
+    if (Math.abs(b.maxX - ob.minX) < tol || Math.abs(b.minX - ob.maxX) < tol ||
+        Math.abs(b.maxZ - ob.minZ) < tol || Math.abs(b.minZ - ob.maxZ) < tol) {
+      count++;
+    }
+  }
+  // Also count exterior walls
+  const ext = cfg.walls?.exterior;
+  if (ext) {
+    if (Math.abs(b.minX - ext.minX) < tol) count++;
+    if (Math.abs(b.maxX - ext.maxX) < tol) count++;
+    if (Math.abs(b.minZ - ext.minZ) < tol) count++;
+    if (Math.abs(b.maxZ - ext.maxZ) < tol) count++;
+  }
+  return count;
 }
 
 function setCalibrationFocusMode(active) {
