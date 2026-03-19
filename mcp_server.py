@@ -578,6 +578,96 @@ def get_bounds() -> str:
     config = _load_config()
     return json.dumps(config.get("bounds", {}), indent=2, ensure_ascii=False)
 
+# ─── Furniture tools ───
+
+@mcp.tool()
+def list_furniture() -> str:
+    """List all placed furniture items with their positions and types."""
+    config = _load_config()
+    items = config.get("furniture", [])
+    return json.dumps(items, indent=2, ensure_ascii=False)
+
+@mcp.tool()
+def add_furniture(type: str, x: float = 0.0, z: float = 0.0, rotation: int = 0) -> str:
+    """Add a furniture item to the apartment.
+
+    Args:
+        type: Furniture type from catalog (e.g. 'sofa_3', 'spisebord', 'besta_3x',
+              'soderhamn', 'cana_tv', 'sofa_2', 'stol', 'sofabord', 'tv_benk',
+              'bokhylle', 'gulvlampe', 'kjokkenbenk', 'spisestol')
+        x: X position in meters (negative=west, positive=east)
+        z: Z position in meters (negative=south/windows, positive=north/back)
+        rotation: Rotation in degrees (0, 90, 180, 270)
+
+    Returns:
+        The new furniture item with auto-generated ID.
+    """
+    config = _load_config()
+    items = config.setdefault("furniture", [])
+
+    # Auto-generate ID
+    max_id = max((f.get("id", 0) for f in items), default=0)
+    new_id = max_id + 1
+
+    item = {
+        "id": new_id,
+        "type": type,
+        "x": round(x, 3),
+        "z": round(z, 3),
+        "rotation": rotation % 360,
+    }
+    items.append(item)
+    _save_config(config)
+    return json.dumps(item, indent=2, ensure_ascii=False)
+
+@mcp.tool()
+def remove_furniture(furniture_id: int) -> str:
+    """Remove a furniture item by its ID.
+
+    Args:
+        furniture_id: The ID of the furniture item to remove.
+
+    Returns:
+        Confirmation or error if not found.
+    """
+    config = _load_config()
+    items = config.get("furniture", [])
+    idx = next((i for i, f in enumerate(items) if f.get("id") == furniture_id), None)
+    if idx is None:
+        return json.dumps({"error": f"Furniture ID {furniture_id} not found"})
+    removed = items.pop(idx)
+    _save_config(config)
+    return json.dumps({"removed": removed}, indent=2, ensure_ascii=False)
+
+@mcp.tool()
+def update_simulator(field: str, value: str) -> str:
+    """Update a simulator setting.
+
+    Args:
+        field: Setting name ('playerHeight', 'posX', 'posZ', 'club', 'direction',
+               'screenDistance', 'hitDirection')
+        value: New value (number or string depending on field)
+
+    Returns:
+        Updated simulator config.
+    """
+    config = _load_config()
+    sim = config.setdefault("simulator", {})
+
+    # Auto-type conversion
+    try:
+        if field in ('playerHeight',):
+            sim[field] = int(value)
+        elif field in ('posX', 'posZ', 'screenDistance'):
+            sim[field] = round(float(value), 3)
+        else:
+            sim[field] = value
+    except (ValueError, TypeError):
+        sim[field] = value
+
+    _save_config(config)
+    return json.dumps(sim, indent=2, ensure_ascii=False)
+
 # ─── Entry point ───
 
 if __name__ == "__main__":

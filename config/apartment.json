@@ -588,9 +588,14 @@
       }
     ]
   },
+  "furniture": [],
   "simulator": {
     "hitDirection": "negZ",
     "screenDistance": 0.3,
-    "defaultClub": "driver"
+    "playerHeight": 180,
+    "posX": 2.5,
+    "posZ": 0.5,
+    "club": "0.940",
+    "direction": "window"
   }
 }

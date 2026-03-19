@@ -481,25 +481,51 @@ button.add-btn:active{transform:scale(0.98)}
         <div id="room-calibration"></div>
       </div>
     </div>
-    <div class="panel-section collapsible">
-      <h3>Golfsimulator</h3>
+    <div class="panel-section collapsible open" id="innredning-section">
+      <h3>Innredning</h3>
       <div class="section-body">
-        <label style="margin-bottom:10px"><input type="checkbox" id="simToggle" checked> <b>Vis simulator</b></label>
+        <!-- Møbler -->
+        <div class="vis-label" style="margin-bottom:4px">Møbler</div>
+        <div style="display:flex;gap:4px;margin-bottom:6px">
+          <select id="furnSelect" class="glass-panel" style="flex:1;margin-bottom:0"></select>
+          <button class="add-btn" style="width:auto;margin-top:0;padding:6px 12px" onclick="window.addFurniture()">+</button>
+        </div>
+        <div id="furnList"></div>
+
+        <!-- Golfsimulator -->
+        <div class="vis-label" style="margin-top:10px;margin-bottom:4px">Golfsimulator</div>
+        <label style="margin-bottom:6px"><input type="checkbox" id="simToggle" checked> <b>Vis simulator</b></label>
         <div id="simControls">
-          <label><b>Spillerhøyde:</b> <span id="hVal">180</span> cm</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;margin-bottom:6px">
+            <label style="margin-bottom:0"><b>Klubb:</b></label>
+            <select id="clubSelect" style="margin-bottom:0">
+              <option value="1.168">Driver</option>
+              <option value="1.092">3-wood</option>
+              <option value="1.016">Hybrid</option>
+              <option value="0.940" selected>7-iron</option>
+              <option value="0.914">9-iron</option>
+              <option value="0.889">Wedge</option>
+            </select>
+            <label style="margin-bottom:0"><b>Retning:</b></label>
+            <div class="radio-group" style="margin-bottom:0">
+              <label><input type="radio" name="dir" value="window" checked> Vindu</label>
+              <label><input type="radio" name="dir" value="along"> Langs</label>
+            </div>
+          </div>
+          <label><b>Høyde:</b> <span id="hVal">180</span> cm</label>
           <input type="range" id="hSlider" min="160" max="205" value="180" step="1">
-          <label><b>Posisjon X:</b> <span id="simXVal">2.5</span>m</label>
+          <label><b>Pos X:</b> <span id="simXVal">2.5</span>m</label>
           <input type="range" id="simXSlider" min="-4" max="4" value="2.5" step="0.05">
-          <label><b>Posisjon Z:</b> <span id="simZVal">0.5</span>m</label>
+          <label><b>Pos Z:</b> <span id="simZVal">0.5</span>m</label>
           <input type="range" id="simZSlider" min="-2.5" max="2.5" value="0.5" step="0.05">
         </div>
-        <div class="info-grid" style="margin-top:8px">
-          <span class="lbl">Tak-klaring:</span><span class="val" id="cCeil">–</span>
-          <span class="lbl">Hemskant:</span><span class="val" id="cHems">–</span>
-          <span class="lbl">Side V:</span><span class="val" id="cSideL">–</span>
-          <span class="lbl">Side H:</span><span class="val" id="cSideR">–</span>
+        <div class="info-grid" style="margin-top:6px">
+          <span class="lbl">Tak:</span><span class="val" id="cCeil">–</span>
+          <span class="lbl">Hems:</span><span class="val" id="cHems">–</span>
+          <span class="lbl">V:</span><span class="val" id="cSideL">–</span>
+          <span class="lbl">H:</span><span class="val" id="cSideR">–</span>
           <span class="lbl">Skjerm:</span><span class="val" id="cScreen">–</span>
-          <span class="lbl">Svingradius:</span><span class="val" id="cSwing">–</span>
+          <span class="lbl">Sving:</span><span class="val" id="cSwing">–</span>
         </div>
       </div>
     </div>
@@ -516,7 +542,6 @@ button.add-btn:active{transform:scale(0.98)}
       </div>
     </div>
   </div>
-  <div id="furnList" style="display:none"></div>
 </div>
 
 <!-- ─── Panel Toggle (visible when collapsed) ─── -->

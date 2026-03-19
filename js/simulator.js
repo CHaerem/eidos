@@ -60,16 +60,29 @@ export function initSimulator() {
   scene.add(simGroup);
   state.simGroup = simGroup;
 
+  // Load defaults from config
+  const simCfg = state.apartmentConfig?.simulator || {};
+
   // Update simulator slider ranges from config bounds
   const simXSlider = document.getElementById('simXSlider');
   const simZSlider = document.getElementById('simZSlider');
+  const hSlider = document.getElementById('hSlider');
+  const clubSelect = document.getElementById('clubSelect');
   if (simXSlider) {
     simXSlider.min = (BOUNDS.minX + 0.5).toFixed(2);
     simXSlider.max = (BOUNDS.maxX - 0.5).toFixed(2);
+    if (simCfg.posX != null) simXSlider.value = simCfg.posX;
   }
   if (simZSlider) {
     simZSlider.min = (BOUNDS.minZ + 0.5).toFixed(2);
     simZSlider.max = (BOUNDS.maxZ - 0.5).toFixed(2);
+    if (simCfg.posZ != null) simZSlider.value = simCfg.posZ;
+  }
+  if (hSlider && simCfg.playerHeight) hSlider.value = simCfg.playerHeight;
+  if (clubSelect && simCfg.club) clubSelect.value = simCfg.club;
+  if (simCfg.direction) {
+    const dirRadio = document.querySelector(`input[name="dir"][value="${simCfg.direction}"]`);
+    if (dirRadio) dirRadio.checked = true;
   }
 
   // Toggle
@@ -105,6 +118,17 @@ export function updateSimulator() {
   document.getElementById('hVal').textContent = heightCm;
   document.getElementById('simXVal').textContent = simX.toFixed(1);
   document.getElementById('simZVal').textContent = simZ.toFixed(1);
+
+  // Persist simulator settings to config
+  if (state.apartmentConfig) {
+    const sim = state.apartmentConfig.simulator || {};
+    sim.playerHeight = heightCm;
+    sim.posX = simX;
+    sim.posZ = simZ;
+    sim.club = clubEl ? clubEl.value : '0.940';
+    sim.direction = dir;
+    state.apartmentConfig.simulator = sim;
+  }
 
   const heightM = heightCm / 100;
   const sR = swingRadius(heightCm, clubLen);

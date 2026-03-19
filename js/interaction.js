@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { state } from './state.js';
-import { FURNITURE_CATALOG, createFurnitureMesh } from './furniture.js';
+import { FURNITURE_CATALOG, createFurnitureMesh, saveFurnitureToConfig } from './furniture.js';
 import { BOUNDS } from './room.js';
 import { renderFurnitureList, populateCalibration } from './ui.js';
 import { undo, redo } from './history.js';
@@ -109,6 +109,7 @@ export function addFurniture(type) {
   state.placedItems.push(item);
   selectFurniture(id);
   renderFurnitureList();
+  saveFurnitureToConfig();
 }
 
 export function removeFurniture(id) {
@@ -118,6 +119,7 @@ export function removeFurniture(id) {
   state.placedItems.splice(idx, 1);
   if (state.selectedItemId === id) state.selectedItemId = null;
   renderFurnitureList();
+  saveFurnitureToConfig();
 }
 
 export function updateFurnPos(id) {
@@ -129,6 +131,7 @@ export function updateFurnPos(id) {
   if (zEl) { item.z = parseFloat(zEl.value); document.getElementById('fzv_' + id).textContent = item.z.toFixed(1); }
   snapToWalls(item);
   item.mesh.position.set(item.x, 0, item.z);
+  saveFurnitureToConfig();
 }
 
 export function rotateFurn(id, deg) {
@@ -139,6 +142,7 @@ export function rotateFurn(id, deg) {
   snapToWalls(item);
   item.mesh.position.set(item.x, 0, item.z);
   renderFurnitureList();
+  saveFurnitureToConfig();
 }
 
 // ─── INIT ───
@@ -197,6 +201,7 @@ export function initInteraction() {
       const panel = document.getElementById('panel');
       if (panel) panel.style.pointerEvents = '';
       dragging = null;
+      if (didDrag) saveFurnitureToConfig(); // persist after drag
     }
     if (!didDrag) {
       const item = hitFurniture(e);

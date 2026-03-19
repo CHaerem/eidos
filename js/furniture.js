@@ -373,3 +373,50 @@ export function createFurnitureMesh(type) {
   group.userData.type = type;
   return group;
 }
+
+// ─── PERSISTENCE ───
+
+import { state } from './state.js';
+
+/**
+ * Load furniture placements from config and recreate meshes.
+ * Called once at startup from main.js.
+ */
+export function loadFurnitureFromConfig() {
+  const cfg = state.apartmentConfig;
+  if (!cfg?.furniture?.length) return;
+
+  for (const entry of cfg.furniture) {
+    const cat = FURNITURE_CATALOG[entry.type];
+    if (!cat) continue;
+
+    const mesh = createFurnitureMesh(entry.type);
+    const x = entry.x ?? 0;
+    const z = entry.z ?? 0;
+    const rotation = entry.rotation ?? 0;
+
+    mesh.position.set(x, 0, z);
+    mesh.rotation.y = rotation * Math.PI / 180;
+    state.scene.add(mesh);
+
+    const id = entry.id ?? state.nextItemId++;
+    if (id >= state.nextItemId) state.nextItemId = id + 1;
+    state.placedItems.push({ id, type: entry.type, x, z, rotation, mesh });
+  }
+}
+
+/**
+ * Save current furniture placements to config (in-memory).
+ * Call after any furniture change (add, move, rotate, delete).
+ */
+export function saveFurnitureToConfig() {
+  const cfg = state.apartmentConfig;
+  if (!cfg) return;
+  cfg.furniture = state.placedItems.map(item => ({
+    id: item.id,
+    type: item.type,
+    x: parseFloat(item.x.toFixed(3)),
+    z: parseFloat(item.z.toFixed(3)),
+    rotation: item.rotation,
+  }));
+}

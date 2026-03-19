@@ -47,6 +47,20 @@ export function renderFurnitureList() {
   }
 }
 
+// ─── FURNITURE CATALOG DROPDOWN ───
+
+function populateFurnitureSelect() {
+  const sel = document.getElementById('furnSelect');
+  if (!sel) return;
+  sel.innerHTML = '';
+  for (const [key, cat] of Object.entries(FURNITURE_CATALOG)) {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = `${cat.name} (${cat.w}×${cat.d}m)`;
+    sel.appendChild(opt);
+  }
+}
+
 // ─── APARTMENT INFO ───
 
 function populateApartmentInfo() {
@@ -343,6 +357,7 @@ export function initUI() {
     populateApartmentInfo();
     populateCalibration();
     populateWallRoomPills();
+    populateFurnitureSelect();
   } else {
     setTimeout(() => {
       const entries = state.apartmentConfig?.measurements?.entries;
@@ -353,6 +368,7 @@ export function initUI() {
       populateApartmentInfo();
       populateCalibration();
       populateWallRoomPills();
+      populateFurnitureSelect();
     }, 500);
   }
 }

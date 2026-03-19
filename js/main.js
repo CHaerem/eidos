@@ -7,6 +7,7 @@ import { initInteraction } from './interaction.js';
 import { initUI } from './ui.js';
 import { initEidosAPI } from './eidos-api.js';
 import { initDimensionClick } from './dimensions.js';
+import { loadFurnitureFromConfig } from './furniture.js';
 
 async function init() {
   initScene();
@@ -16,6 +17,9 @@ async function init() {
   initInteraction();
   initUI();
   updateSimulator();
+
+  // Load furniture placements from config (must be after initInteraction + initUI)
+  loadFurnitureFromConfig();
 
   // Expose state for debugging (accessible via window._state.scene etc.)
   window._state = state;
