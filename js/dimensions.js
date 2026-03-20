@@ -202,6 +202,13 @@ export function initDimensionClick() {
   canvas.addEventListener('click', onDimClick);
   // Shift+click for seamless wall-to-wall / point-to-point measurements
   canvas.addEventListener('click', onShiftClickMeasure);
+  // Shift+right-click to clear measurements
+  canvas.addEventListener('contextmenu', (e) => {
+    if (e.shiftKey && (selectedWall1 || selectedWall2 || measureFirstPoint)) {
+      e.preventDefault();
+      clearControlMeasurements();
+    }
+  });
   // CAPTURE phase — fires BEFORE OrbitControls can setPointerCapture
   canvas.addEventListener('pointerdown', onGuidePointerDown, true);
   // Use document-level listeners for move/up to catch events even when pointer leaves canvas
@@ -861,13 +868,7 @@ function createMarker(point) {
 
 // ─── Shift+click handler (registered on canvas in initDimensionClick) ───
 export function onShiftClickMeasure(event) {
-  if (!event.shiftKey) {
-    // Non-shift click clears any existing measurement
-    if (selectedWall1 || selectedWall2) {
-      clearControlMeasurements();
-    }
-    return;
-  }
+  if (!event.shiftKey) return;
   if (event.target.closest('.glass-panel')) return;
 
   initControlMeasurements();
