@@ -359,6 +359,18 @@ button.add-btn:active{transform:scale(0.98)}
 .dim-floating-input::-webkit-inner-spin-button{opacity:0.2}
 .muted-text{color:rgba(255,255,255,0.4);font-size:12px;line-height:1.5;margin:0}
 
+/* ─── Room Navigation Pills ─── */
+.room-nav-pills{display:flex;gap:3px;padding-bottom:2px}
+.room-nav-pills::-webkit-scrollbar{height:0}
+.room-nav-pills .room-pill{
+  padding:5px 10px;font-size:10px;font-weight:500;cursor:pointer;
+  border:1px solid rgba(255,255,255,0.06);border-radius:6px;
+  background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.4);
+  transition:all 0.18s ease;white-space:nowrap;flex-shrink:0;
+}
+.room-nav-pills .room-pill:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.8)}
+.room-nav-pills .room-pill.active{background:rgba(91,141,239,0.12);border-color:rgba(91,141,239,0.25);color:#8bb4ff}
+
 /* ─── Apartment Summary (compact one-liner) ─── */
 .apartment-summary{
   padding:4px 14px 6px;font-size:10px;color:rgba(255,255,255,0.25);
@@ -535,13 +547,14 @@ button.add-btn:active{transform:scale(0.98)}
   </div>
 
   <div id="tab-oversikt" class="tab-content">
-    <div class="panel-section">
+    <div class="panel-section" style="padding-bottom:2px">
       <div class="view-btn-row">
         <button class="view-btn" onclick="setTopDown()" data-view="top">Ovenfra</button>
         <button class="view-btn" onclick="set3DView()" data-view="3d">3D</button>
         <button class="view-btn" onclick="setFrontView()" data-view="front">Front</button>
         <button class="view-btn" onclick="setSideView()" data-view="side">Side</button>
       </div>
+      <div class="vis-pills room-nav-pills" id="room-nav-pills" style="margin-top:5px;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap"></div>
     </div>
     <div class="panel-section" id="visibility-section">
       <h3>Synlighet</h3>
@@ -553,10 +566,6 @@ button.add-btn:active{transform:scale(0.98)}
           <span class="vis-pill on" data-layers="Terrace">Terrasse</span>
           <span class="vis-pill on" data-layers="Ceiling">Tak</span>
         </div>
-      </div>
-      <div class="vis-group">
-        <div class="vis-label">Rom</div>
-        <div class="vis-pills" id="wall-room-pills"></div>
       </div>
     </div>
     <div id="apartment-summary" class="apartment-summary"></div>

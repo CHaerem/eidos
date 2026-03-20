@@ -29,6 +29,13 @@ async function init() {
 
   // Enable click-to-edit on dimension labels in 3D viewport
   initDimensionClick();
+
+  // Default view: fly to stue (largest room, most useful starting point)
+  const stue = state.apartmentConfig?.rooms?.find(r => r.id === 'stue');
+  if (stue) {
+    // Small delay to ensure flyToRoom is available after scene setup
+    setTimeout(() => window.flyToRoom?.(stue.bounds, 0), 100);
+  }
 }
 
 init();

@@ -89,6 +89,8 @@ function initViewButtons() {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      // Clear room pill active state (view buttons = full apartment views)
+      document.querySelectorAll('.room-pill').forEach(p => p.classList.remove('active'));
     });
   });
 }
@@ -285,45 +287,52 @@ function initVisibilityToggles() {
     });
   });
 
-  // Wall room pills (generated dynamically)
-  populateWallRoomPills();
+  // Room navigation pills (top of panel)
+  populateRoomNavPills();
 }
 
-function populateWallRoomPills() {
-  const container = document.getElementById('wall-room-pills');
+function populateRoomNavPills() {
+  const container = document.getElementById('room-nav-pills');
   if (!container) return;
   const cfg = state.apartmentConfig;
   if (!cfg) return;
 
   const rooms = [];
-  for (const r of (cfg.rooms || [])) rooms.push(r);
+  for (const r of (cfg.rooms || [])) rooms.push({ ...r, floor: 5 });
   if (cfg.upperFloor?.rooms) {
     for (const r of cfg.upperFloor.rooms) {
-      if (r.id === 'terrasse') continue; // skip terrace (no walls)
-      rooms.push(r);
+      if (r.id === 'terrasse') continue;
+      rooms.push({ ...r, floor: 6 });
     }
   }
 
   container.innerHTML = '';
   for (const room of rooms) {
     const pill = document.createElement('span');
-    pill.className = 'vis-pill on';
+    pill.className = 'room-pill';
     pill.dataset.room = room.id;
-    pill.textContent = room.name;
-    // Click: toggle wall visibility
-    pill.addEventListener('click', () => {
-      pill.classList.toggle('on');
-      toggleRoomWalls(room.id, room.bounds, pill.classList.contains('on'));
-    });
-    // Double-click: fly to room
-    pill.addEventListener('dblclick', () => {
+    pill.textContent = room.name || room.id;
+
+    pill.addEventListener('click', (e) => {
+      if (e.shiftKey) {
+        // Shift+click: toggle wall visibility (secondary)
+        toggleRoomWalls(room.id, room.bounds, !pill.classList.contains('walls-hidden'));
+        pill.classList.toggle('walls-hidden');
+        return;
+      }
+      // Click: fly to room (primary)
       if (window.flyToRoom && room.bounds) {
-        const floor = (cfg.upperFloor?.rooms || []).some(r => r.id === room.id) ? 6 : 5;
-        const y = floor === 6 ? (cfg.upperFloor?.floorY || 2.25) : 0;
+        const y = room.floor === 6 ? (cfg.upperFloor?.floorY || 2.25) : 0;
         window.flyToRoom(room.bounds, y);
-        setRoomFocus(room.id, floor, null);
+        setRoomFocus(room.id, room.floor, null);
+        // Update active state
+        container.querySelectorAll('.room-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        // Clear view button active states
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
       }
     });
+
     container.appendChild(pill);
   }
 }
@@ -404,7 +413,7 @@ export function initUI() {
     }
     populateApartmentInfo();
     populateCalibration();
-    populateWallRoomPills();
+    populateRoomNavPills();
     populateFurnitureSelect();
   } else {
     setTimeout(() => {
@@ -415,7 +424,7 @@ export function initUI() {
       }
       populateApartmentInfo();
       populateCalibration();
-      populateWallRoomPills();
+      populateRoomNavPills();
       populateFurnitureSelect();
     }, 500);
   }
