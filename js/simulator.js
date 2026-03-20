@@ -17,6 +17,14 @@ function swingRadius(heightCm, clubLen) {
 // ─── SIMULATOR STATE ───
 let screenMesh, matMesh, golferGroup, ballMesh;
 let arcMatGreen, arcMatRed, bsMatOrange, bsMatRed;
+let enclosureGroup = null;
+const netMat = new THREE.MeshBasicMaterial({
+  color: 0x888888, transparent: true, opacity: 0.08,
+  side: THREE.DoubleSide, depthWrite: false
+});
+const netWireMat = new THREE.LineBasicMaterial({
+  color: 0x666666, transparent: true, opacity: 0.2
+});
 
 export function initSimulator() {
   const { scene } = state;
@@ -56,6 +64,11 @@ export function initSimulator() {
     new THREE.MeshBasicMaterial({ color: 0xFFFFFF })
   );
   simGroup.add(ballMesh);
+
+  // Enclosure net group — updated dynamically in updateSimulator
+  enclosureGroup = new THREE.Group();
+  enclosureGroup.name = 'Enclosure';
+  simGroup.add(enclosureGroup);
 
   scene.add(simGroup);
   state.simGroup = simGroup;
@@ -220,4 +233,99 @@ export function updateSimulator() {
   setVal('cSideR', sideR, 'm');
   document.getElementById('cScreen').textContent = screenDist.toFixed(2) + 'm';
   document.getElementById('cSwing').textContent = sR.toFixed(2) + 'm';
+
+  // ─── Enclosure net ───
+  const encCfg = state.apartmentConfig?.simulator?.enclosure || {};
+  const screenW = 2.5, screenH = 2.0;
+  const matW = 1.5, matD = 1.2;
+
+  // Auto-calculate or use custom dimensions
+  const bsOff = backswingOffset(clubLen);
+  const boxW = (encCfg.auto === false && encCfg.width) ? encCfg.width : 2 * sR + 0.5;
+  const boxD = (encCfg.auto === false && encCfg.depth) ? encCfg.depth : bsOff + matD + 1.0;
+  const boxH = (encCfg.auto === false && encCfg.height) ? encCfg.height : sH + 0.3;
+
+  // Build enclosure — 4 net panels (left, right, top, back) + wireframe edges
+  if (enclosureGroup && encCfg.visible !== false) {
+    // Clear previous
+    while (enclosureGroup.children.length) {
+      const c = enclosureGroup.children[0];
+      enclosureGroup.remove(c);
+      if (c.geometry) c.geometry.dispose();
+    }
+
+    // Box centered on golfer, extending forward toward screen and back for backswing
+    const frontZ = dir === 'window' ? golferZ - boxD * 0.7 : golferZ;
+    const backZ = dir === 'window' ? golferZ + boxD * 0.3 : golferZ;
+    const leftX = dir === 'window' ? golferX - boxW / 2 : golferX - boxD * 0.3;
+    const rightX = dir === 'window' ? golferX + boxW / 2 : golferX + boxD * 0.7;
+    const topY = boxH;
+
+    let cx, cz, w, d;
+    if (dir === 'window') {
+      cx = golferX;
+      cz = (frontZ + backZ) / 2;
+      w = boxW;
+      d = boxD;
+    } else {
+      cx = (leftX + rightX) / 2;
+      cz = golferZ;
+      w = boxD;
+      d = boxW;
+    }
+
+    // Side panels (left, right)
+    const sideGeoL = new THREE.PlaneGeometry(d, topY);
+    const sideL_mesh = new THREE.Mesh(sideGeoL, netMat);
+    sideL_mesh.rotation.y = Math.PI / 2;
+    sideL_mesh.position.set(cx - w / 2, topY / 2, cz);
+    enclosureGroup.add(sideL_mesh);
+
+    const sideGeoR = new THREE.PlaneGeometry(d, topY);
+    const sideR_mesh = new THREE.Mesh(sideGeoR, netMat);
+    sideR_mesh.rotation.y = Math.PI / 2;
+    sideR_mesh.position.set(cx + w / 2, topY / 2, cz);
+    enclosureGroup.add(sideR_mesh);
+
+    // Top panel
+    const topGeo = new THREE.PlaneGeometry(w, d);
+    const topMesh = new THREE.Mesh(topGeo, netMat);
+    topMesh.rotation.x = -Math.PI / 2;
+    topMesh.position.set(cx, topY, cz);
+    enclosureGroup.add(topMesh);
+
+    // Back panel (behind golfer)
+    const backGeo = new THREE.PlaneGeometry(w, topY);
+    const backZ_pos = dir === 'window' ? cz + d / 2 : cz + d / 2;
+    const backMesh = new THREE.Mesh(backGeo, netMat);
+    backMesh.position.set(cx, topY / 2, backZ_pos);
+    enclosureGroup.add(backMesh);
+
+    // Wireframe box outline for clarity
+    const boxGeo = new THREE.BoxGeometry(w, topY, d);
+    const wireframe = new THREE.LineSegments(
+      new THREE.EdgesGeometry(boxGeo),
+      netWireMat
+    );
+    wireframe.position.set(cx, topY / 2, cz);
+    enclosureGroup.add(wireframe);
+
+    enclosureGroup.visible = true;
+  } else if (enclosureGroup) {
+    enclosureGroup.visible = false;
+  }
+
+  // Update dimension displays
+  const matEl = document.getElementById('simMat');
+  if (matEl) matEl.textContent = `${matW} × ${matD}m`;
+  const scrEl = document.getElementById('simScreen');
+  if (scrEl) scrEl.textContent = `${screenW} × ${screenH}m`;
+  const boxEl = document.getElementById('simBox');
+  if (boxEl) {
+    boxEl.textContent = `${boxW.toFixed(1)} × ${boxD.toFixed(1)} × ${boxH.toFixed(1)}m`;
+    // Color based on fit
+    const fits = boxW < (BOUNDS.maxX - BOUNDS.minX) && boxH < ceilH;
+    const tight = ceilClearance < 0.1 || Math.min(sideL, sideR) < boxW / 2 + 0.1;
+    boxEl.className = 'val ' + (fits && !tight ? 'ok' : fits ? 'tight' : 'bad');
+  }
 }

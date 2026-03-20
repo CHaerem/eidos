@@ -596,6 +596,13 @@
     "posX": 2.5,
     "posZ": 0.5,
     "club": "0.940",
-    "direction": "window"
+    "direction": "window",
+    "enclosure": {
+      "auto": true,
+      "width": null,
+      "depth": null,
+      "height": null,
+      "visible": true
+    }
   }
 }
