@@ -75,9 +75,9 @@
       "type": "quarter-turn",
       "width": 0.85,
       "bounds": {
-        "minX": 0.2,
-        "maxX": 1.15,
-        "minZ": -0.3,
+        "minX": -1.05,
+        "maxX": 0.45,
+        "minZ": -0.35,
         "maxZ": 1.15
       },
       "runs": [
@@ -133,7 +133,8 @@
         "handrailColor": "0x8B6914",
         "note": "Apent rekkverk mot stuen — hvite sprosser, trehandrekke"
       },
-      "note": "Kvartsvingtrapp — lang nedre lop ostover, kvartssving, kort ovre lop nordover inn pa hems"
+      "note": "Kvartsvingtrapp — lang nedre lop ostover, kvartssving, kort ovre lop nordover inn pa hems",
+      "centerZ": 0.4
     },
     "walls": [
       {
