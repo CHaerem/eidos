@@ -4,17 +4,17 @@ import { CEIL, BOUNDS, ceilAt } from './room.js';
 
 // ─── ENCLOSURE PRESETS (real products) ───
 const ENCLOSURE_PRESETS = {
-  auto:       { name: 'Auto (fra sving)',     width: null, height: null, depth: null },
-  sim1:       { name: 'SimSpace SIM 1',       width: 2.6,  height: 2.5,  depth: 1.5 },
-  sim2:       { name: 'SimSpace SIM 2',       width: 3.0,  height: 2.5,  depth: 1.5 },
-  sim3:       { name: 'SimSpace SIM 3',       width: 3.6,  height: 2.5,  depth: 1.5 },
-  sim4:       { name: 'SimSpace SIM 4',       width: 4.0,  height: 2.5,  depth: 1.5 },
-  sim5:       { name: 'SimSpace SIM 5',       width: 3.0,  height: 3.0,  depth: 3.0 },
-  sim6:       { name: 'SimSpace SIM 6',       width: 4.0,  height: 3.0,  depth: 3.0 },
-  slim:       { name: 'SimSpace SLIM',        width: 3.4,  height: 2.6,  depth: 1.1 },
-  microbay:   { name: 'MicroBay',             width: 3.0,  height: 2.4,  depth: 0.6 },
-  skytrak8:   { name: 'SkyTrak 8ft Studio',   width: 2.4,  height: 2.4,  depth: 1.5 },
-  custom:     { name: 'Egendefinert',         width: 3.0,  height: 2.5,  depth: 1.5 },
+  auto:       { name: 'Auto (fra sving)',     width: null, height: null, depth: null, url: null },
+  sim1:       { name: 'SimSpace SIM 1',       width: 2.6,  height: 2.5,  depth: 1.5, url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
+  sim2:       { name: 'SimSpace SIM 2',       width: 3.0,  height: 2.5,  depth: 1.5, url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
+  sim3:       { name: 'SimSpace SIM 3',       width: 3.6,  height: 2.5,  depth: 1.5, url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
+  sim4:       { name: 'SimSpace SIM 4',       width: 4.0,  height: 2.5,  depth: 1.5, url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
+  sim5:       { name: 'SimSpace SIM 5',       width: 3.0,  height: 3.0,  depth: 3.0, url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
+  sim6:       { name: 'SimSpace SIM 6',       width: 4.0,  height: 3.0,  depth: 3.0, url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
+  slim:       { name: 'SimSpace SLIM',        width: 3.4,  height: 2.6,  depth: 1.1, url: 'https://simspacegolf.com/products/simspace-slim-golf-enclosure' },
+  microbay:   { name: 'MicroBay',             width: 3.0,  height: 2.4,  depth: 0.6, url: 'https://allsportsystems.shop/products/golf-simulator-enclosure-hitting-bay-microbay' },
+  skytrak8:   { name: 'SkyTrak 8ft Studio',   width: 2.4,  height: 2.4,  depth: 1.5, url: 'https://skytrakgolf.com/blogs/articles/introducing-the-8ft-sim-studio-big-performance-in-a-compact-space' },
+  custom:     { name: 'Egendefinert',         width: 3.0,  height: 2.5,  depth: 1.5, url: null },
 };
 
 // ─── SWING FORMULAS ───
@@ -393,7 +393,7 @@ export function updateSimulator() {
   const matEl = document.getElementById('simMat');
   if (matEl) matEl.textContent = `${matW} × ${matD}m`;
   const scrEl = document.getElementById('simScreen');
-  if (scrEl) scrEl.textContent = `${screenW} × ${screenH}m`;
+  if (scrEl) scrEl.textContent = `${screenW.toFixed(1)} × ${screenH.toFixed(1)}m`;
   const boxEl = document.getElementById('simBox');
   if (boxEl) {
     boxEl.textContent = `${boxW.toFixed(1)} × ${boxD.toFixed(1)} × ${boxH.toFixed(1)}m`;
@@ -401,5 +401,17 @@ export function updateSimulator() {
     const fits = boxW < (BOUNDS.maxX - BOUNDS.minX) && boxH < ceilH;
     const tight = ceilClearance < 0.1 || Math.min(sideL, sideR) < boxW / 2 + 0.1;
     boxEl.className = 'val ' + (fits && !tight ? 'ok' : fits ? 'tight' : 'bad');
+  }
+
+  // Product link
+  const linkEl = document.getElementById('enclosureLink');
+  if (linkEl) {
+    if (preset.url) {
+      linkEl.href = preset.url;
+      linkEl.textContent = preset.name;
+      linkEl.style.display = '';
+    } else {
+      linkEl.style.display = 'none';
+    }
   }
 }
