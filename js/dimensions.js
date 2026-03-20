@@ -806,7 +806,66 @@ function measureRaycast(event) {
 
   const hits = rc.intersectObjects(targets, false);
   if (hits.length === 0) return null;
-  return { point: hits[0].point.clone(), normal: hits[0].face?.normal?.clone() || new THREE.Vector3(0, 1, 0) };
+  const hit = hits[0];
+  // Transform face normal to world space
+  let worldNormal = new THREE.Vector3(0, 1, 0);
+  if (hit.face?.normal) {
+    worldNormal = hit.face.normal.clone();
+    worldNormal.transformDirection(hit.object.matrixWorld);
+  }
+  return {
+    point: hit.point.clone(),
+    normal: worldNormal,
+    object: hit.object,
+    allHits: hits
+  };
+}
+
+// Detect if a hit is on a vertical wall (normal is mostly horizontal)
+function isWallHit(hitResult) {
+  if (!hitResult) return false;
+  return Math.abs(hitResult.normal.y) < 0.3; // Wall normal is mostly X or Z
+}
+
+// Find the axis-aligned wall direction from hit normal
+function getWallAxis(normal) {
+  if (Math.abs(normal.x) > Math.abs(normal.z)) return 'x';
+  return 'z';
+}
+
+// Find opposite wall by raycasting in the opposite direction of the wall normal
+function findOppositeWall(point, normal) {
+  const rc = new THREE.Raycaster();
+  // Cast from the hit point inward (opposite to the outward normal)
+  const dir = normal.clone().negate();
+  rc.set(point.clone().add(dir.clone().multiplyScalar(0.01)), dir);
+
+  const targets = [];
+  state.scene.traverse(obj => {
+    if (!obj.isMesh || !obj.visible) return;
+    if (obj.material && obj.material.visible === false) return;
+    if (obj.userData?.isHitArea) return;
+    if (obj.material?.wireframe) return;
+    if (obj.material?.opacity < 0.3) return;
+    let parent = obj.parent;
+    while (parent) {
+      if (_measureSkipGroups.has(parent.name)) return;
+      parent = parent.parent;
+    }
+    targets.push(obj);
+  });
+
+  const hits = rc.intersectObjects(targets, false);
+  // Find the FURTHEST hit along the ray (opposite wall, not nearby geometry)
+  if (hits.length === 0) return null;
+
+  // Return the first hit that's > 0.3m away (skip nearby surfaces)
+  for (const h of hits) {
+    if (h.distance > 0.3) {
+      return h.point.clone();
+    }
+  }
+  return hits[hits.length - 1].point.clone();
 }
 
 function createMarker(point) {
@@ -882,6 +941,32 @@ function onMeasureClick(event) {
   if (!measureFirstPoint) {
     // First click — clear previous, place marker
     clearControlMeasurements();
+
+    // If clicked on a wall, auto-find perpendicular distance to opposite wall
+    if (isWallHit(hit)) {
+      const opposite = findOppositeWall(point, hit.normal);
+      if (opposite) {
+        // Auto wall-to-wall measurement
+        const axis = getWallAxis(hit.normal);
+        // Project both points to same Y and perpendicular axis for clean measurement
+        const p1 = point.clone();
+        const p2 = opposite.clone();
+        // Align to same Y height
+        p2.y = p1.y;
+        // Align along the perpendicular axis only (clean measurement)
+        if (axis === 'x') {
+          p2.z = p1.z; // Keep same Z — measure pure X distance
+        } else {
+          p2.x = p1.x; // Keep same X — measure pure Z distance
+        }
+
+        const dist = p1.distanceTo(p2);
+        finalizeMeasurement(p1, p2, dist, `⊥ ${dist.toFixed(3)}m`);
+        return;
+      }
+    }
+
+    // Regular first point
     measureFirstPoint = point;
     measureFirstMarker = createMarker(point);
     controlGroup.add(measureFirstMarker);
@@ -893,17 +978,6 @@ function onMeasureClick(event) {
 
     removePreview();
 
-    // Marker at p2
-    controlGroup.add(createMarker(p2));
-
-    // Solid line
-    const lineGeo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
-    const line = new THREE.Line(lineGeo, measureLineMat.clone());
-    line.renderOrder = 999;
-    controlGroup.add(line);
-
-    // Axis-decomposed label
-    const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
     const dx = Math.abs(p2.x - p1.x);
     const dz = Math.abs(p2.z - p1.z);
     const dy = Math.abs(p2.y - p1.y);
@@ -914,14 +988,29 @@ function onMeasureClick(event) {
     if (dy > 0.1) {
       text += `  Y:${dy.toFixed(2)}`;
     }
-    const label = makeControlLabel(text, false);
-    label.position.copy(mid);
-    label.position.y += 0.2;
-    controlGroup.add(label);
+    finalizeMeasurement(p1, p2, dist, text);
 
     measureFirstPoint = null;
     measureFirstMarker = null;
   }
+}
+
+function finalizeMeasurement(p1, p2, dist, text) {
+  removePreview();
+
+  controlGroup.add(createMarker(p1));
+  controlGroup.add(createMarker(p2));
+
+  const lineGeo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+  const line = new THREE.Line(lineGeo, measureLineMat.clone());
+  line.renderOrder = 999;
+  controlGroup.add(line);
+
+  const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+  const label = makeControlLabel(text, false);
+  label.position.copy(mid);
+  label.position.y += 0.2;
+  controlGroup.add(label);
 }
 
 function makeControlLabel(text, isPreview = false) {
