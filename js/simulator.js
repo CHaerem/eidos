@@ -2,6 +2,21 @@ import * as THREE from 'three';
 import { state } from './state.js';
 import { CEIL, BOUNDS, ceilAt } from './room.js';
 
+// ─── ENCLOSURE PRESETS (real products) ───
+const ENCLOSURE_PRESETS = {
+  auto:       { name: 'Auto (fra sving)',     width: null, height: null, depth: null },
+  sim1:       { name: 'SimSpace SIM 1',       width: 2.6,  height: 2.5,  depth: 1.5 },
+  sim2:       { name: 'SimSpace SIM 2',       width: 3.0,  height: 2.5,  depth: 1.5 },
+  sim3:       { name: 'SimSpace SIM 3',       width: 3.6,  height: 2.5,  depth: 1.5 },
+  sim4:       { name: 'SimSpace SIM 4',       width: 4.0,  height: 2.5,  depth: 1.5 },
+  sim5:       { name: 'SimSpace SIM 5',       width: 3.0,  height: 3.0,  depth: 3.0 },
+  sim6:       { name: 'SimSpace SIM 6',       width: 4.0,  height: 3.0,  depth: 3.0 },
+  slim:       { name: 'SimSpace SLIM',        width: 3.4,  height: 2.6,  depth: 1.1 },
+  microbay:   { name: 'MicroBay',             width: 3.0,  height: 2.4,  depth: 0.6 },
+  skytrak8:   { name: 'SkyTrak 8ft Studio',   width: 2.4,  height: 2.4,  depth: 1.5 },
+  custom:     { name: 'Egendefinert',         width: 3.0,  height: 2.5,  depth: 1.5 },
+};
+
 // ─── SWING FORMULAS ───
 function swingHeight(heightCm, clubLen) {
   return (heightCm / 100) * 0.80 + clubLen * Math.sin(75 * Math.PI / 180);
@@ -111,6 +126,16 @@ export function initSimulator() {
   });
 
   // Control wiring
+  const encPresetEl = document.getElementById('enclosurePreset');
+  if (encPresetEl) {
+    encPresetEl.addEventListener('change', () => {
+      const cfg = state.apartmentConfig;
+      if (!cfg.simulator) cfg.simulator = {};
+      if (!cfg.simulator.enclosure) cfg.simulator.enclosure = {};
+      cfg.simulator.enclosure.preset = encPresetEl.value;
+      updateSimulator();
+    });
+  }
   document.getElementById('hSlider').addEventListener('input', updateSimulator);
   const clubEl = document.getElementById('clubSelect');
   if (clubEl) clubEl.addEventListener('change', updateSimulator);
@@ -242,14 +267,39 @@ export function updateSimulator() {
 
   // ─── Enclosure net ───
   const encCfg = state.apartmentConfig?.simulator?.enclosure || {};
-  const screenW = 2.5, screenH = 2.0;
+  const presetKey = encCfg.preset || 'auto';
+  const preset = ENCLOSURE_PRESETS[presetKey] || ENCLOSURE_PRESETS.auto;
   const matW = 1.5, matD = 1.2;
 
-  // Auto-calculate or use custom dimensions
+  // Resolve dimensions: preset → custom override → auto-calculate
   const bsOff = backswingOffset(clubLen);
-  const boxW = (encCfg.auto === false && encCfg.width) ? encCfg.width : 2 * sR + 0.5;
-  const boxD = (encCfg.auto === false && encCfg.depth) ? encCfg.depth : bsOff + matD + 1.0;
-  const boxH = (encCfg.auto === false && encCfg.height) ? encCfg.height : sH + 0.3;
+  const boxW = (presetKey === 'custom' && encCfg.width) ? encCfg.width
+             : preset.width ? preset.width
+             : 2 * sR + 0.5;
+  const boxD = (presetKey === 'custom' && encCfg.depth) ? encCfg.depth
+             : preset.depth ? preset.depth
+             : bsOff + matD + 1.0;
+  const boxH = (presetKey === 'custom' && encCfg.height) ? encCfg.height
+             : preset.height ? preset.height
+             : sH + 0.3;
+
+  // Screen sized to fit enclosure (slightly smaller than box width)
+  const screenW = Math.min(boxW - 0.1, 3.0);
+  const screenH = Math.min(boxH - 0.2, 2.5);
+
+  // Update screen mesh geometry to match
+  screenMesh.geometry.dispose();
+  screenMesh.geometry = new THREE.PlaneGeometry(screenW, screenH);
+  // Update edge wireframe
+  if (screenMesh.children.length > 0) {
+    screenMesh.children[0].geometry.dispose();
+    screenMesh.children[0].geometry = new THREE.EdgesGeometry(screenMesh.geometry);
+  }
+  screenMesh.position.y = screenH / 2 + 0.1;
+
+  // Update preset selector if present
+  const presetEl = document.getElementById('enclosurePreset');
+  if (presetEl && presetEl.value !== presetKey) presetEl.value = presetKey;
 
   // Build enclosure — realistic golf sim cage with nets and frame poles
   if (enclosureGroup && encCfg.visible !== false) {

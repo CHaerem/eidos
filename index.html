@@ -497,6 +497,24 @@ button.add-btn:active{transform:scale(0.98)}
         <label style="margin-bottom:6px"><input type="checkbox" id="simToggle" checked> <b>Vis simulator</b></label>
         <div id="simControls">
           <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 8px;margin-bottom:6px;align-items:center">
+            <span class="lbl">Enclosure</span>
+            <select id="enclosurePreset">
+              <option value="auto">Auto (fra sving)</option>
+              <optgroup label="SimSpace">
+                <option value="sim1">SIM 1 — 2.6 × 2.5 × 1.5m</option>
+                <option value="sim2">SIM 2 — 3.0 × 2.5 × 1.5m</option>
+                <option value="sim3">SIM 3 — 3.6 × 2.5 × 1.5m</option>
+                <option value="sim4">SIM 4 — 4.0 × 2.5 × 1.5m</option>
+                <option value="sim5">SIM 5 — 3.0 × 3.0 × 3.0m</option>
+                <option value="sim6">SIM 6 — 4.0 × 3.0 × 3.0m</option>
+                <option value="slim">SLIM — 3.4 × 2.6 × 1.1m</option>
+              </optgroup>
+              <optgroup label="Andre">
+                <option value="microbay">MicroBay — 3.0 × 2.4 × 0.6m</option>
+                <option value="skytrak8">SkyTrak 8ft — 2.4 × 2.4 × 1.5m</option>
+              </optgroup>
+              <option value="custom">Egendefinert</option>
+            </select>
             <span class="lbl">Klubb</span>
             <select id="clubSelect">
               <option value="1.168">Driver</option>
