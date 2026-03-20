@@ -336,7 +336,30 @@
       "minZ": -0.222,
       "maxZ": 0.491
     },
-    "protrusions": []
+    "protrusions": [
+      {
+        "id": "P1",
+        "bounds": {
+          "minX": 0.41,
+          "maxX": 0.57,
+          "minZ": 0.62,
+          "maxZ": 0.78
+        },
+        "height": 2.25,
+        "note": "Østre kjøkkenstolpe — ved trapp/kjøkken-inngang, gulv til hems"
+      },
+      {
+        "id": "P2",
+        "bounds": {
+          "minX": -2.16,
+          "maxX": -2.0,
+          "minZ": 0.62,
+          "maxZ": 0.78
+        },
+        "height": 2.25,
+        "note": "Vestre kjøkkenstolpe — ved skillevegg/kjøkken-inngang, gulv til hems"
+      }
+    ]
   },
   "windows": [
     {
@@ -593,8 +616,8 @@
     "hitDirection": "negZ",
     "screenDistance": 0.3,
     "playerHeight": 180,
-    "posX": 2.5,
-    "posZ": 0.5,
+    "posX": 1.15,
+    "posZ": -0.37,
     "club": "0.940",
     "direction": "window",
     "enclosure": {
