@@ -237,10 +237,7 @@ export function initInteraction() {
       return;
     }
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-    if (e.key === 'm' || e.key === 'M') {
-      toggleMeasureMode();
-      return;
-    }
+    // M key removed — shift+click is now the seamless measurement UX
     if (e.key === 'r' || e.key === 'R') {
       if (state.selectedItemId !== null) {
         const item = state.placedItems.find(i => i.id === state.selectedItemId);

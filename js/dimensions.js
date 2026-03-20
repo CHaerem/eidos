@@ -200,6 +200,8 @@ export function initDimensionClick() {
   if (!canvas) return;
 
   canvas.addEventListener('click', onDimClick);
+  // Shift+click for seamless wall-to-wall / point-to-point measurements
+  canvas.addEventListener('click', onShiftClickMeasure);
   // CAPTURE phase — fires BEFORE OrbitControls can setPointerCapture
   canvas.addEventListener('pointerdown', onGuidePointerDown, true);
   // Use document-level listeners for move/up to catch events even when pointer leaves canvas
@@ -708,62 +710,19 @@ const measureLineMat = new THREE.LineBasicMaterial({
   color: MEASURE_COLOR, transparent: true, opacity: 0.9, depthTest: false, linewidth: 2
 });
 
-export function enterMeasureMode() {
-  if (measureMode) return;
-  measureMode = true;
-  measureFirstPoint = null;
-  const canvas = state.renderer?.domElement;
-  if (canvas) {
-    canvas.classList.add('measure-mode');
-    canvas.addEventListener('click', onMeasureClick);
-    canvas.addEventListener('mousemove', onMeasureMouseMove);
-  }
-  if (!controlGroup) {
+// Measure mode is now seamless — Shift+click on walls, no mode toggle needed
+export function enterMeasureMode() { initControlMeasurements(); }
+export function exitMeasureMode() { clearControlMeasurements(); }
+export function toggleMeasureMode() {
+  if (selectedWall1 || selectedWall2) clearControlMeasurements();
+}
+
+function initControlMeasurements() {
+  if (!controlGroup && state.scene) {
     controlGroup = new THREE.Group();
     controlGroup.name = 'ControlMeasurements';
     state.scene.add(controlGroup);
   }
-  const btn = document.getElementById('measureToggle');
-  if (btn) btn.classList.add('active');
-}
-
-export function exitMeasureMode() {
-  if (!measureMode) return;
-  measureMode = false;
-  measureFirstPoint = null;
-  removePreview();
-  if (measureFirstMarker && controlGroup) {
-    controlGroup.remove(measureFirstMarker);
-    measureFirstMarker.geometry?.dispose();
-    measureFirstMarker = null;
-  }
-  const canvas = state.renderer?.domElement;
-  if (canvas) {
-    canvas.classList.remove('measure-mode');
-    canvas.removeEventListener('click', onMeasureClick);
-    canvas.removeEventListener('mousemove', onMeasureMouseMove);
-  }
-  const btn = document.getElementById('measureToggle');
-  if (btn) btn.classList.remove('active');
-}
-
-function removePreview() {
-  if (previewLine && controlGroup) {
-    controlGroup.remove(previewLine);
-    previewLine.geometry?.dispose();
-    previewLine = null;
-  }
-  if (previewLabel && controlGroup) {
-    controlGroup.remove(previewLabel);
-    previewLabel.material?.map?.dispose();
-    previewLabel.material?.dispose();
-    previewLabel = null;
-  }
-}
-
-export function toggleMeasureMode() {
-  if (measureMode) exitMeasureMode();
-  else enterMeasureMode();
 }
 
 export function clearControlMeasurements() {
@@ -900,91 +859,51 @@ function createMarker(point) {
   return grp;
 }
 
-function onMeasureMouseMove(event) {
-  if (!measureMode || !measureFirstPoint || !controlGroup) return;
-
-  const hit = measureRaycast(event);
-  if (!hit) return;
-
-  const p1 = measureFirstPoint;
-  const p2 = hit.point;
-  const dist = p1.distanceTo(p2);
-
-  // Update or create preview line
-  removePreview();
-
-  const lineGeo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
-  previewLine = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({
-    color: MEASURE_COLOR, transparent: true, opacity: 0.5, depthTest: false
-  }));
-  previewLine.renderOrder = 998;
-  controlGroup.add(previewLine);
-
-  // Preview label
-  const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
-  const dx = Math.abs(p2.x - p1.x);
-  const dz = Math.abs(p2.z - p1.z);
-  const dy = Math.abs(p2.y - p1.y);
-  let text = dist.toFixed(2) + 'm';
-  // Show axis breakdown if not purely along one axis
-  if (dx > 0.05 && dz > 0.05) {
-    text += `  (X:${dx.toFixed(2)} Z:${dz.toFixed(2)})`;
+// ─── Shift+click handler (registered on canvas in initDimensionClick) ───
+export function onShiftClickMeasure(event) {
+  if (!event.shiftKey) {
+    // Non-shift click clears any existing measurement
+    if (selectedWall1 || selectedWall2) {
+      clearControlMeasurements();
+    }
+    return;
   }
-  if (dy > 0.1) {
-    text += `  Y:${dy.toFixed(2)}`;
-  }
-  previewLabel = makeControlLabel(text, true);
-  previewLabel.position.copy(mid);
-  previewLabel.position.y += 0.2;
-  controlGroup.add(previewLabel);
-}
-
-function onMeasureClick(event) {
-  if (!measureMode) return;
   if (event.target.closest('.glass-panel')) return;
 
+  initControlMeasurements();
+
   const hit = measureRaycast(event);
   if (!hit) return;
 
-  const point = hit.point;
   const wallHit = isWallHit(hit);
 
-  // ─── Wall selection mode (click wall, shift+click second wall) ───
-  if (wallHit && !measureFirstPoint) {
+  if (wallHit) {
     const axis = getWallAxis(hit.normal);
 
-    if (!selectedWall1 || (selectedWall1 && !event.shiftKey)) {
-      // First wall (or reset) — clear everything, select this wall
+    if (!selectedWall1) {
+      // First wall
       clearControlMeasurements();
       selectedWall1 = selectWall(hit, axis);
-      return;
-    }
-
-    if (selectedWall1 && event.shiftKey) {
-      // Second wall — compute distance between the two wall planes
+    } else if (!selectedWall2) {
+      // Second wall — compute and show distance
       selectedWall2 = selectWall(hit, axis);
 
-      // Calculate perpendicular distance between the two walls
       const axis1 = selectedWall1.axis;
       const axis2 = selectedWall2.axis;
 
       let p1, p2, dist;
       if (axis1 === axis2) {
-        // Parallel walls — measure along the shared perpendicular axis
         p1 = selectedWall1.point.clone();
         p2 = selectedWall2.point.clone();
         if (axis1 === 'x') {
-          // Walls perpendicular to X — distance is in X
           p2.y = p1.y;
           p2.z = p1.z;
         } else {
-          // Walls perpendicular to Z — distance is in Z
           p2.y = p1.y;
           p2.x = p1.x;
         }
         dist = p1.distanceTo(p2);
       } else {
-        // Non-parallel walls — just show point-to-point
         p1 = selectedWall1.point.clone();
         p2 = selectedWall2.point.clone();
         p2.y = p1.y;
@@ -992,37 +911,32 @@ function onMeasureClick(event) {
       }
 
       finalizeMeasurement(p1, p2, dist, `⊥ ${dist.toFixed(3)}m`);
-      return;
+    } else {
+      // Already have two walls — reset and start over
+      clearControlMeasurements();
+      selectedWall1 = selectWall(hit, axis);
     }
-  }
-
-  // ─── Point-to-point mode (for non-wall surfaces) ───
-  if (!measureFirstPoint) {
-    // First click on non-wall — clear walls, start point mode
-    clearControlMeasurements();
-    measureFirstPoint = point;
-    measureFirstMarker = createMarker(point);
-    controlGroup.add(measureFirstMarker);
   } else {
-    // Second click — finalize
-    const p1 = measureFirstPoint;
-    const p2 = point;
-    const dist = p1.distanceTo(p2);
-    removePreview();
-
-    const dx = Math.abs(p2.x - p1.x);
-    const dz = Math.abs(p2.z - p1.z);
-    const dy = Math.abs(p2.y - p1.y);
-    let text = dist.toFixed(3) + 'm';
-    if (dx > 0.05 && dz > 0.05) {
-      text += `  (X:${dx.toFixed(2)} Z:${dz.toFixed(2)})`;
+    // Shift+click on non-wall — point-to-point
+    if (!measureFirstPoint) {
+      clearControlMeasurements();
+      measureFirstPoint = hit.point.clone();
+      measureFirstMarker = createMarker(hit.point);
+      controlGroup.add(measureFirstMarker);
+    } else {
+      const p1 = measureFirstPoint;
+      const p2 = hit.point;
+      const dist = p1.distanceTo(p2);
+      const dx = Math.abs(p2.x - p1.x);
+      const dz = Math.abs(p2.z - p1.z);
+      let text = dist.toFixed(3) + 'm';
+      if (dx > 0.05 && dz > 0.05) {
+        text += `  (X:${dx.toFixed(2)} Z:${dz.toFixed(2)})`;
+      }
+      finalizeMeasurement(p1, p2, dist, text);
+      measureFirstPoint = null;
+      measureFirstMarker = null;
     }
-    if (dy > 0.1) {
-      text += `  Y:${dy.toFixed(2)}`;
-    }
-    finalizeMeasurement(p1, p2, dist, text);
-    measureFirstPoint = null;
-    measureFirstMarker = null;
   }
 }
 
