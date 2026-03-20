@@ -355,6 +355,25 @@ button.add-btn:active{transform:scale(0.98)}
 .dim-floating-input::-webkit-inner-spin-button{opacity:0.2}
 .muted-text{color:rgba(255,255,255,0.4);font-size:12px;line-height:1.5;margin:0}
 
+/* ─── Apartment Summary (compact one-liner) ─── */
+.apartment-summary{
+  padding:4px 14px 6px;font-size:10px;color:rgba(255,255,255,0.25);
+  letter-spacing:0.02em;border-bottom:1px solid rgba(255,255,255,0.03);
+}
+
+/* ─── Shortcuts Tooltip ─── */
+#shortcuts-tooltip{
+  position:fixed;right:350px;top:10px;
+  background:rgba(14,14,18,0.95);backdrop-filter:blur(24px);
+  border:1px solid rgba(255,255,255,0.08);border-radius:10px;
+  padding:12px 16px;z-index:200;color:rgba(255,255,255,0.6);
+  font-size:11px;display:none;min-width:180px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.4);
+}
+#shortcuts-tooltip.visible{display:block}
+#shortcuts-tooltip .st-row{display:flex;justify-content:space-between;gap:16px;margin-bottom:3px}
+#shortcuts-tooltip .st-key{color:rgba(255,255,255,0.4);font-family:'SF Mono',ui-monospace,monospace;font-size:10px}
+
 /* ─── Compact Calibration Cards ─── */
 .room-card .room-dims{max-height:0;overflow:hidden;opacity:0;transition:max-height 0.25s ease,opacity 0.2s ease,margin 0.2s ease;margin-top:0}
 .room-card.expanded .room-dims{max-height:120px;opacity:1;margin-top:6px}
@@ -431,11 +450,24 @@ button.add-btn:active{transform:scale(0.98)}
   </div>
 </div>
 
+<!-- ─── Shortcuts Tooltip ─── -->
+<div id="shortcuts-tooltip">
+  <div class="st-row"><span>Roter møbel</span><span class="st-key">R</span></div>
+  <div class="st-row"><span>Slett møbel</span><span class="st-key">Del</span></div>
+  <div class="st-row"><span>Mål vegg-til-vegg</span><span class="st-key">⇧+klikk</span></div>
+  <div class="st-row"><span>Fjern mål</span><span class="st-key">⇧+høyreklikk</span></div>
+  <div class="st-row"><span>Angre</span><span class="st-key">⌘Z</span></div>
+  <div class="st-row"><span>Gjør om</span><span class="st-key">⌘⇧Z</span></div>
+</div>
+
 <!-- ─── Glass Panel (single pane, no tabs) ─── -->
 <div id="panel" class="glass-panel">
   <div id="panel-header">
     <span id="panel-title">Eidos</span>
-    <button id="panel-collapse" title="Skjul panel">&times;</button>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button id="shortcutsHelp" title="Hurtigtaster" style="background:none;border:none;color:rgba(255,255,255,0.25);font-size:14px;cursor:pointer;padding:0 4px;transition:color 0.2s">?</button>
+      <button id="panel-collapse" title="Skjul panel">&times;</button>
+    </div>
   </div>
 
   <div id="tab-oversikt" class="tab-content">
@@ -463,19 +495,12 @@ button.add-btn:active{transform:scale(0.98)}
         <div class="vis-pills" id="wall-room-pills"></div>
       </div>
     </div>
-    <div class="panel-section collapsible open" id="history-section">
+    <div id="apartment-summary" class="apartment-summary"></div>
+    <div class="panel-section collapsible" id="history-section">
       <h3>Historikk</h3>
       <div class="section-body">
         <div id="history-list" class="history-list">
           <div class="history-empty">Ingen endringer ennå</div>
-        </div>
-      </div>
-    </div>
-    <div class="panel-section collapsible">
-      <h3>Bolig</h3>
-      <div class="section-body">
-        <div id="apartment-info" class="info-grid">
-          <span class="lbl">Laster...</span>
         </div>
       </div>
     </div>
@@ -557,19 +582,7 @@ button.add-btn:active{transform:scale(0.98)}
         <a id="enclosureLink" href="#" target="_blank" rel="noopener" style="display:none;font-size:10px;color:rgba(91,141,239,0.7);margin-top:4px;display:inline-block;text-decoration:none">Produkt →</a>
       </div>
     </div>
-    <div class="panel-section collapsible">
-      <h3>Hurtigtaster</h3>
-      <div class="section-body">
-        <div class="shortcuts">
-          <div class="shortcut-row"><span class="shortcut-key">R</span> Roter møbel 90°</div>
-          <div class="shortcut-row"><span class="shortcut-key">Del</span> Slett valgt møbel</div>
-          <div class="shortcut-row"><span class="shortcut-key">Klikk</span> Rediger mål i 3D</div>
-          <div class="shortcut-row"><span class="shortcut-key">⇧+klikk</span> Mål vegg-til-vegg</div>
-          <div class="shortcut-row"><span class="shortcut-key">⌘Z</span> Angre</div>
-          <div class="shortcut-row"><span class="shortcut-key">⌘⇧Z</span> Gjør om</div>
-        </div>
-      </div>
-    </div>
+    <!-- Hurtigtaster tilgjengelig via ?-knappen i header -->
   </div>
 </div>
 

@@ -64,30 +64,22 @@ function populateFurnitureSelect() {
 // ─── APARTMENT INFO ───
 
 function populateApartmentInfo() {
-  const el = document.getElementById('apartment-info');
-  if (!el) return;
+  // Compact summary line (replaces full info-grid section)
+  const summary = document.getElementById('apartment-summary');
+  if (!summary) return;
 
   const cfg = state.apartmentConfig;
-  if (!cfg) {
-    el.innerHTML = '<span class="lbl">Ingen config lastet</span>';
-    return;
-  }
+  if (!cfg) { summary.textContent = ''; return; }
 
   const b = cfg.bounds || {};
   const width = ((b.maxX || 0) - (b.minX || 0)).toFixed(1);
   const depth = ((b.maxZ || 0) - (b.minZ || 0)).toFixed(1);
   const roomCount = (cfg.rooms || []).length;
-  const upperRoomCount = (cfg.upperFloor && cfg.upperFloor.rooms || []).length;
+  const upperRoomCount = (cfg.upperFloor?.rooms || []).length;
   const totalRooms = roomCount + upperRoomCount;
-  const floors = cfg.upperFloor ? '2' : '1';
+  const floors = cfg.upperFloor ? 2 : 1;
 
-  el.innerHTML = `
-    <span class="lbl">Navn:</span><span class="val">${cfg.name || '—'}</span>
-    <span class="lbl">Bredde:</span><span class="val">${width} m</span>
-    <span class="lbl">Dybde:</span><span class="val">${depth} m</span>
-    <span class="lbl">Etasjer:</span><span class="val">${floors}</span>
-    <span class="lbl">Rom:</span><span class="val">${totalRooms}</span>
-  `;
+  summary.textContent = `${cfg.name || 'Bolig'} · ${width}×${depth}m · ${floors} etg · ${totalRooms} rom`;
 }
 
 // ─── VIEW BUTTON ACTIVE STATE ───
@@ -374,11 +366,31 @@ export function initUI() {
 }
 
 function initCollapsible() {
+  // Accordion behavior — only one section open at a time
   document.querySelectorAll('.panel-section.collapsible h3').forEach(h3 => {
     h3.addEventListener('click', () => {
-      h3.parentElement.classList.toggle('open');
+      const section = h3.parentElement;
+      const wasOpen = section.classList.contains('open');
+      // Close all collapsible sections
+      document.querySelectorAll('.panel-section.collapsible.open').forEach(s => {
+        s.classList.remove('open');
+      });
+      // Toggle the clicked one (if it was closed, open it)
+      if (!wasOpen) section.classList.add('open');
     });
   });
+
+  // ? button → shortcuts tooltip
+  const helpBtn = document.getElementById('shortcutsHelp');
+  const tooltip = document.getElementById('shortcuts-tooltip');
+  if (helpBtn && tooltip) {
+    helpBtn.addEventListener('click', () => tooltip.classList.toggle('visible'));
+    document.addEventListener('click', (e) => {
+      if (!tooltip.contains(e.target) && e.target !== helpBtn) {
+        tooltip.classList.remove('visible');
+      }
+    });
+  }
 }
 
 // ─── ROOM CALIBRATION (Tikhonov solver) ───
