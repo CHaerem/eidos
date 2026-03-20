@@ -340,24 +340,24 @@
       {
         "id": "P1",
         "bounds": {
-          "minX": -2.08,
-          "maxX": -1.96,
+          "minX": 4.22,
+          "maxX": 4.38,
           "minZ": 0.54,
           "maxZ": 0.66
         },
         "height": 2.25,
-        "note": "Vestre kjøkkenstolpe — inntil vegg A, under hemskant, gulv til hems"
+        "note": "Vestre kjøkkenstolpe — inntil yttervegg (vest), under hemskant, gulv til hems"
       },
       {
         "id": "P2",
         "bounds": {
-          "minX": 0.2,
-          "maxX": 0.32,
+          "minX": 1.05,
+          "maxX": 1.21,
           "minZ": 0.54,
           "maxZ": 0.66
         },
         "height": 2.25,
-        "note": "Østre kjøkkenstolpe — inntil trappen, under hemskant, gulv til hems"
+        "note": "Østre kjøkkenstolpe — ved trappens ytterkant (kjøkkensiden), under hemskant"
       }
     ]
   },
