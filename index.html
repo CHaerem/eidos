@@ -475,30 +475,30 @@ button.add-btn:active{transform:scale(0.98)}
         </div>
       </div>
     </div>
-    <div class="panel-section collapsible open" id="calibration-section">
+    <div class="panel-section collapsible" id="calibration-section">
       <h3>Kalibrering</h3>
       <div class="section-body">
         <div id="room-calibration"></div>
       </div>
     </div>
-    <div class="panel-section collapsible open" id="innredning-section">
-      <h3>Innredning</h3>
+    <div class="panel-section collapsible" id="furniture-section">
+      <h3>Møbler</h3>
       <div class="section-body">
-        <!-- Møbler -->
-        <div class="vis-label" style="margin-bottom:4px">Møbler</div>
         <div style="display:flex;gap:4px;margin-bottom:6px">
-          <select id="furnSelect" class="glass-panel" style="flex:1;margin-bottom:0"></select>
+          <select id="furnSelect"></select>
           <button class="add-btn" style="width:auto;margin-top:0;padding:6px 12px" onclick="window.addFurniture()">+</button>
         </div>
         <div id="furnList"></div>
-
-        <!-- Golfsimulator -->
-        <div class="vis-label" style="margin-top:10px;margin-bottom:4px">Golfsimulator</div>
+      </div>
+    </div>
+    <div class="panel-section collapsible" id="simulator-section">
+      <h3>Golfsimulator</h3>
+      <div class="section-body">
         <label style="margin-bottom:6px"><input type="checkbox" id="simToggle" checked> <b>Vis simulator</b></label>
         <div id="simControls">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;margin-bottom:6px">
-            <label style="margin-bottom:0"><b>Klubb:</b></label>
-            <select id="clubSelect" style="margin-bottom:0">
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 8px;margin-bottom:6px;align-items:center">
+            <span class="lbl">Klubb</span>
+            <select id="clubSelect">
               <option value="1.168">Driver</option>
               <option value="1.092">3-wood</option>
               <option value="1.016">Hybrid</option>
@@ -506,7 +506,7 @@ button.add-btn:active{transform:scale(0.98)}
               <option value="0.914">9-iron</option>
               <option value="0.889">Wedge</option>
             </select>
-            <label style="margin-bottom:0"><b>Retning:</b></label>
+            <span class="lbl">Retning</span>
             <div class="radio-group" style="margin-bottom:0">
               <label><input type="radio" name="dir" value="window" checked> Vindu</label>
               <label><input type="radio" name="dir" value="along"> Langs</label>
