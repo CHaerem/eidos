@@ -691,7 +691,7 @@ function removeFloatingInput() {
   }
 }
 
-// ─── CONTROL MEASUREMENTS (point-to-point) ───
+// ─── CONTROL MEASUREMENTS (point-to-point + wall-to-wall) ───
 
 let measureMode = false;
 let measureFirstPoint = null;
@@ -699,7 +699,10 @@ let measureFirstMarker = null;
 let previewLine = null;
 let previewLabel = null;
 let controlGroup = null;
+let selectedWall1 = null; // { point, normal, axis, mesh, highlight }
+let selectedWall2 = null;
 const MEASURE_COLOR = 0xFFDD44;
+const WALL_HIGHLIGHT_COLOR = 0x44AAFF;
 const measureMarkerMat = new THREE.MeshBasicMaterial({ color: MEASURE_COLOR, depthTest: false });
 const measureLineMat = new THREE.LineBasicMaterial({
   color: MEASURE_COLOR, transparent: true, opacity: 0.9, depthTest: false, linewidth: 2
@@ -768,12 +771,19 @@ export function clearControlMeasurements() {
   while (controlGroup.children.length) {
     const c = controlGroup.children[0];
     controlGroup.remove(c);
+    c.traverse?.(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material?.map) child.material.map.dispose();
+      if (child.material) child.material.dispose();
+    });
     if (c.geometry) c.geometry.dispose();
     if (c.material?.map) c.material.map.dispose();
     if (c.material) c.material.dispose();
   }
   measureFirstPoint = null;
   measureFirstMarker = null;
+  selectedWall1 = null;
+  selectedWall2 = null;
 }
 
 // Shared raycast for measure mode — returns {point, face, normal} or null
@@ -937,45 +947,67 @@ function onMeasureClick(event) {
   if (!hit) return;
 
   const point = hit.point;
+  const wallHit = isWallHit(hit);
 
-  if (!measureFirstPoint) {
-    // First click — clear previous, place marker
-    clearControlMeasurements();
+  // ─── Wall selection mode (click wall, shift+click second wall) ───
+  if (wallHit && !measureFirstPoint) {
+    const axis = getWallAxis(hit.normal);
 
-    // If clicked on a wall, auto-find perpendicular distance to opposite wall
-    if (isWallHit(hit)) {
-      const opposite = findOppositeWall(point, hit.normal);
-      if (opposite) {
-        // Auto wall-to-wall measurement
-        const axis = getWallAxis(hit.normal);
-        // Project both points to same Y and perpendicular axis for clean measurement
-        const p1 = point.clone();
-        const p2 = opposite.clone();
-        // Align to same Y height
-        p2.y = p1.y;
-        // Align along the perpendicular axis only (clean measurement)
-        if (axis === 'x') {
-          p2.z = p1.z; // Keep same Z — measure pure X distance
-        } else {
-          p2.x = p1.x; // Keep same X — measure pure Z distance
-        }
-
-        const dist = p1.distanceTo(p2);
-        finalizeMeasurement(p1, p2, dist, `⊥ ${dist.toFixed(3)}m`);
-        return;
-      }
+    if (!selectedWall1 || (selectedWall1 && !event.shiftKey)) {
+      // First wall (or reset) — clear everything, select this wall
+      clearControlMeasurements();
+      selectedWall1 = selectWall(hit, axis);
+      return;
     }
 
-    // Regular first point
+    if (selectedWall1 && event.shiftKey) {
+      // Second wall — compute distance between the two wall planes
+      selectedWall2 = selectWall(hit, axis);
+
+      // Calculate perpendicular distance between the two walls
+      const axis1 = selectedWall1.axis;
+      const axis2 = selectedWall2.axis;
+
+      let p1, p2, dist;
+      if (axis1 === axis2) {
+        // Parallel walls — measure along the shared perpendicular axis
+        p1 = selectedWall1.point.clone();
+        p2 = selectedWall2.point.clone();
+        if (axis1 === 'x') {
+          // Walls perpendicular to X — distance is in X
+          p2.y = p1.y;
+          p2.z = p1.z;
+        } else {
+          // Walls perpendicular to Z — distance is in Z
+          p2.y = p1.y;
+          p2.x = p1.x;
+        }
+        dist = p1.distanceTo(p2);
+      } else {
+        // Non-parallel walls — just show point-to-point
+        p1 = selectedWall1.point.clone();
+        p2 = selectedWall2.point.clone();
+        p2.y = p1.y;
+        dist = p1.distanceTo(p2);
+      }
+
+      finalizeMeasurement(p1, p2, dist, `⊥ ${dist.toFixed(3)}m`);
+      return;
+    }
+  }
+
+  // ─── Point-to-point mode (for non-wall surfaces) ───
+  if (!measureFirstPoint) {
+    // First click on non-wall — clear walls, start point mode
+    clearControlMeasurements();
     measureFirstPoint = point;
     measureFirstMarker = createMarker(point);
     controlGroup.add(measureFirstMarker);
   } else {
-    // Second click — finalize line + label
+    // Second click — finalize
     const p1 = measureFirstPoint;
     const p2 = point;
     const dist = p1.distanceTo(p2);
-
     removePreview();
 
     const dx = Math.abs(p2.x - p1.x);
@@ -989,9 +1021,44 @@ function onMeasureClick(event) {
       text += `  Y:${dy.toFixed(2)}`;
     }
     finalizeMeasurement(p1, p2, dist, text);
-
     measureFirstPoint = null;
     measureFirstMarker = null;
+  }
+}
+
+function selectWall(hit, axis) {
+  // Create a highlight overlay on the clicked wall mesh
+  const mesh = hit.object;
+  const bbox = new THREE.Box3().setFromObject(mesh);
+  const size = bbox.getSize(new THREE.Vector3());
+  const center = bbox.getCenter(new THREE.Vector3());
+
+  // Create highlight plane matching the wall face
+  let highlightGeo, highlightPos;
+  const highlightMat = new THREE.MeshBasicMaterial({
+    color: WALL_HIGHLIGHT_COLOR, transparent: true, opacity: 0.25,
+    side: THREE.DoubleSide, depthTest: false
+  });
+
+  if (axis === 'x') {
+    // Wall perpendicular to X — highlight is a Z×Y plane
+    highlightGeo = new THREE.PlaneGeometry(size.z + 0.02, size.y + 0.02);
+    highlightPos = new THREE.Vector3(hit.point.x, center.y, center.z);
+    const highlight = new THREE.Mesh(highlightGeo, highlightMat);
+    highlight.position.copy(highlightPos);
+    highlight.rotation.y = Math.PI / 2;
+    highlight.renderOrder = 998;
+    controlGroup.add(highlight);
+    return { point: hit.point.clone(), normal: hit.normal, axis, mesh, highlight };
+  } else {
+    // Wall perpendicular to Z — highlight is a X×Y plane
+    highlightGeo = new THREE.PlaneGeometry(size.x + 0.02, size.y + 0.02);
+    highlightPos = new THREE.Vector3(center.x, center.y, hit.point.z);
+    const highlight = new THREE.Mesh(highlightGeo, highlightMat);
+    highlight.position.copy(highlightPos);
+    highlight.renderOrder = 998;
+    controlGroup.add(highlight);
+    return { point: hit.point.clone(), normal: hit.normal, axis, mesh, highlight };
   }
 }
 
