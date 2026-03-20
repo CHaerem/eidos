@@ -796,7 +796,8 @@ function onMeasureClick(event) {
   const point = hits[0].point.clone();
 
   if (!measureFirstPoint) {
-    // First click — place marker
+    // First click — clear previous measurement, place marker
+    clearControlMeasurements();
     measureFirstPoint = point;
     const marker = new THREE.Mesh(
       new THREE.SphereGeometry(0.04, 12, 12),
