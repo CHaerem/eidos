@@ -132,6 +132,10 @@ button.view-btn:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0
 button.view-btn:active{transform:scale(0.97)}
 button.view-btn.active{background:rgba(91,141,239,0.12);border-color:rgba(91,141,239,0.25);color:#8bb4ff}
 
+/* ─── Measure Mode ─── */
+canvas.measure-mode{cursor:crosshair !important}
+#measureToggle.active{background:rgba(255,221,68,0.15);border-color:rgba(255,221,68,0.4);color:#FFdd44}
+
 /* ─── Info Grid ─── */
 .info-grid{
   display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px;
@@ -441,6 +445,7 @@ button.add-btn:active{transform:scale(0.98)}
         <button class="view-btn" onclick="set3DView()" data-view="3d">3D</button>
         <button class="view-btn" onclick="setFrontView()" data-view="front">Front</button>
         <button class="view-btn" onclick="setSideView()" data-view="side">Side</button>
+        <button class="view-btn" id="measureToggle" onclick="window._toggleMeasureMode()" title="Kontrollmål (M)">Mål</button>
       </div>
     </div>
     <div class="panel-section" id="visibility-section">

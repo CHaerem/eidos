@@ -3,7 +3,7 @@ import { state } from './state.js';
 import { FURNITURE_CATALOG } from './furniture.js';
 import { BOUNDS, ceilAt } from './room.js';
 import { solveConstraints, applyToConfig } from './solver.js';
-import { showDimensions, showSingleDimension, hideDimensions } from './dimensions.js';
+import { showDimensions, showSingleDimension, hideDimensions, toggleMeasureMode, clearControlMeasurements } from './dimensions.js';
 import { setRoomFocus, clearRoomFocus } from './room-focus.js';
 import { pushSnapshot, getEntries, getPointer, getFullEntries, jumpTo, setHistoryChangeListener } from './history.js';
 import { showHistoryDiff, clearHistoryDiff, computeDiff, getDiffSummary } from './history-diff.js';
@@ -880,6 +880,7 @@ window._advanceCalibration = () => {
 };
 window._skipStep = skipStep;
 window._runSolver = runSolver;
+window._toggleMeasureMode = toggleMeasureMode;
 
 function onMeasurementChange(input) {
   pushSnapshot(`Kalibrering: ${input.dataset.room} ${input.dataset.dim}`);

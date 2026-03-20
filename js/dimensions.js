@@ -691,6 +691,187 @@ function removeFloatingInput() {
   }
 }
 
+// ─── CONTROL MEASUREMENTS (point-to-point) ───
+
+let measureMode = false;
+let measureFirstPoint = null;
+let measureFirstMarker = null;
+let controlGroup = null;
+const measureMarkerMat = new THREE.MeshBasicMaterial({ color: 0xFFDD44, depthTest: false });
+const measureLineMat = new THREE.LineDashedMaterial({
+  color: 0xFFDD44, dashSize: 0.08, gapSize: 0.04,
+  transparent: true, opacity: 0.8, depthTest: false
+});
+
+export function enterMeasureMode() {
+  if (measureMode) return;
+  measureMode = true;
+  measureFirstPoint = null;
+  const canvas = state.renderer?.domElement;
+  if (canvas) {
+    canvas.classList.add('measure-mode');
+    canvas.addEventListener('click', onMeasureClick);
+  }
+  // Create control group if needed
+  if (!controlGroup) {
+    controlGroup = new THREE.Group();
+    controlGroup.name = 'ControlMeasurements';
+    state.scene.add(controlGroup);
+  }
+  // Update button state
+  const btn = document.getElementById('measureToggle');
+  if (btn) btn.classList.add('active');
+}
+
+export function exitMeasureMode() {
+  if (!measureMode) return;
+  measureMode = false;
+  measureFirstPoint = null;
+  // Remove temporary first-point marker
+  if (measureFirstMarker && controlGroup) {
+    controlGroup.remove(measureFirstMarker);
+    measureFirstMarker.geometry?.dispose();
+    measureFirstMarker = null;
+  }
+  const canvas = state.renderer?.domElement;
+  if (canvas) {
+    canvas.classList.remove('measure-mode');
+    canvas.removeEventListener('click', onMeasureClick);
+  }
+  const btn = document.getElementById('measureToggle');
+  if (btn) btn.classList.remove('active');
+}
+
+export function toggleMeasureMode() {
+  if (measureMode) exitMeasureMode();
+  else enterMeasureMode();
+}
+
+export function clearControlMeasurements() {
+  if (!controlGroup) return;
+  while (controlGroup.children.length) {
+    const c = controlGroup.children[0];
+    controlGroup.remove(c);
+    if (c.geometry) c.geometry.dispose();
+    if (c.material?.map) c.material.map.dispose();
+    if (c.material) c.material.dispose();
+  }
+  measureFirstPoint = null;
+  measureFirstMarker = null;
+}
+
+function onMeasureClick(event) {
+  if (!measureMode || !state.scene || !state.camera) return;
+
+  // Don't fire if clicking on panel
+  if (event.target.closest('.glass-panel')) return;
+
+  const canvas = state.renderer.domElement;
+  const rect = canvas.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1
+  );
+
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, state.camera);
+
+  // Raycast against all visible scene geometry, excluding control measurements and dimension lines
+  const targets = [];
+  state.scene.traverse(obj => {
+    if (!obj.isMesh) return;
+    if (!obj.visible) return;
+    // Skip our own measurement group and dimension guides
+    let parent = obj.parent;
+    while (parent) {
+      if (parent.name === 'ControlMeasurements' || parent.name === 'dimensions') return;
+      parent = parent.parent;
+    }
+    targets.push(obj);
+  });
+
+  const hits = raycaster.intersectObjects(targets, false);
+  if (hits.length === 0) return;
+
+  const point = hits[0].point.clone();
+
+  if (!measureFirstPoint) {
+    // First click — place marker
+    measureFirstPoint = point;
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.04, 12, 12),
+      measureMarkerMat
+    );
+    marker.position.copy(point);
+    marker.renderOrder = 999;
+    measureFirstMarker = marker;
+    controlGroup.add(marker);
+  } else {
+    // Second click — draw line + label
+    const p1 = measureFirstPoint;
+    const p2 = point;
+    const dist = p1.distanceTo(p2);
+
+    // Marker at p2
+    const marker2 = new THREE.Mesh(
+      new THREE.SphereGeometry(0.04, 12, 12),
+      measureMarkerMat
+    );
+    marker2.position.copy(p2);
+    marker2.renderOrder = 999;
+    controlGroup.add(marker2);
+
+    // Dashed line between points
+    const lineGeo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+    const line = new THREE.Line(lineGeo, measureLineMat.clone());
+    line.computeLineDistances();
+    line.renderOrder = 999;
+    controlGroup.add(line);
+
+    // Label at midpoint
+    const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+    const label = makeControlLabel(dist.toFixed(3) + 'm');
+    label.position.copy(mid);
+    label.position.y += 0.15; // Slightly above midpoint
+    controlGroup.add(label);
+
+    // Reset for next measurement pair
+    measureFirstPoint = null;
+    measureFirstMarker = null;
+  }
+}
+
+function makeControlLabel(text) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 384;
+  canvas.height = 80;
+  const ctx = canvas.getContext('2d');
+
+  // Yellow pill background
+  ctx.shadowColor = 'rgba(0,0,0,0.35)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 2;
+  ctx.fillStyle = 'rgba(255,221,68,0.92)';
+  roundRect(ctx, 12, 8, 360, 64, 16);
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+
+  // Dark text
+  ctx.fillStyle = '#222';
+  ctx.font = 'bold 32px SF Mono, ui-monospace, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 192, 42);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(1.2, 0.26, 1);
+  sprite.renderOrder = 1000;
+  return sprite;
+}
+
 // ─── HELPERS ───
 
 function findRoom(roomId, floor, cfg) {

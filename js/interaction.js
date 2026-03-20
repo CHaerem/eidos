@@ -4,7 +4,7 @@ import { FURNITURE_CATALOG, createFurnitureMesh, saveFurnitureToConfig } from '.
 import { BOUNDS } from './room.js';
 import { renderFurnitureList, populateCalibration } from './ui.js';
 import { undo, redo } from './history.js';
-import { hideDimensions } from './dimensions.js';
+import { hideDimensions, toggleMeasureMode, exitMeasureMode } from './dimensions.js';
 
 // ─── DRAG & DROP STATE ───
 const raycaster = new THREE.Raycaster();
@@ -232,7 +232,15 @@ export function initInteraction() {
       return;
     }
 
+    if (e.key === 'Escape') {
+      exitMeasureMode();
+      return;
+    }
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    if (e.key === 'm' || e.key === 'M') {
+      toggleMeasureMode();
+      return;
+    }
     if (e.key === 'r' || e.key === 'R') {
       if (state.selectedItemId !== null) {
         const item = state.placedItems.find(i => i.id === state.selectedItemId);
