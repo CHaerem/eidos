@@ -2,19 +2,21 @@ import * as THREE from 'three';
 import { state } from './state.js';
 import { CEIL, BOUNDS, ceilAt } from './room.js';
 
-// ─── ENCLOSURE PRESETS (real products) ───
+// ─── ENCLOSURE PRESETS (real products with exact specs) ───
+// Dimensions: inner frame (width × height × depth), screenW/H = impact screen size
+// style: 'velour' = black velour panels (SimSpace), 'open' = minimal frame (MicroBay/SkyTrak)
 const ENCLOSURE_PRESETS = {
-  auto:       { name: 'Auto (fra sving)',     width: null, height: null, depth: null, url: null },
-  sim1:       { name: 'SimSpace SIM 1',       width: 2.6,  height: 2.5,  depth: 1.5, url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
-  sim2:       { name: 'SimSpace SIM 2',       width: 3.0,  height: 2.5,  depth: 1.5, url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
-  sim3:       { name: 'SimSpace SIM 3',       width: 3.6,  height: 2.5,  depth: 1.5, url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
-  sim4:       { name: 'SimSpace SIM 4',       width: 4.0,  height: 2.5,  depth: 1.5, url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
-  sim5:       { name: 'SimSpace SIM 5',       width: 3.0,  height: 3.0,  depth: 3.0, url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
-  sim6:       { name: 'SimSpace SIM 6',       width: 4.0,  height: 3.0,  depth: 3.0, url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
-  slim:       { name: 'SimSpace SLIM',        width: 3.4,  height: 2.6,  depth: 1.1, url: 'https://simspacegolf.com/products/simspace-slim-golf-enclosure' },
-  microbay:   { name: 'MicroBay',             width: 3.0,  height: 2.4,  depth: 0.6, url: 'https://allsportsystems.shop/products/golf-simulator-enclosure-hitting-bay-microbay' },
-  skytrak8:   { name: 'SkyTrak 8ft Studio',   width: 2.4,  height: 2.4,  depth: 1.5, url: 'https://skytrakgolf.com/blogs/articles/introducing-the-8ft-sim-studio-big-performance-in-a-compact-space' },
-  custom:     { name: 'Egendefinert',         width: 3.0,  height: 2.5,  depth: 1.5, url: null },
+  auto:       { name: 'Auto (fra sving)',     width: null, height: null, depth: null, screenW: null, screenH: null, style: 'velour', url: null },
+  sim1:       { name: 'SimSpace SIM 1',       width: 2.6,  height: 2.5,  depth: 1.5, screenW: 2.4,  screenH: 2.3, style: 'velour', url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
+  sim2:       { name: 'SimSpace SIM 2',       width: 3.0,  height: 2.5,  depth: 1.5, screenW: 2.8,  screenH: 2.3, style: 'velour', url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
+  sim3:       { name: 'SimSpace SIM 3',       width: 3.6,  height: 2.5,  depth: 1.5, screenW: 3.4,  screenH: 2.3, style: 'velour', url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
+  sim4:       { name: 'SimSpace SIM 4',       width: 4.0,  height: 2.5,  depth: 1.5, screenW: 3.8,  screenH: 2.3, style: 'velour', url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
+  sim5:       { name: 'SimSpace SIM 5',       width: 3.0,  height: 3.0,  depth: 3.0, screenW: 2.8,  screenH: 2.8, style: 'velour', url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
+  sim6:       { name: 'SimSpace SIM 6',       width: 4.0,  height: 3.0,  depth: 3.0, screenW: 3.8,  screenH: 2.8, style: 'velour', url: 'https://simspacegolf.com/products/sim-space-golf-enclosure-6-sizes' },
+  slim:       { name: 'SimSpace SLIM',        width: 3.4,  height: 2.6,  depth: 1.1, screenW: 3.2,  screenH: 2.4, style: 'velour', url: 'https://simspacegolf.com/products/simspace-slim-golf-enclosure' },
+  microbay:   { name: 'MicroBay',             width: 3.0,  height: 2.4,  depth: 0.6, screenW: 2.7,  screenH: 2.1, style: 'open',   url: 'https://allsportsystems.shop/products/golf-simulator-enclosure-hitting-bay-microbay' },
+  skytrak8:   { name: 'SkyTrak 8ft Studio',   width: 2.4,  height: 2.4,  depth: 1.5, screenW: 2.2,  screenH: 2.1, style: 'open',   url: 'https://skytrakgolf.com/blogs/articles/introducing-the-8ft-sim-studio-big-performance-in-a-compact-space' },
+  custom:     { name: 'Egendefinert',         width: 3.0,  height: 2.5,  depth: 1.5, screenW: null, screenH: null, style: 'velour', url: null },
 };
 
 // ─── SWING FORMULAS ───
@@ -34,14 +36,19 @@ let screenMesh, matMesh, golferGroup, ballMesh;
 let arcMatGreen, arcMatRed, bsMatOrange, bsMatRed;
 let enclosureGroup = null;
 
-// Realistic net material — dark semi-transparent like real golf sim netting
-const netMat = new THREE.MeshStandardMaterial({
-  color: 0x1a1a1a, transparent: true, opacity: 0.55,
+// SimSpace style: black velour — nearly opaque, soft/matte look
+const velourMat = new THREE.MeshStandardMaterial({
+  color: 0x0a0a0a, transparent: true, opacity: 0.88,
+  side: THREE.DoubleSide, roughness: 0.95, metalness: 0.0
+});
+// Open style: lightweight black netting — more transparent
+const nettingMat = new THREE.MeshStandardMaterial({
+  color: 0x1a1a1a, transparent: true, opacity: 0.35,
   side: THREE.DoubleSide, roughness: 0.9, metalness: 0.0
 });
-// Frame poles material — dark metal
+// Frame poles — dark powder-coated steel
 const frameMat = new THREE.MeshStandardMaterial({
-  color: 0x2a2a2a, roughness: 0.4, metalness: 0.6
+  color: 0x222222, roughness: 0.3, metalness: 0.7
 });
 
 export function initSimulator() {
@@ -283,9 +290,11 @@ export function updateSimulator() {
              : preset.height ? preset.height
              : sH + 0.3;
 
-  // Screen sized to fit enclosure (slightly smaller than box width)
-  const screenW = Math.min(boxW - 0.1, 3.0);
-  const screenH = Math.min(boxH - 0.2, 2.5);
+  // Screen sized from preset or auto-fit
+  const screenW = preset.screenW ? preset.screenW : Math.min(boxW - 0.2, 3.0);
+  const screenH = preset.screenH ? preset.screenH : Math.min(boxH - 0.2, 2.5);
+  const panelStyle = preset.style || 'velour';
+  const panelMat = panelStyle === 'velour' ? velourMat : nettingMat;
 
   // Update screen mesh geometry to match
   screenMesh.geometry.dispose();
@@ -361,26 +370,26 @@ export function updateSimulator() {
       enclosureGroup.add(rail);
     }
 
-    // ─── Net panels ───
-    // Side nets (left, right)
+    // ─── Panels (velour = opaque sides, open = transparent netting) ───
+    // Side panels (left, right)
     const sideGeo = new THREE.PlaneGeometry(d, topY);
     for (const sx of [-halfW, halfW]) {
-      const panel = new THREE.Mesh(sideGeo, netMat);
+      const panel = new THREE.Mesh(sideGeo, panelMat);
       panel.rotation.y = Math.PI / 2;
       panel.position.set(cx + sx, topY / 2, cz);
       enclosureGroup.add(panel);
     }
 
-    // Top net
+    // Top panel
     const topGeo = new THREE.PlaneGeometry(w, d);
-    const topPanel = new THREE.Mesh(topGeo, netMat);
+    const topPanel = new THREE.Mesh(topGeo, panelMat);
     topPanel.rotation.x = -Math.PI / 2;
     topPanel.position.set(cx, topY, cz);
     enclosureGroup.add(topPanel);
 
-    // Back net (behind golfer)
+    // Back panel (behind golfer)
     const backGeo = new THREE.PlaneGeometry(w, topY);
-    const backPanel = new THREE.Mesh(backGeo, netMat);
+    const backPanel = new THREE.Mesh(backGeo, panelMat);
     backPanel.position.set(cx, topY / 2, cz + halfD);
     enclosureGroup.add(backPanel);
 
