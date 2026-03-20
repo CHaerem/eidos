@@ -18,12 +18,15 @@ function swingRadius(heightCm, clubLen) {
 let screenMesh, matMesh, golferGroup, ballMesh;
 let arcMatGreen, arcMatRed, bsMatOrange, bsMatRed;
 let enclosureGroup = null;
-const netMat = new THREE.MeshBasicMaterial({
-  color: 0x888888, transparent: true, opacity: 0.08,
-  side: THREE.DoubleSide, depthWrite: false
+
+// Realistic net material — dark semi-transparent like real golf sim netting
+const netMat = new THREE.MeshStandardMaterial({
+  color: 0x1a1a1a, transparent: true, opacity: 0.55,
+  side: THREE.DoubleSide, roughness: 0.9, metalness: 0.0
 });
-const netWireMat = new THREE.LineBasicMaterial({
-  color: 0x666666, transparent: true, opacity: 0.2
+// Frame poles material — dark metal
+const frameMat = new THREE.MeshStandardMaterial({
+  color: 0x2a2a2a, roughness: 0.4, metalness: 0.6
 });
 
 export function initSimulator() {
@@ -32,8 +35,11 @@ export function initSimulator() {
 
   const screenW = 2.5, screenH = 2.0;
   const screenGeo = new THREE.PlaneGeometry(screenW, screenH);
-  screenMesh = new THREE.Mesh(screenGeo, new THREE.MeshStandardMaterial({ color: 0x333333, side: THREE.DoubleSide, roughness: 0.3, metalness: 0.0 }));
-  screenMesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(screenGeo), new THREE.LineBasicMaterial({ color: 0x666666 })));
+  screenMesh = new THREE.Mesh(screenGeo, new THREE.MeshStandardMaterial({
+    color: 0xDDDDDD, side: THREE.DoubleSide, roughness: 0.15, metalness: 0.0,
+    emissive: 0x222222, emissiveIntensity: 0.3
+  }));
+  screenMesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(screenGeo), new THREE.LineBasicMaterial({ color: 0x444444 })));
   simGroup.add(screenMesh);
 
   const matW = 1.5, matD = 1.2;
@@ -245,7 +251,7 @@ export function updateSimulator() {
   const boxD = (encCfg.auto === false && encCfg.depth) ? encCfg.depth : bsOff + matD + 1.0;
   const boxH = (encCfg.auto === false && encCfg.height) ? encCfg.height : sH + 0.3;
 
-  // Build enclosure — 4 net panels (left, right, top, back) + wireframe edges
+  // Build enclosure — realistic golf sim cage with nets and frame poles
   if (enclosureGroup && encCfg.visible !== false) {
     // Clear previous
     while (enclosureGroup.children.length) {
@@ -254,61 +260,79 @@ export function updateSimulator() {
       if (c.geometry) c.geometry.dispose();
     }
 
-    // Box centered on golfer, extending forward toward screen and back for backswing
-    const frontZ = dir === 'window' ? golferZ - boxD * 0.7 : golferZ;
-    const backZ = dir === 'window' ? golferZ + boxD * 0.3 : golferZ;
-    const leftX = dir === 'window' ? golferX - boxW / 2 : golferX - boxD * 0.3;
-    const rightX = dir === 'window' ? golferX + boxW / 2 : golferX + boxD * 0.7;
+    // Box centered on golfer
     const topY = boxH;
-
     let cx, cz, w, d;
     if (dir === 'window') {
       cx = golferX;
-      cz = (frontZ + backZ) / 2;
+      cz = golferZ - boxD * 0.4; // 60% front, 40% back
       w = boxW;
       d = boxD;
     } else {
-      cx = (leftX + rightX) / 2;
+      cx = golferX + boxD * 0.1;
       cz = golferZ;
       w = boxD;
       d = boxW;
     }
 
-    // Side panels (left, right)
-    const sideGeoL = new THREE.PlaneGeometry(d, topY);
-    const sideL_mesh = new THREE.Mesh(sideGeoL, netMat);
-    sideL_mesh.rotation.y = Math.PI / 2;
-    sideL_mesh.position.set(cx - w / 2, topY / 2, cz);
-    enclosureGroup.add(sideL_mesh);
+    const halfW = w / 2;
+    const halfD = d / 2;
 
-    const sideGeoR = new THREE.PlaneGeometry(d, topY);
-    const sideR_mesh = new THREE.Mesh(sideGeoR, netMat);
-    sideR_mesh.rotation.y = Math.PI / 2;
-    sideR_mesh.position.set(cx + w / 2, topY / 2, cz);
-    enclosureGroup.add(sideR_mesh);
+    // ─── Frame poles (vertical corners + horizontal top rails) ───
+    const poleR = 0.025; // 2.5cm radius
+    const poleGeo = new THREE.CylinderGeometry(poleR, poleR, topY, 6);
+    const corners = [
+      [cx - halfW, cz - halfD],
+      [cx + halfW, cz - halfD],
+      [cx - halfW, cz + halfD],
+      [cx + halfW, cz + halfD],
+    ];
+    for (const [px, pz] of corners) {
+      const pole = new THREE.Mesh(poleGeo, frameMat);
+      pole.position.set(px, topY / 2, pz);
+      enclosureGroup.add(pole);
+    }
 
-    // Top panel
+    // Horizontal top rails
+    const railGeoW = new THREE.CylinderGeometry(poleR * 0.7, poleR * 0.7, w, 6);
+    const railGeoD = new THREE.CylinderGeometry(poleR * 0.7, poleR * 0.7, d, 6);
+    // Front and back top rails (along X)
+    for (const rz of [cz - halfD, cz + halfD]) {
+      const rail = new THREE.Mesh(railGeoW, frameMat);
+      rail.rotation.z = Math.PI / 2;
+      rail.position.set(cx, topY, rz);
+      enclosureGroup.add(rail);
+    }
+    // Left and right top rails (along Z)
+    for (const rx of [cx - halfW, cx + halfW]) {
+      const rail = new THREE.Mesh(railGeoD, frameMat);
+      rail.rotation.x = Math.PI / 2;
+      rail.position.set(rx, topY, cz);
+      enclosureGroup.add(rail);
+    }
+
+    // ─── Net panels ───
+    // Side nets (left, right)
+    const sideGeo = new THREE.PlaneGeometry(d, topY);
+    for (const sx of [-halfW, halfW]) {
+      const panel = new THREE.Mesh(sideGeo, netMat);
+      panel.rotation.y = Math.PI / 2;
+      panel.position.set(cx + sx, topY / 2, cz);
+      enclosureGroup.add(panel);
+    }
+
+    // Top net
     const topGeo = new THREE.PlaneGeometry(w, d);
-    const topMesh = new THREE.Mesh(topGeo, netMat);
-    topMesh.rotation.x = -Math.PI / 2;
-    topMesh.position.set(cx, topY, cz);
-    enclosureGroup.add(topMesh);
+    const topPanel = new THREE.Mesh(topGeo, netMat);
+    topPanel.rotation.x = -Math.PI / 2;
+    topPanel.position.set(cx, topY, cz);
+    enclosureGroup.add(topPanel);
 
-    // Back panel (behind golfer)
+    // Back net (behind golfer)
     const backGeo = new THREE.PlaneGeometry(w, topY);
-    const backZ_pos = dir === 'window' ? cz + d / 2 : cz + d / 2;
-    const backMesh = new THREE.Mesh(backGeo, netMat);
-    backMesh.position.set(cx, topY / 2, backZ_pos);
-    enclosureGroup.add(backMesh);
-
-    // Wireframe box outline for clarity
-    const boxGeo = new THREE.BoxGeometry(w, topY, d);
-    const wireframe = new THREE.LineSegments(
-      new THREE.EdgesGeometry(boxGeo),
-      netWireMat
-    );
-    wireframe.position.set(cx, topY / 2, cz);
-    enclosureGroup.add(wireframe);
+    const backPanel = new THREE.Mesh(backGeo, netMat);
+    backPanel.position.set(cx, topY / 2, cz + halfD);
+    enclosureGroup.add(backPanel);
 
     enclosureGroup.visible = true;
   } else if (enclosureGroup) {
