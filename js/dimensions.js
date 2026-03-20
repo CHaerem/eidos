@@ -696,11 +696,13 @@ function removeFloatingInput() {
 let measureMode = false;
 let measureFirstPoint = null;
 let measureFirstMarker = null;
+let previewLine = null;
+let previewLabel = null;
 let controlGroup = null;
-const measureMarkerMat = new THREE.MeshBasicMaterial({ color: 0xFFDD44, depthTest: false });
-const measureLineMat = new THREE.LineDashedMaterial({
-  color: 0xFFDD44, dashSize: 0.08, gapSize: 0.04,
-  transparent: true, opacity: 0.8, depthTest: false
+const MEASURE_COLOR = 0xFFDD44;
+const measureMarkerMat = new THREE.MeshBasicMaterial({ color: MEASURE_COLOR, depthTest: false });
+const measureLineMat = new THREE.LineBasicMaterial({
+  color: MEASURE_COLOR, transparent: true, opacity: 0.9, depthTest: false, linewidth: 2
 });
 
 export function enterMeasureMode() {
@@ -711,14 +713,13 @@ export function enterMeasureMode() {
   if (canvas) {
     canvas.classList.add('measure-mode');
     canvas.addEventListener('click', onMeasureClick);
+    canvas.addEventListener('mousemove', onMeasureMouseMove);
   }
-  // Create control group if needed
   if (!controlGroup) {
     controlGroup = new THREE.Group();
     controlGroup.name = 'ControlMeasurements';
     state.scene.add(controlGroup);
   }
-  // Update button state
   const btn = document.getElementById('measureToggle');
   if (btn) btn.classList.add('active');
 }
@@ -727,7 +728,7 @@ export function exitMeasureMode() {
   if (!measureMode) return;
   measureMode = false;
   measureFirstPoint = null;
-  // Remove temporary first-point marker
+  removePreview();
   if (measureFirstMarker && controlGroup) {
     controlGroup.remove(measureFirstMarker);
     measureFirstMarker.geometry?.dispose();
@@ -737,9 +738,24 @@ export function exitMeasureMode() {
   if (canvas) {
     canvas.classList.remove('measure-mode');
     canvas.removeEventListener('click', onMeasureClick);
+    canvas.removeEventListener('mousemove', onMeasureMouseMove);
   }
   const btn = document.getElementById('measureToggle');
   if (btn) btn.classList.remove('active');
+}
+
+function removePreview() {
+  if (previewLine && controlGroup) {
+    controlGroup.remove(previewLine);
+    previewLine.geometry?.dispose();
+    previewLine = null;
+  }
+  if (previewLabel && controlGroup) {
+    controlGroup.remove(previewLabel);
+    previewLabel.material?.map?.dispose();
+    previewLabel.material?.dispose();
+    previewLabel = null;
+  }
 }
 
 export function toggleMeasureMode() {
@@ -760,122 +776,182 @@ export function clearControlMeasurements() {
   measureFirstMarker = null;
 }
 
-function onMeasureClick(event) {
-  if (!measureMode || !state.scene || !state.camera) return;
-
-  // Don't fire if clicking on panel
-  if (event.target.closest('.glass-panel')) return;
-
+// Shared raycast for measure mode — returns {point, face, normal} or null
+const _measureSkipGroups = new Set(['ControlMeasurements', 'dimensions', 'SimulatorGroup', 'Enclosure']);
+function measureRaycast(event) {
+  if (!state.scene || !state.camera) return null;
   const canvas = state.renderer.domElement;
   const rect = canvas.getBoundingClientRect();
   const mouse = new THREE.Vector2(
     ((event.clientX - rect.left) / rect.width) * 2 - 1,
     -((event.clientY - rect.top) / rect.height) * 2 + 1
   );
+  const rc = new THREE.Raycaster();
+  rc.setFromCamera(mouse, state.camera);
 
-  const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(mouse, state.camera);
-
-  // Raycast against solid visible scene geometry only
-  const skipGroups = new Set(['ControlMeasurements', 'dimensions', 'SimulatorGroup', 'Enclosure']);
   const targets = [];
   state.scene.traverse(obj => {
-    if (!obj.isMesh) return;
-    if (!obj.visible) return;
-    // Skip invisible materials (hit boxes etc.)
+    if (!obj.isMesh || !obj.visible) return;
     if (obj.material && obj.material.visible === false) return;
     if (obj.userData?.isHitArea) return;
-    // Skip wireframe/transparent overlay materials
     if (obj.material?.wireframe) return;
     if (obj.material?.opacity < 0.3) return;
-    // Skip non-physical groups
     let parent = obj.parent;
     while (parent) {
-      if (skipGroups.has(parent.name)) return;
+      if (_measureSkipGroups.has(parent.name)) return;
       parent = parent.parent;
     }
     targets.push(obj);
   });
 
-  const hits = raycaster.intersectObjects(targets, false);
-  if (hits.length === 0) return;
+  const hits = rc.intersectObjects(targets, false);
+  if (hits.length === 0) return null;
+  return { point: hits[0].point.clone(), normal: hits[0].face?.normal?.clone() || new THREE.Vector3(0, 1, 0) };
+}
 
-  const point = hits[0].point.clone();
+function createMarker(point) {
+  // Ring + cross marker that sits on the surface
+  const grp = new THREE.Group();
+  grp.position.copy(point);
+  // Bright sphere
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(0.05, 16, 16),
+    measureMarkerMat
+  );
+  sphere.renderOrder = 999;
+  grp.add(sphere);
+  // Outer ring for visibility
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.06, 0.09, 24),
+    new THREE.MeshBasicMaterial({ color: MEASURE_COLOR, side: THREE.DoubleSide, depthTest: false })
+  );
+  ring.rotation.x = -Math.PI / 2; // Flat on floor by default
+  ring.renderOrder = 999;
+  grp.add(ring);
+  return grp;
+}
+
+function onMeasureMouseMove(event) {
+  if (!measureMode || !measureFirstPoint || !controlGroup) return;
+
+  const hit = measureRaycast(event);
+  if (!hit) return;
+
+  const p1 = measureFirstPoint;
+  const p2 = hit.point;
+  const dist = p1.distanceTo(p2);
+
+  // Update or create preview line
+  removePreview();
+
+  const lineGeo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+  previewLine = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({
+    color: MEASURE_COLOR, transparent: true, opacity: 0.5, depthTest: false
+  }));
+  previewLine.renderOrder = 998;
+  controlGroup.add(previewLine);
+
+  // Preview label
+  const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+  const dx = Math.abs(p2.x - p1.x);
+  const dz = Math.abs(p2.z - p1.z);
+  const dy = Math.abs(p2.y - p1.y);
+  let text = dist.toFixed(2) + 'm';
+  // Show axis breakdown if not purely along one axis
+  if (dx > 0.05 && dz > 0.05) {
+    text += `  (X:${dx.toFixed(2)} Z:${dz.toFixed(2)})`;
+  }
+  if (dy > 0.1) {
+    text += `  Y:${dy.toFixed(2)}`;
+  }
+  previewLabel = makeControlLabel(text, true);
+  previewLabel.position.copy(mid);
+  previewLabel.position.y += 0.2;
+  controlGroup.add(previewLabel);
+}
+
+function onMeasureClick(event) {
+  if (!measureMode) return;
+  if (event.target.closest('.glass-panel')) return;
+
+  const hit = measureRaycast(event);
+  if (!hit) return;
+
+  const point = hit.point;
 
   if (!measureFirstPoint) {
-    // First click — clear previous measurement, place marker
+    // First click — clear previous, place marker
     clearControlMeasurements();
     measureFirstPoint = point;
-    const marker = new THREE.Mesh(
-      new THREE.SphereGeometry(0.04, 12, 12),
-      measureMarkerMat
-    );
-    marker.position.copy(point);
-    marker.renderOrder = 999;
-    measureFirstMarker = marker;
-    controlGroup.add(marker);
+    measureFirstMarker = createMarker(point);
+    controlGroup.add(measureFirstMarker);
   } else {
-    // Second click — draw line + label
+    // Second click — finalize line + label
     const p1 = measureFirstPoint;
     const p2 = point;
     const dist = p1.distanceTo(p2);
 
-    // Marker at p2
-    const marker2 = new THREE.Mesh(
-      new THREE.SphereGeometry(0.04, 12, 12),
-      measureMarkerMat
-    );
-    marker2.position.copy(p2);
-    marker2.renderOrder = 999;
-    controlGroup.add(marker2);
+    removePreview();
 
-    // Dashed line between points
+    // Marker at p2
+    controlGroup.add(createMarker(p2));
+
+    // Solid line
     const lineGeo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
     const line = new THREE.Line(lineGeo, measureLineMat.clone());
-    line.computeLineDistances();
     line.renderOrder = 999;
     controlGroup.add(line);
 
-    // Label at midpoint
+    // Axis-decomposed label
     const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
-    const label = makeControlLabel(dist.toFixed(3) + 'm');
+    const dx = Math.abs(p2.x - p1.x);
+    const dz = Math.abs(p2.z - p1.z);
+    const dy = Math.abs(p2.y - p1.y);
+    let text = dist.toFixed(3) + 'm';
+    if (dx > 0.05 && dz > 0.05) {
+      text += `  (X:${dx.toFixed(2)} Z:${dz.toFixed(2)})`;
+    }
+    if (dy > 0.1) {
+      text += `  Y:${dy.toFixed(2)}`;
+    }
+    const label = makeControlLabel(text, false);
     label.position.copy(mid);
-    label.position.y += 0.15; // Slightly above midpoint
+    label.position.y += 0.2;
     controlGroup.add(label);
 
-    // Reset for next measurement pair
     measureFirstPoint = null;
     measureFirstMarker = null;
   }
 }
 
-function makeControlLabel(text) {
+function makeControlLabel(text, isPreview = false) {
+  const w = Math.max(384, text.length * 20);
   const canvas = document.createElement('canvas');
-  canvas.width = 384;
+  canvas.width = w;
   canvas.height = 80;
   const ctx = canvas.getContext('2d');
 
-  // Yellow pill background
+  const alpha = isPreview ? 0.7 : 0.92;
   ctx.shadowColor = 'rgba(0,0,0,0.35)';
   ctx.shadowBlur = 8;
   ctx.shadowOffsetY = 2;
-  ctx.fillStyle = 'rgba(255,221,68,0.92)';
-  roundRect(ctx, 12, 8, 360, 64, 16);
+  ctx.fillStyle = `rgba(255,221,68,${alpha})`;
+  roundRect(ctx, 12, 8, w - 24, 64, 16);
   ctx.fill();
   ctx.shadowColor = 'transparent';
 
-  // Dark text
   ctx.fillStyle = '#222';
-  ctx.font = 'bold 32px SF Mono, ui-monospace, monospace';
+  const fontSize = text.length > 20 ? 22 : 30;
+  ctx.font = `bold ${fontSize}px SF Mono, ui-monospace, monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, 192, 42);
+  ctx.fillText(text, w / 2, 42);
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.minFilter = THREE.LinearFilter;
-  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true });
+  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true, opacity: isPreview ? 0.8 : 1.0 });
   const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(1.2, 0.26, 1);
+  sprite.scale.set(w / 300, 0.26, 1);
   sprite.renderOrder = 1000;
   return sprite;
 }
