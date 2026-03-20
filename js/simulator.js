@@ -286,9 +286,11 @@ export function updateSimulator() {
   const boxD = (presetKey === 'custom' && encCfg.depth) ? encCfg.depth
              : preset.depth ? preset.depth
              : bsOff + matD + 1.0;
-  const boxH = (presetKey === 'custom' && encCfg.height) ? encCfg.height
+  const rawH = (presetKey === 'custom' && encCfg.height) ? encCfg.height
              : preset.height ? preset.height
              : sH + 0.3;
+  // Cap box height to ceiling to prevent clipping through roof
+  const boxH = Math.min(rawH, ceilH - 0.02);
 
   // Screen sized from preset or auto-fit
   const screenW = preset.screenW ? preset.screenW : Math.min(boxW - 0.2, 3.0);

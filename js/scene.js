@@ -30,11 +30,14 @@ export function initScene() {
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
 
-  // Hemisphere light (warm sky, cool ground)
-  scene.add(new THREE.HemisphereLight(0xffeedd, 0x8899aa, 0.6));
+  // Hemisphere light (warm sky, cool ground) — increased for interior visibility
+  scene.add(new THREE.HemisphereLight(0xffeedd, 0x8899aa, 0.8));
+
+  // Ambient light for interior fill
+  scene.add(new THREE.AmbientLight(0xffffff, 0.15));
 
   // Main directional light with shadows
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
   dirLight.position.set(5, 10, 4);
   dirLight.castShadow = true;
   dirLight.shadow.mapSize.width = 2048;

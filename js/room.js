@@ -65,7 +65,7 @@ export function ceilAt(x, z) {
 // ─── CLEAR ROOM GEOMETRY ───
 export function clearRoomGeometry() {
   const { scene } = state;
-  ['Ceiling', 'UpperFloor', 'Staircase', 'Terrace'].forEach(name => {
+  ['Ceiling', 'UpperFloor', 'Staircase', 'Terrace', 'RoomBoundaries'].forEach(name => {
     const obj = scene.getObjectByName(name);
     if (obj) { scene.remove(obj); }
   });
@@ -161,6 +161,9 @@ export async function initRoom(configOverride) {
 
   // Build rooftop terrace if defined
   buildTerrace();
+
+  // Build room boundary lines for visual clarity
+  buildRoomBoundaryLines();
 
   // Load OBJ if specified
   if (config.objPath) {
@@ -350,6 +353,58 @@ function buildUpperFloor() {
   });
 
   scene.add(floorGroup);
+}
+
+// ─── ROOM BOUNDARY LINES ───
+
+function buildRoomBoundaryLines() {
+  const config = state.apartmentConfig;
+  if (!config) return;
+
+  const group = new THREE.Group();
+  group.name = 'RoomBoundaries';
+
+  const lineMat = new THREE.LineBasicMaterial({
+    color: 0x888888, transparent: true, opacity: 0.2
+  });
+
+  // 5th floor room outlines
+  for (const room of (config.rooms || [])) {
+    const b = room.bounds;
+    const y = 0.005; // Just above floor
+    const pts = [
+      new THREE.Vector3(b.minX, y, b.minZ),
+      new THREE.Vector3(b.maxX, y, b.minZ),
+      new THREE.Vector3(b.maxX, y, b.maxZ),
+      new THREE.Vector3(b.minX, y, b.maxZ),
+      new THREE.Vector3(b.minX, y, b.minZ),
+    ];
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const line = new THREE.Line(geo, lineMat);
+    group.add(line);
+  }
+
+  // Upper floor room outlines
+  const uf = config.upperFloor;
+  if (uf) {
+    const floorY = uf.floorY || 2.25;
+    for (const room of (uf.rooms || [])) {
+      const b = room.bounds;
+      const y = floorY + 0.005;
+      const pts = [
+        new THREE.Vector3(b.minX, y, b.minZ),
+        new THREE.Vector3(b.maxX, y, b.minZ),
+        new THREE.Vector3(b.maxX, y, b.maxZ),
+        new THREE.Vector3(b.minX, y, b.maxZ),
+        new THREE.Vector3(b.minX, y, b.minZ),
+      ];
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      const line = new THREE.Line(geo, lineMat);
+      group.add(line);
+    }
+  }
+
+  state.scene.add(group);
 }
 
 // ─── TERRACE ───
