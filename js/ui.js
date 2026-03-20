@@ -115,6 +115,61 @@ function initPanelToggle() {
   }
 }
 
+// ─── MOBILE PANEL SWIPE ───
+
+function initMobilePanel() {
+  const panel = document.getElementById('panel');
+  if (!panel) return;
+
+  // Detect mobile viewport
+  const isMobile = () => window.innerWidth <= 768;
+  if (!isMobile()) return;
+
+  const header = document.getElementById('panel-header');
+  if (!header) return;
+
+  let startY = 0;
+  let startTransform = 0;
+  let dragging = false;
+
+  header.addEventListener('touchstart', (e) => {
+    if (!isMobile()) return;
+    startY = e.touches[0].clientY;
+    const expanded = panel.classList.contains('mobile-expanded');
+    startTransform = expanded ? 0 : panel.offsetHeight - 52;
+    dragging = true;
+    panel.style.transition = 'none';
+  }, { passive: true });
+
+  header.addEventListener('touchmove', (e) => {
+    if (!dragging || !isMobile()) return;
+    const dy = e.touches[0].clientY - startY;
+    const newY = Math.max(0, startTransform + dy);
+    panel.style.transform = `translateY(${newY}px)`;
+  }, { passive: true });
+
+  header.addEventListener('touchend', (e) => {
+    if (!dragging || !isMobile()) return;
+    dragging = false;
+    panel.style.transition = '';
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy > 60) {
+      // Swipe down → collapse
+      panel.classList.remove('mobile-expanded');
+    } else if (dy < -60) {
+      // Swipe up → expand
+      panel.classList.add('mobile-expanded');
+    }
+    panel.style.transform = '';
+  });
+
+  // Tap header to toggle
+  header.addEventListener('click', () => {
+    if (!isMobile()) return;
+    panel.classList.toggle('mobile-expanded');
+  });
+}
+
 // ─── HISTORY PANEL ───
 
 function initHistoryPanel() {
@@ -336,6 +391,7 @@ export function initUI() {
   initCollapsible();
   initVisibilityToggles();
   initHistoryPanel();
+  initMobilePanel();
 
   // Populate apartment info, calibration, and room pills once config is loaded
   if (state.apartmentConfig) {

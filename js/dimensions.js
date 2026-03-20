@@ -209,6 +209,34 @@ export function initDimensionClick() {
       clearControlMeasurements();
     }
   });
+  // Long-press for touch measurement (replaces shift+click on touch devices)
+  let longPressTimer = null;
+  let longPressPos = null;
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    longPressPos = { x: e.clientX, y: e.clientY };
+    longPressTimer = setTimeout(() => {
+      // Simulate shift+click for measurement
+      const fakeEvent = { shiftKey: true, clientX: longPressPos.x, clientY: longPressPos.y, target: canvas };
+      fakeEvent.closest = () => null;
+      onShiftClickMeasure(fakeEvent);
+      // Haptic feedback if available
+      if (navigator.vibrate) navigator.vibrate(30);
+      longPressTimer = null;
+    }, 500);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!longPressTimer || !longPressPos) return;
+    const dx = e.clientX - longPressPos.x;
+    const dy = e.clientY - longPressPos.y;
+    if (dx * dx + dy * dy > 100) { // moved > 10px
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  });
+  canvas.addEventListener('pointerup', () => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  });
   // CAPTURE phase — fires BEFORE OrbitControls can setPointerCapture
   canvas.addEventListener('pointerdown', onGuidePointerDown, true);
   // Use document-level listeners for move/up to catch events even when pointer leaves canvas
