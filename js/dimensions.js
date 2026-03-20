@@ -776,15 +776,22 @@ function onMeasureClick(event) {
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, state.camera);
 
-  // Raycast against all visible scene geometry, excluding control measurements and dimension lines
+  // Raycast against solid visible scene geometry only
+  const skipGroups = new Set(['ControlMeasurements', 'dimensions', 'SimulatorGroup', 'Enclosure']);
   const targets = [];
   state.scene.traverse(obj => {
     if (!obj.isMesh) return;
     if (!obj.visible) return;
-    // Skip our own measurement group and dimension guides
+    // Skip invisible materials (hit boxes etc.)
+    if (obj.material && obj.material.visible === false) return;
+    if (obj.userData?.isHitArea) return;
+    // Skip wireframe/transparent overlay materials
+    if (obj.material?.wireframe) return;
+    if (obj.material?.opacity < 0.3) return;
+    // Skip non-physical groups
     let parent = obj.parent;
     while (parent) {
-      if (parent.name === 'ControlMeasurements' || parent.name === 'dimensions') return;
+      if (skipGroups.has(parent.name)) return;
       parent = parent.parent;
     }
     targets.push(obj);
