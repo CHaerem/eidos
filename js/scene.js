@@ -101,17 +101,47 @@ export function initScene() {
 
   // View controls — computed from BOUNDS (config-driven)
   // These use BOUNDS which are populated from apartment.json in room.js
+  // ─── Smooth camera transitions ───
+  function animateCamera(targetPos, targetLook, targetUp, duration = 400) {
+    const startPos = { x: camera.position.x, y: camera.position.y, z: camera.position.z };
+    const startLook = { x: controls.target.x, y: controls.target.y, z: controls.target.z };
+    const startUp = { x: camera.up.x, y: camera.up.y, z: camera.up.z };
+    const startTime = performance.now();
+
+    function easeInOut(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+
+    function step() {
+      const t = Math.min(1, (performance.now() - startTime) / duration);
+      const e = easeInOut(t);
+
+      camera.position.set(
+        startPos.x + (targetPos.x - startPos.x) * e,
+        startPos.y + (targetPos.y - startPos.y) * e,
+        startPos.z + (targetPos.z - startPos.z) * e
+      );
+      controls.target.set(
+        startLook.x + (targetLook.x - startLook.x) * e,
+        startLook.y + (targetLook.y - startLook.y) * e,
+        startLook.z + (targetLook.z - startLook.z) * e
+      );
+      camera.up.set(
+        startUp.x + (targetUp.x - startUp.x) * e,
+        startUp.y + (targetUp.y - startUp.y) * e,
+        startUp.z + (targetUp.z - startUp.z) * e
+      ).normalize();
+      controls.update();
+
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
   window.setTopDown = function() {
     clearRoomFocus();
     const cx = (BOUNDS.minX + BOUNDS.maxX) / 2;
     const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2;
-    const spanX = BOUNDS.maxX - BOUNDS.minX;
-    const spanZ = BOUNDS.maxZ - BOUNDS.minZ;
-    const height = Math.max(spanX, spanZ) * 1.5;
-    camera.position.set(cx, height, cz);
-    controls.target.set(cx, 0, cz);
-    camera.up.set(0, 0, -1);
-    controls.update();
+    const height = Math.max(BOUNDS.maxX - BOUNDS.minX, BOUNDS.maxZ - BOUNDS.minZ) * 1.5;
+    animateCamera({ x: cx, y: height, z: cz }, { x: cx, y: 0, z: cz }, { x: 0, y: 0, z: -1 });
   };
 
   window.set3DView = function() {
@@ -119,10 +149,7 @@ export function initScene() {
     const cx = (BOUNDS.minX + BOUNDS.maxX) / 2;
     const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2;
     const spanX = BOUNDS.maxX - BOUNDS.minX;
-    camera.position.set(cx + spanX * 0.7, 5, cz + spanX * 0.9);
-    controls.target.set(cx, 1, cz);
-    camera.up.set(0, 1, 0);
-    controls.update();
+    animateCamera({ x: cx + spanX * 0.7, y: 5, z: cz + spanX * 0.9 }, { x: cx, y: 1, z: cz }, { x: 0, y: 1, z: 0 });
   };
 
   window.setFrontView = function() {
@@ -130,10 +157,7 @@ export function initScene() {
     const cx = (BOUNDS.minX + BOUNDS.maxX) / 2;
     const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2;
     const spanZ = BOUNDS.maxZ - BOUNDS.minZ;
-    camera.position.set(cx, 1.5, BOUNDS.minZ - spanZ * 1.5);
-    controls.target.set(cx, 1.5, cz);
-    camera.up.set(0, 1, 0);
-    controls.update();
+    animateCamera({ x: cx, y: 1.5, z: BOUNDS.minZ - spanZ * 1.5 }, { x: cx, y: 1.5, z: cz }, { x: 0, y: 1, z: 0 });
   };
 
   window.setSideView = function() {
@@ -141,10 +165,7 @@ export function initScene() {
     const cx = (BOUNDS.minX + BOUNDS.maxX) / 2;
     const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2;
     const spanX = BOUNDS.maxX - BOUNDS.minX;
-    camera.position.set(BOUNDS.maxX + spanX * 0.8, 2.0, cz);
-    controls.target.set(cx, 1.0, cz);
-    camera.up.set(0, 1, 0);
-    controls.update();
+    animateCamera({ x: BOUNDS.maxX + spanX * 0.8, y: 2.0, z: cz }, { x: cx, y: 1.0, z: cz }, { x: 0, y: 1, z: 0 });
   };
 
   // Custom camera view — pos=[x,y,z], target=[x,y,z]
