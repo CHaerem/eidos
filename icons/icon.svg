@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0e0e12"/>
+  <g transform="translate(256,280)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Roof -->
+    <path d="M-160,-140 L0,-200 L160,-140" stroke="#5b8def" stroke-width="16"/>
+    <!-- Walls -->
+    <path d="M-160,-140 L-160,60 M160,-140 L160,60" stroke="#8bb4ff" stroke-width="12"/>
+    <!-- Floor -->
+    <path d="M-160,60 L160,60" stroke="#5b8def" stroke-width="10"/>
+    <!-- Window -->
+    <rect x="-80" y="-80" width="60" height="80" rx="4" stroke="#5b8def" stroke-width="8" fill="rgba(91,141,239,0.15)"/>
+    <!-- Door -->
+    <rect x="40" y="-40" width="50" height="100" rx="4" stroke="#8bb4ff" stroke-width="8" fill="rgba(139,180,255,0.1)"/>
+    <!-- Upper floor line -->
+    <path d="M-120,-50 L120,-50" stroke="rgba(255,255,255,0.15)" stroke-width="4" stroke-dasharray="8,6"/>
+  </g>
+  <!-- Text -->
+  <text x="256" y="420" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="52" font-weight="700" letter-spacing="6" fill="rgba(255,255,255,0.5)">EIDOS</text>
+</svg>

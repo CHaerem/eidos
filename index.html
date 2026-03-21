@@ -3,6 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0e0e12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Eidos">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/icon.svg">
 <title>Eidos — 3D Romplanlegger</title>
 <style>
 /* ─── Reset & Base ─── */
@@ -680,5 +687,17 @@ button.add-btn:active{transform:scale(0.98)}
 </script>
 
 <script type="module" src="js/main.js"></script>
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    // Check for updates every 60s
+    setInterval(()=>reg.update(),60000);
+  }).catch(()=>{});
+  // Auto-reload when new SW activates
+  navigator.serviceWorker.addEventListener('message',e=>{
+    if(e.data?.type==='SW_UPDATED')location.reload();
+  });
+}
+</script>
 </body>
 </html>
