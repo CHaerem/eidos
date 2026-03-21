@@ -371,12 +371,14 @@ export function createFurnitureMesh(type) {
   addLabel(cat.name, cat.h, group);
   enableShadows(group);
   group.userData.type = type;
+  group.userData.entityType = 'furniture';
   return group;
 }
 
 // ─── PERSISTENCE ───
 
 import { state } from './state.js';
+import { register } from './entity-registry.js';
 
 /**
  * Load furniture placements from config and recreate meshes.
@@ -401,6 +403,11 @@ export function loadFurnitureFromConfig() {
 
     const id = entry.id ?? state.nextItemId++;
     if (id >= state.nextItemId) state.nextItemId = id + 1;
+
+    // Register as entity for selection/hover
+    mesh.userData.entityId = String(id);
+    register('furniture', String(id), mesh);
+
     state.placedItems.push({ id, type: entry.type, x, z, rotation, mesh });
   }
 }

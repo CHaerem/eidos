@@ -26,20 +26,21 @@ Eidos skal bli et rammeverk der nye boliger kan modelleres ved a:
 ## Modulstruktur
 | Modul | Ansvar |
 |-------|--------|
-| `js/state.js` | Delt mutable state (scene, kamera, mobler, simulator, apartmentConfig) |
+| `js/state.js` | Delt mutable state (scene, kamera, mobler, simulator, apartmentConfig, selectedEntity, hoveredEntity) |
+| `js/entity-registry.js` | Bidireksjonal map mellom config-elementer og Three.js-objekter. register/lookup/getMesh/getInteractables |
 | `js/scene.js` | Three.js setup, lys, kontroller, visninger (config-drevet), animate-loop, flyToRoom |
 | `js/room.js` | OBJ-lasting, takzoner (`ceilAt(x,z)` per-zone), CEIL + BOUNDS |
-| `js/room-details.js` | Vinduer (sor/nord/vest), dorkarmer, fotlister, veggprotrusjoner (config-drevet) |
-| `js/furniture.js` | FURNITURE_CATALOG + custom builders (Besta, Soderhamn, Cana) |
-| `js/interaction.js` | Drag-and-drop, raycasting, seleksjon, snap-to-wall (BOUNDS), tastatur, undo/redo-snarvei |
+| `js/room-details.js` | Vinduer, dorkarmer, innervegger (semi-transparent), veggprotrusjoner — alle med entity-tagging |
+| `js/furniture.js` | FURNITURE_CATALOG + custom builders (Besta, Soderhamn, Cana) — entity-tagget |
+| `js/interaction.js` | Universell seleksjon + hover-highlighting, direkte drag av vegger/vinduer/protrusjoner/mobler, tastatur |
 | `js/simulator.js` | Svingformler, simulator-gruppe, klaringsberegninger (BOUNDS) |
 | `js/solver.js` | Tikhonov-regularisert least-squares solver for veggposisjoner og takhøyder |
 | `js/dimensions.js` | Interaktive dimensjonslinjer i 3D-viewporten, klikk-til-edit |
 | `js/room-focus.js` | Dynamisk skjuling av geometri ved rom-navigasjon (vegg/gulv/tak) |
 | `js/history.js` | Undo/redo med config-snapshot stack (maks 50 nivåer) |
 | `js/history-diff.js` | 3D visuell diff mellom config-snapshots (gronne/rode highlight-bokser) |
-| `js/eidos-api.js` | Browser API for AI-assistert modellmanipulering (`window.eidos.*`), rebuild re-fetcher config |
-| `js/ui.js` | Enhetlig glasspanel (ingen tabs), kompakte kalibreringskort, rombasert veggskjuling |
+| `js/eidos-api.js` | Browser API for AI-assistert modellmanipulering (`window.eidos.*`), entity-seleksjon, rebuild |
+| `js/ui.js` | Glasspanel, egenskapspanel (properties), kalibreringskort, rombasert veggskjuling |
 | `js/main.js` | Entry point — kaller init i rekkefolge |
 
 ## Kjerneabstraksjoner
@@ -106,15 +107,46 @@ Undo/redo for config-endringer via deep-copy snapshots:
 - Maks 50 nivåer, nye handlinger invaliderer redo-stacken
 - Tastatursnarvei: ⌘Z (angre), ⌘⇧Z (gjør om)
 
+### Entity Registry (entity-registry.js)
+Bidireksjonal map mellom config-elementer og Three.js-objekter:
+- `register(type, id, mesh)` — kalles under build-funksjoner
+- `lookup(mesh)` — walker opp parent-chain, returnerer `{ type, id }` eller null
+- `getMesh(type, id)` — forward lookup til Object3D
+- `getInteractables()` — flat array av alle interaktive meshes for raycasting
+- `clear()` — kalles ved start av rebuild
+- Entity-typer: `'wall'`, `'window'`, `'door'`, `'protrusion'`, `'furniture'`
+- userData-tags: `entityType` + `entityId` pa alle registrerte meshes
+- Materialer klones ved registrering for a unnga cross-contamination ved hover/seleksjon
+
+### Edit Mode (interaction.js + state.js)
+To-modus system for a unnga utilsiktet redigering under navigering:
+- **Navigate** (standard): Kun OrbitControls — ingen seleksjon, hover eller drag
+- **Edit**: Seleksjon, hover-highlighting, drag, egenskapspanel
+- Toggle: Klikk "✏️ Rediger" knappen (bottom-left) eller trykk `E`
+- `state.editMode` — boolean, `setEditMode(bool)`, `onEditModeChange(callback)`
+- Nar edit mode slas av: seleksjon/hover cleares, egenskapspanel skjules
+
+### Seleksjon og Hover (interaction.js)
+Universell seleksjon/hover for alle entity-typer (kun aktiv i edit mode):
+- **Hover**: emissive glow (`0x333333`) pa pointermove, cursor endres
+- **Seleksjon**: sterkere emissive (`0x224488`), egenskapspanel oppdateres
+- **Direkte drag**: vegger langs akse, vinduer langs vegg, protrusjoner pa XZ-plan
+- Drag bruker mesh-posisjon (ingen rebuild under drag), commit til config pa pointerup
+- `state.selectedEntity` / `state.hoveredEntity` — `{ type, id }` eller null
+- `state.selectedItemId` — bakoverkompatibel getter for mobelseleksjon
+- `onSelectionChange(callback)` — listener-pattern for UI-oppdateringer
+
 ### Eidos API (eidos-api.js)
 Browser-API eksponert som `window.eidos.*` for AI-assistert modellmanipulering:
 - `getConfig(path)` / `updateConfig(path, value)` — les/skriv config
-- `rebuild()` — full geometri-rebuild fra config
+- `rebuild()` — full geometri-rebuild fra config (clear entity registry forst)
 - `addMeasurement()` / `removeMeasurement()` / `solve()` — kalibrering
 - `undo()` / `redo()` — historikk
 - `showDimensions()` / `hideDimensions()` — dimensjonslinjer
 - `setRoomFocus()` / `clearRoomFocus()` — geometri-skjuling
-- `getRooms()` / `getWindows()` / `getWalls()` / `getBounds()` — spørringer
+- `getRooms()` / `getWindows()` / `getWalls()` / `getBounds()` — sporringer
+- `getSelectedEntity()` / `selectEntity(type, id)` — entity-seleksjon
+- `getEntitiesOfType(type)` — list alle registrerte entiteter av en type
 
 ## apartment.json skjema
 ```json
@@ -226,6 +258,12 @@ Browser-API eksponert som `window.eidos.*` for AI-assistert modellmanipulering:
 | Historikk-tidslinje | ✅ Visuell tidslinje med ikoner og jump-to | ui.js |
 | Historikk 3D-diff | ✅ Gronne/rode highlight-bokser i viewporten | history-diff.js |
 | AI-API | ✅ window.eidos.* (rebuild re-fetcher config) | eidos-api.js |
+| Entity-register | ✅ Bidireksjonal mesh↔config-map | entity-registry.js |
+| Universell seleksjon | ✅ Klikk vegger/vinduer/dorer/protrusjoner/mobler | interaction.js |
+| Hover-highlighting | ✅ Emissive glow pa hover + seleksjon | interaction.js |
+| Egenskapspanel | ✅ Kontekstuelt panel med redigerbare verdier | ui.js |
+| Direkte drag | ✅ Dra vegger/vinduer/protrusjoner i 3D | interaction.js |
+| Innervegger synlige | ✅ Semi-transparente vegg-meshes | room-details.js |
 | MCP-server | ✅ Config CRUD, solver, element-mgmt | mcp_server.py |
 | Cache-busting | ✅ Dynamisk mtime-basert versjonering | server.py |
 | Vinduer nord/sor/vest | ✅ Config med floor-offset for 6. etasje | room-details.js |

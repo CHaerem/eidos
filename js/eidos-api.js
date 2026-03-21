@@ -11,6 +11,7 @@ import { runSolver } from './ui.js';
 import { showDimensions, hideDimensions } from './dimensions.js';
 import { setRoomFocus, clearRoomFocus } from './room-focus.js';
 import { pushSnapshot, undo, redo, canUndo, canRedo, getHistorySize, getEntries, jumpTo } from './history.js';
+import { clear as clearEntityRegistry, getMesh, lookup, getAllOfType } from './entity-registry.js';
 
 // ─── JSON path helpers ───
 
@@ -79,7 +80,8 @@ const eidos = {
       return;
     }
 
-    // Clear existing geometry
+    // Clear existing geometry and entity registry
+    clearEntityRegistry();
     clearRoomGeometry();
     clearRoomDetails();
 
@@ -245,6 +247,27 @@ const eidos = {
   canUndo() { return canUndo(); },
   canRedo() { return canRedo(); },
   getHistorySize() { return getHistorySize(); },
+
+  // ─── Entity selection (for AI) ───
+
+  getSelectedEntity() {
+    return state.selectedEntity || null;
+  },
+
+  selectEntity(type, id) {
+    if (state._selectEntityFn) {
+      state._selectEntityFn(type, id);
+    }
+  },
+
+  getEntity(type, id) {
+    const mesh = getMesh(type, id);
+    return mesh ? { type, id, exists: true } : null;
+  },
+
+  getEntitiesOfType(type) {
+    return getAllOfType(type).map(e => ({ type: e.type, id: e.id }));
+  },
 
   // ─── Scene info ───
 

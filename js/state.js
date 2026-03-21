@@ -1,6 +1,8 @@
 // ─── SHARED STATE ───
 // Single source of truth for mutable state that crosses module boundaries.
 
+const _selectionListeners = [];
+
 export const state = {
   // Scene references (set by scene.js)
   scene: null,
@@ -17,11 +19,74 @@ export const state = {
 
   // Furniture state (managed by interaction.js)
   placedItems: [],
-  selectedItemId: null,
   nextItemId: 1,
+
+  // Entity selection state (managed by interaction.js)
+  // { type: 'wall'|'window'|'door'|'protrusion'|'furniture', id: string } or null
+  selectedEntity: null,
+  hoveredEntity: null,
+
+  // Backward-compatible getter for selectedItemId
+  get selectedItemId() {
+    if (this.selectedEntity?.type === 'furniture') {
+      return parseInt(this.selectedEntity.id);
+    }
+    return null;
+  },
+  set selectedItemId(val) {
+    if (val === null) {
+      this.selectedEntity = null;
+    } else {
+      this.selectedEntity = { type: 'furniture', id: String(val) };
+    }
+  },
+
+  // Edit mode — when false, only orbit navigation works (no selection/drag)
+  editMode: false,
 
   // Simulator state (managed by simulator.js)
   simGroup: null,
   arcMesh: null,
   bsMesh: null,
+
+  // Internal: selectEntity function reference (set by interaction.js)
+  _selectEntityFn: null,
 };
+
+/**
+ * Register a listener for selection changes.
+ * Callback receives (newEntity, oldEntity) where entity is { type, id } or null.
+ */
+export function onSelectionChange(callback) {
+  _selectionListeners.push(callback);
+}
+
+/**
+ * Notify all listeners of a selection change.
+ */
+export function notifySelectionChange(newEntity, oldEntity) {
+  for (const cb of _selectionListeners) {
+    try { cb(newEntity, oldEntity); } catch (e) { console.warn('Selection listener error:', e); }
+  }
+}
+
+const _editModeListeners = [];
+
+/**
+ * Register a listener for edit mode changes.
+ * Callback receives (isEditMode: boolean).
+ */
+export function onEditModeChange(callback) {
+  _editModeListeners.push(callback);
+}
+
+/**
+ * Toggle edit mode on/off, notifying all listeners.
+ */
+export function setEditMode(enabled) {
+  if (state.editMode === enabled) return;
+  state.editMode = enabled;
+  for (const cb of _editModeListeners) {
+    try { cb(enabled); } catch (e) { console.warn('Edit mode listener error:', e); }
+  }
+}

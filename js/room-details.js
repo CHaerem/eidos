@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { state } from './state.js';
 import { CEIL, BOUNDS, ceilAt } from './room.js';
+import { register } from './entity-registry.js';
 
-// ─── ROOM DETAILS: windows, door frames, baseboards ───
+// ─── ROOM DETAILS: windows, door frames, baseboards, interior walls ───
 
 let config = null;
 
@@ -31,6 +32,7 @@ export async function initRoomDetails(configOverride) {
   buildDoorFrames(group);
   // buildBaseboards(group);  // Deaktivert — passer ikke modellen foreløpig
   buildProtrusions(group);
+  buildInteriorWalls(group);
 
   state.scene.add(group);
 }
@@ -59,6 +61,10 @@ function buildWindows(parent) {
   });
 
   for (const win of config.windows) {
+    // Each window gets its own group for entity selection
+    const winGroup = new THREE.Group();
+    winGroup.name = `Window_${win.id}`;
+
     // Y offset for upper floor windows
     const baseY = (win.floor === 6 && config.upperFloor) ? config.upperFloor.floorY : 0;
     const sillY = baseY + win.sillHeight;
@@ -75,30 +81,30 @@ function buildWindows(parent) {
       // Glass pane
       const glass = new THREE.Mesh(
         new THREE.PlaneGeometry(w - frameWidth * 2, h - frameWidth * 2),
-        glassMat
+        glassMat.clone()
       );
       glass.rotation.y = Math.PI / 2;
       glass.position.set(x + 0.01, cy, cz);
-      windowGroup.add(glass);
+      winGroup.add(glass);
 
       // Frame bars
-      addBox(windowGroup, frameMat, x, topY - frameWidth / 2, cz, frameDepth, frameWidth, w);
-      addBox(windowGroup, frameMat, x, sillY + frameWidth / 2, cz, frameDepth, frameWidth, w);
-      addBox(windowGroup, frameMat, x, cy, win.z1 + frameWidth / 2, frameDepth, h, frameWidth);
-      addBox(windowGroup, frameMat, x, cy, win.z2 - frameWidth / 2, frameDepth, h, frameWidth);
+      addBox(winGroup, frameMat, x, topY - frameWidth / 2, cz, frameDepth, frameWidth, w);
+      addBox(winGroup, frameMat, x, sillY + frameWidth / 2, cz, frameDepth, frameWidth, w);
+      addBox(winGroup, frameMat, x, cy, win.z1 + frameWidth / 2, frameDepth, h, frameWidth);
+      addBox(winGroup, frameMat, x, cy, win.z2 - frameWidth / 2, frameDepth, h, frameWidth);
 
       // Center mullion
-      addBox(windowGroup, frameMat, x, cy, cz, frameDepth * 0.8, h - frameWidth * 2, frameWidth * 0.7);
+      addBox(winGroup, frameMat, x, cy, cz, frameDepth * 0.8, h - frameWidth * 2, frameWidth * 0.7);
 
       // Windowsill
       const sill = new THREE.Mesh(
         new THREE.BoxGeometry(0.15, 0.03, w + 0.04),
-        sillMat
+        sillMat.clone()
       );
       sill.position.set(x + 0.06, sillY - 0.015, cz);
       sill.castShadow = true;
       sill.receiveShadow = true;
-      windowGroup.add(sill);
+      winGroup.add(sill);
 
     } else if (win.wall === 'north') {
       // North wall window — oriented along X axis at maxZ
@@ -111,29 +117,29 @@ function buildWindows(parent) {
       // Glass pane
       const glass = new THREE.Mesh(
         new THREE.PlaneGeometry(w - frameWidth * 2, h - frameWidth * 2),
-        glassMat
+        glassMat.clone()
       );
       glass.position.set(cx, cy, northZ - 0.01);
-      windowGroup.add(glass);
+      winGroup.add(glass);
 
       // Frame bars
-      addBox(windowGroup, frameMat, cx, topY - frameWidth / 2, northZ, w, frameWidth, frameDepth);
-      addBox(windowGroup, frameMat, cx, sillY + frameWidth / 2, northZ, w, frameWidth, frameDepth);
-      addBox(windowGroup, frameMat, win.x1 + frameWidth / 2, cy, northZ, frameWidth, h, frameDepth);
-      addBox(windowGroup, frameMat, win.x2 - frameWidth / 2, cy, northZ, frameWidth, h, frameDepth);
+      addBox(winGroup, frameMat, cx, topY - frameWidth / 2, northZ, w, frameWidth, frameDepth);
+      addBox(winGroup, frameMat, cx, sillY + frameWidth / 2, northZ, w, frameWidth, frameDepth);
+      addBox(winGroup, frameMat, win.x1 + frameWidth / 2, cy, northZ, frameWidth, h, frameDepth);
+      addBox(winGroup, frameMat, win.x2 - frameWidth / 2, cy, northZ, frameWidth, h, frameDepth);
 
       // Center vertical mullion
-      addBox(windowGroup, frameMat, cx, cy, northZ, frameWidth * 0.7, h - frameWidth * 2, frameDepth * 0.8);
+      addBox(winGroup, frameMat, cx, cy, northZ, frameWidth * 0.7, h - frameWidth * 2, frameDepth * 0.8);
 
       // Windowsill (extends inward = negative Z)
       const sill = new THREE.Mesh(
         new THREE.BoxGeometry(w + 0.04, 0.03, 0.15),
-        sillMat
+        sillMat.clone()
       );
       sill.position.set(cx, sillY - 0.015, northZ - 0.06);
       sill.castShadow = true;
       sill.receiveShadow = true;
-      windowGroup.add(sill);
+      winGroup.add(sill);
 
     } else {
       // South wall window (default) — oriented along X axis
@@ -143,30 +149,34 @@ function buildWindows(parent) {
       // Glass pane
       const glass = new THREE.Mesh(
         new THREE.PlaneGeometry(w - frameWidth * 2, h - frameWidth * 2),
-        glassMat
+        glassMat.clone()
       );
       glass.position.set(cx, cy, z + 0.01);
-      windowGroup.add(glass);
+      winGroup.add(glass);
 
       // Frame bars
-      addBox(windowGroup, frameMat, cx, topY - frameWidth / 2, z, w, frameWidth, frameDepth);
-      addBox(windowGroup, frameMat, cx, sillY + frameWidth / 2, z, w, frameWidth, frameDepth);
-      addBox(windowGroup, frameMat, win.x1 + frameWidth / 2, cy, z, frameWidth, h, frameDepth);
-      addBox(windowGroup, frameMat, win.x2 - frameWidth / 2, cy, z, frameWidth, h, frameDepth);
+      addBox(winGroup, frameMat, cx, topY - frameWidth / 2, z, w, frameWidth, frameDepth);
+      addBox(winGroup, frameMat, cx, sillY + frameWidth / 2, z, w, frameWidth, frameDepth);
+      addBox(winGroup, frameMat, win.x1 + frameWidth / 2, cy, z, frameWidth, h, frameDepth);
+      addBox(winGroup, frameMat, win.x2 - frameWidth / 2, cy, z, frameWidth, h, frameDepth);
 
       // Center vertical mullion
-      addBox(windowGroup, frameMat, cx, cy, z, frameWidth * 0.7, h - frameWidth * 2, frameDepth * 0.8);
+      addBox(winGroup, frameMat, cx, cy, z, frameWidth * 0.7, h - frameWidth * 2, frameDepth * 0.8);
 
       // Windowsill
       const sill = new THREE.Mesh(
         new THREE.BoxGeometry(w + 0.04, 0.03, 0.15),
-        sillMat
+        sillMat.clone()
       );
       sill.position.set(cx, sillY - 0.015, z + 0.06);
       sill.castShadow = true;
       sill.receiveShadow = true;
-      windowGroup.add(sill);
+      winGroup.add(sill);
     }
+
+    // Register window entity for selection/hover
+    register('window', win.id, winGroup);
+    windowGroup.add(winGroup);
   }
 
   parent.add(windowGroup);
@@ -187,6 +197,10 @@ function buildDoorFrames(parent) {
   const frameD = 0.10;
 
   for (const door of config.doors) {
+    // Each door gets its own group for entity selection
+    const singleDoorGroup = new THREE.Group();
+    singleDoorGroup.name = `Door_${door.id}`;
+
     if (door.type === 'diagonal') {
       // Diagonal door — rotated frame between two points
       const dx = door.x2 - door.x1;
@@ -197,26 +211,28 @@ function buildDoorFrames(parent) {
       const cz = (door.z1 + door.z2) / 2;
 
       // Left jamb
-      const jamb1 = new THREE.Mesh(new THREE.BoxGeometry(frameD, door.height, frameW), frameMat);
+      const jamb1 = new THREE.Mesh(new THREE.BoxGeometry(frameD, door.height, frameW), frameMat.clone());
       jamb1.position.set(door.x1, door.height / 2, door.z1);
       jamb1.rotation.y = angle;
       jamb1.castShadow = true; jamb1.receiveShadow = true;
-      doorGroup.add(jamb1);
+      singleDoorGroup.add(jamb1);
 
       // Right jamb
-      const jamb2 = new THREE.Mesh(new THREE.BoxGeometry(frameD, door.height, frameW), frameMat);
+      const jamb2 = new THREE.Mesh(new THREE.BoxGeometry(frameD, door.height, frameW), frameMat.clone());
       jamb2.position.set(door.x2, door.height / 2, door.z2);
       jamb2.rotation.y = angle;
       jamb2.castShadow = true; jamb2.receiveShadow = true;
-      doorGroup.add(jamb2);
+      singleDoorGroup.add(jamb2);
 
       // Header
-      const header = new THREE.Mesh(new THREE.BoxGeometry(frameD, frameW, length), frameMat);
+      const header = new THREE.Mesh(new THREE.BoxGeometry(frameD, frameW, length), frameMat.clone());
       header.position.set(cx, door.height - frameW / 2, cz);
       header.rotation.y = angle;
       header.castShadow = true; header.receiveShadow = true;
-      doorGroup.add(header);
+      singleDoorGroup.add(header);
 
+      register('door', door.id, singleDoorGroup);
+      doorGroup.add(singleDoorGroup);
       continue;
     }
 
@@ -229,33 +245,36 @@ function buildDoorFrames(parent) {
       // Vertical wall — door opens along Z
       const x = door.pos;
       // Left jamb
-      addBox(doorGroup, frameMat,
+      addBox(singleDoorGroup, frameMat,
         x, baseY + door.height / 2, door.from + frameW / 2,
         frameD, door.height, frameW, true);
       // Right jamb
-      addBox(doorGroup, frameMat,
+      addBox(singleDoorGroup, frameMat,
         x, baseY + door.height / 2, door.to - frameW / 2,
         frameD, door.height, frameW, true);
       // Header
-      addBox(doorGroup, frameMat,
+      addBox(singleDoorGroup, frameMat,
         x, baseY + door.height - frameW / 2, mid,
         frameD, frameW, opening, true);
     } else {
       // Horizontal wall — door opens along X
       const z = door.pos;
       // Left jamb
-      addBox(doorGroup, frameMat,
+      addBox(singleDoorGroup, frameMat,
         door.from + frameW / 2, baseY + door.height / 2, z,
         frameW, door.height, frameD, true);
       // Right jamb
-      addBox(doorGroup, frameMat,
+      addBox(singleDoorGroup, frameMat,
         door.to - frameW / 2, baseY + door.height / 2, z,
         frameW, door.height, frameD, true);
       // Header
-      addBox(doorGroup, frameMat,
+      addBox(singleDoorGroup, frameMat,
         mid, baseY + door.height - frameW / 2, z,
         opening, frameW, frameD, true);
     }
+
+    register('door', door.id, singleDoorGroup);
+    doorGroup.add(singleDoorGroup);
   }
 
   parent.add(doorGroup);
@@ -451,10 +470,73 @@ function buildProtrusions(parent) {
     const h = p.height ?? (ceilAt(cx, cz) - fromY);
     const cy = fromY + h / 2;
 
-    addBox(group, mat, cx, cy, cz, w, h, d, true);
+    // Wrap each protrusion in its own group for entity selection
+    const pGroup = new THREE.Group();
+    pGroup.name = `Protrusion_${p.id}`;
+    addBox(pGroup, mat, cx, cy, cz, w, h, d, true);
+    register('protrusion', p.id, pGroup);
+    group.add(pGroup);
   }
 
   parent.add(group);
+}
+
+// ─── INTERIOR WALLS ───
+
+function buildInteriorWalls(parent) {
+  const walls = config.walls?.interior;
+  if (!walls?.length) return;
+
+  const wallGroup = new THREE.Group();
+  wallGroup.name = 'InteriorWalls';
+
+  const wallThickness = 0.08;
+  const wallMat = new THREE.MeshStandardMaterial({
+    color: 0xE8E4DE, roughness: 0.9, metalness: 0.0,
+    transparent: true, opacity: 0.6,
+    side: THREE.DoubleSide,
+  });
+
+  for (const wall of walls) {
+    // Compute wall height — use ceiling height at wall center
+    const wGroup = new THREE.Group();
+    wGroup.name = `Wall_${wall.id}`;
+
+    if (wall.axis === 'x') {
+      // Wall at fixed X=pos, running along Z from wall.from to wall.to
+      const length = wall.to - wall.from;
+      const midZ = (wall.from + wall.to) / 2;
+      const h = ceilAt(wall.pos, midZ);
+
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(wallThickness, h, length),
+        wallMat.clone()
+      );
+      mesh.position.set(wall.pos, h / 2, midZ);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      wGroup.add(mesh);
+    } else {
+      // Wall at fixed Z=pos, running along X from wall.from to wall.to
+      const length = wall.to - wall.from;
+      const midX = (wall.from + wall.to) / 2;
+      const h = ceilAt(midX, wall.pos);
+
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(length, h, wallThickness),
+        wallMat.clone()
+      );
+      mesh.position.set(midX, h / 2, wall.pos);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      wGroup.add(mesh);
+    }
+
+    register('wall', wall.id, wGroup);
+    wallGroup.add(wGroup);
+  }
+
+  parent.add(wallGroup);
 }
 
 // ─── HELPERS ───

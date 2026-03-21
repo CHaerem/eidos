@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { state } from './state.js';
+import { state, onSelectionChange } from './state.js';
 import { FURNITURE_CATALOG } from './furniture.js';
 import { BOUNDS, ceilAt } from './room.js';
 import { solveConstraints, applyToConfig } from './solver.js';
@@ -7,6 +7,8 @@ import { showDimensions, showSingleDimension, hideDimensions, toggleMeasureMode,
 import { setRoomFocus, clearRoomFocus } from './room-focus.js';
 import { pushSnapshot, getEntries, getPointer, getFullEntries, jumpTo, setHistoryChangeListener } from './history.js';
 import { showHistoryDiff, clearHistoryDiff, computeDiff, getDiffSummary } from './history-diff.js';
+// Note: selectEntity is imported dynamically in handlePropertyChange to avoid circular dependency
+// interaction.js imports from ui.js, and ui.js uses selectEntity only in property change handlers
 
 // ─── FURNITURE LIST RENDERING ───
 
@@ -311,24 +313,40 @@ function populateRoomNavPills() {
     const pill = document.createElement('span');
     pill.className = 'room-pill';
     pill.dataset.room = room.id;
-    pill.textContent = room.name || room.id;
 
+    // Room name text
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'room-pill-name';
+    nameSpan.textContent = room.name || room.id;
+    pill.appendChild(nameSpan);
+
+    // Eye toggle for wall visibility
+    const eye = document.createElement('span');
+    eye.className = 'eye-toggle';
+    eye.textContent = '👁';
+    eye.title = 'Vis/skjul vegger';
+    eye.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const hiding = !pill.classList.contains('walls-hidden');
+      toggleRoomWalls(room.id, room.bounds, !hiding);
+      pill.classList.toggle('walls-hidden', hiding);
+      eye.textContent = hiding ? '👁‍🗨' : '👁';
+    });
+    pill.appendChild(eye);
+
+    // Click: fly to room
     pill.addEventListener('click', (e) => {
       if (e.shiftKey) {
-        // Shift+click: toggle wall visibility (secondary)
-        toggleRoomWalls(room.id, room.bounds, !pill.classList.contains('walls-hidden'));
-        pill.classList.toggle('walls-hidden');
+        // Shift+click still works as shortcut
+        eye.click();
         return;
       }
-      // Click: fly to room (primary)
       if (window.flyToRoom && room.bounds) {
         const y = room.floor === 6 ? (cfg.upperFloor?.floorY || 2.25) : 0;
         window.flyToRoom(room.bounds, y);
         setRoomFocus(room.id, room.floor, null);
-        // Update active state
         container.querySelectorAll('.room-pill').forEach(p => p.classList.remove('active'));
         pill.classList.add('active');
-        // Clear view button active states
         document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
       }
     });
@@ -397,10 +415,12 @@ function toggleRoomWalls(roomId, bounds, visible) {
 export function initUI() {
   initViewButtons();
   initPanelToggle();
+  initPanelTabs();
   initCollapsible();
   initVisibilityToggles();
   initHistoryPanel();
   initMobilePanel();
+  initPropertiesPanel();
 
   // Populate apartment info, calibration, and room pills once config is loaded
   if (state.apartmentConfig) {
@@ -428,6 +448,22 @@ export function initUI() {
       populateFurnitureSelect();
     }, 500);
   }
+}
+
+function initPanelTabs() {
+  const tabs = document.querySelectorAll('.panel-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetId = tab.dataset.tab;
+      // Deactivate all tabs and panels
+      tabs.forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      // Activate clicked tab and its panel
+      tab.classList.add('active');
+      const panel = document.getElementById(targetId);
+      if (panel) panel.classList.add('active');
+    });
+  });
 }
 
 function initCollapsible() {
@@ -1091,6 +1127,204 @@ function highlightRoom(roomId, floor) {
     if (result) {
       setRoomFocus(roomId, floor, result.approachSide);
     }
+  }
+}
+
+// ─── PROPERTIES PANEL ───
+
+const ENTITY_LABELS = {
+  wall: 'Innervegg',
+  window: 'Vindu',
+  door: 'Dør',
+  protrusion: 'Bjelke/utstikk',
+  furniture: 'Møbel',
+  room: 'Rom',
+};
+const ENTITY_ICONS = {
+  wall: '▬', window: '▢', door: '🚪', protrusion: '▣', furniture: '🪑', room: '⬚',
+};
+const DELETABLE_TYPES = new Set(['furniture', 'protrusion']);
+
+function initPropertiesPanel() {
+  onSelectionChange((newEntity, _oldEntity) => {
+    renderProperties(newEntity);
+  });
+}
+
+function renderProperties(entity) {
+  const section = document.getElementById('properties-section');
+  const panel = document.getElementById('properties-panel');
+  if (!section || !panel) return;
+
+  if (!entity) {
+    section.style.display = 'none';
+    panel.innerHTML = '';
+    return;
+  }
+
+  section.style.display = '';
+  const cfg = state.apartmentConfig;
+  if (!cfg) return;
+
+  const typeLabel = ENTITY_LABELS[entity.type] || entity.type;
+  const icon = ENTITY_ICONS[entity.type] || '';
+  const canDelete = DELETABLE_TYPES.has(entity.type);
+  let html = `<div class="prop-header">
+    <span class="prop-type">${icon} ${typeLabel}</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span class="prop-id">${entity.id}</span>
+      ${canDelete ? `<button class="prop-delete" data-entity="${entity.type}" data-id="${entity.id}" title="Slett">✕</button>` : ''}
+    </div>
+  </div>`;
+
+  // Helper for property row with unit
+  const ed = entity.type, eid = entity.id;
+  const row = (label, value, field, unit = 'm', step = '0.01') =>
+    `<span class="prop-label">${label}</span><div class="prop-input-wrap"><input class="prop-value" type="number" step="${step}" value="${value}" data-entity="${ed}" data-id="${eid}" data-field="${field}"><span class="prop-unit">${unit}</span></div>`;
+  const readonlyRow = (label, value) =>
+    `<span class="prop-label">${label}</span><input class="prop-value readonly" value="${value}" readonly>`;
+
+  if (entity.type === 'wall') {
+    const wall = cfg.walls?.interior?.find(w => w.id === entity.id);
+    if (wall) {
+      html += `<div class="prop-grid">
+        ${readonlyRow('Akse', wall.axis)}
+        ${row('Posisjon', wall.pos, 'pos')}
+        ${row('Fra', wall.from, 'from')}
+        ${row('Til', wall.to, 'to')}
+      </div>`;
+    }
+  } else if (entity.type === 'window') {
+    const win = cfg.windows?.find(w => w.id === entity.id);
+    if (win) {
+      const isH = win.wall === 'south' || win.wall === 'north';
+      html += `<div class="prop-grid">
+        ${readonlyRow('Vegg', win.wall)}
+        ${isH ? row('X1', win.x1, 'x1') + row('X2', win.x2, 'x2') : row('Z1', win.z1, 'z1') + row('Z2', win.z2, 'z2')}
+        ${row('Brystning', win.sillHeight, 'sillHeight')}
+        ${row('Topp', win.topHeight, 'topHeight')}
+      </div>`;
+    }
+  } else if (entity.type === 'door') {
+    const door = cfg.doors?.find(d => d.id === entity.id);
+    if (door) {
+      html += `<div class="prop-grid">
+        ${readonlyRow('Vegg', door.wall)}
+        ${row('Fra', door.from, 'from')}
+        ${row('Til', door.to, 'to')}
+        ${row('Høyde', door.height, 'height')}
+      </div>`;
+    }
+  } else if (entity.type === 'protrusion') {
+    const p = cfg.walls?.protrusions?.find(pr => pr.id === entity.id);
+    if (p) {
+      html += `<div class="prop-grid">
+        ${row('Min X', p.bounds.minX, 'bounds.minX')}
+        ${row('Max X', p.bounds.maxX, 'bounds.maxX')}
+        ${row('Min Z', p.bounds.minZ, 'bounds.minZ')}
+        ${row('Max Z', p.bounds.maxZ, 'bounds.maxZ')}
+        ${row('Høyde', p.height || '', 'height')}
+        ${row('Fra Y', p.fromY || 0, 'fromY')}
+      </div>`;
+      if (p.note) {
+        html += `<div style="margin-top:6px;font-size:10px;color:rgba(255,255,255,0.25);font-style:italic">${p.note}</div>`;
+      }
+    }
+  } else if (entity.type === 'furniture') {
+    const item = state.placedItems.find(i => String(i.id) === entity.id);
+    if (item) {
+      const cat = FURNITURE_CATALOG[item.type];
+      html += `<div class="prop-grid">
+        ${readonlyRow('Type', cat?.name || item.type)}
+        ${row('X', item.x.toFixed(2), 'x', 'm', '0.05')}
+        ${row('Z', item.z.toFixed(2), 'z', 'm', '0.05')}
+        ${row('Rotasjon', item.rotation, 'rotation', '°', '90')}
+      </div>`;
+    }
+  }
+
+  panel.innerHTML = html;
+
+  // Attach change handlers to editable inputs
+  panel.querySelectorAll('.prop-value:not(.readonly)').forEach(input => {
+    input.addEventListener('change', handlePropertyChange);
+  });
+
+  // Attach delete handler
+  const deleteBtn = panel.querySelector('.prop-delete');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async () => {
+      const type = deleteBtn.dataset.entity;
+      const id = deleteBtn.dataset.id;
+      pushSnapshot(`Slett ${ENTITY_LABELS[type] || type} ${id}`);
+      if (type === 'furniture') {
+        const { removeFurniture } = await import('./interaction.js');
+        removeFurniture(parseInt(id));
+      } else if (type === 'protrusion') {
+        const arr = cfg.walls?.protrusions;
+        if (arr) {
+          const idx = arr.findIndex(p => p.id === id);
+          if (idx >= 0) arr.splice(idx, 1);
+        }
+        if (window.eidos) await window.eidos.rebuild(false);
+      }
+      renderProperties(null);
+    });
+  }
+}
+
+async function handlePropertyChange(e) {
+  const input = e.target;
+  const entityType = input.dataset.entity;
+  const entityId = input.dataset.id;
+  const field = input.dataset.field;
+  const value = parseFloat(input.value);
+  if (isNaN(value)) return;
+
+  const cfg = state.apartmentConfig;
+  pushSnapshot(`Endre ${ENTITY_LABELS[entityType] || entityType} ${entityId} ${field}`);
+
+  if (entityType === 'wall') {
+    const wall = cfg.walls?.interior?.find(w => w.id === entityId);
+    if (wall) wall[field] = value;
+  } else if (entityType === 'window') {
+    const win = cfg.windows?.find(w => w.id === entityId);
+    if (win) win[field] = value;
+  } else if (entityType === 'door') {
+    const door = cfg.doors?.find(d => d.id === entityId);
+    if (door) door[field] = value;
+  } else if (entityType === 'protrusion') {
+    const p = cfg.walls?.protrusions?.find(pr => pr.id === entityId);
+    if (p) {
+      if (field.startsWith('bounds.')) {
+        const subField = field.split('.')[1];
+        p.bounds[subField] = value;
+      } else {
+        p[field] = value;
+      }
+    }
+  } else if (entityType === 'furniture') {
+    const item = state.placedItems.find(i => String(i.id) === entityId);
+    if (item) {
+      if (field === 'rotation') {
+        const { rotateFurn } = await import('./interaction.js');
+        rotateFurn(item.id, value % 360);
+        return;
+      }
+      item[field] = value;
+      item.mesh.position.set(item.x, 0, item.z);
+      const { saveFurnitureToConfig } = await import('./furniture.js');
+      saveFurnitureToConfig();
+      renderProperties({ type: entityType, id: entityId });
+      return;
+    }
+  }
+
+  // Rebuild and re-select for architecture changes
+  if (entityType !== 'furniture') {
+    await window.eidos.rebuild(false);
+    // Use eidos API to re-select (avoids circular import)
+    window.eidos.selectEntity(entityType, entityId);
   }
 }
 
