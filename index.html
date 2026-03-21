@@ -25,18 +25,18 @@ canvas.measure-mode{cursor:crosshair}
 
 /* ─── Glass Panel ─── */
 .glass-panel{
-  position:fixed;top:10px;right:10px;bottom:10px;width:330px;
-  background:rgba(14,14,18,0.82);
+  position:fixed;top:10px;right:10px;bottom:auto;width:300px;max-height:calc(100vh - 80px);
+  background:rgba(14,14,18,0.85);
   backdrop-filter:blur(32px) saturate(1.4);-webkit-backdrop-filter:blur(32px) saturate(1.4);
   border:1px solid rgba(255,255,255,0.06);
-  border-radius:16px;
+  border-radius:14px;
   z-index:100;
   display:flex;flex-direction:column;overflow:hidden;
   color:#c8cad0;font-size:13px;
   transition:transform 0.35s cubic-bezier(.4,0,.1,1),opacity 0.3s ease;
-  box-shadow:0 4px 24px rgba(0,0,0,0.5),0 0 0 0.5px rgba(255,255,255,0.03) inset;
+  box-shadow:0 4px 24px rgba(0,0,0,0.5);
 }
-.glass-panel.collapsed{transform:translateX(350px);opacity:0;pointer-events:none}
+.glass-panel.collapsed{transform:translateX(320px);opacity:0;pointer-events:none}
 
 /* ─── Calibration Focus Mode ─── */
 .glass-panel.cal-focus{width:auto;min-width:240px;max-width:360px;top:auto;bottom:14px;right:14px;max-height:none;border-radius:12px}
@@ -59,12 +59,11 @@ canvas.measure-mode{cursor:crosshair}
 /* ─── Panel Header / Tabs ─── */
 #panel-header{
   display:flex;align-items:center;justify-content:space-between;
-  padding:8px 8px 6px 14px;flex-shrink:0;
-  border-bottom:1px solid rgba(255,255,255,0.03);
+  padding:6px 8px 2px 12px;flex-shrink:0;
 }
 #panel-title{
-  font-size:12px;font-weight:700;letter-spacing:0.08em;
-  color:rgba(255,255,255,0.3);text-transform:uppercase;
+  font-size:10px;font-weight:600;letter-spacing:0.1em;
+  color:rgba(255,255,255,0.18);text-transform:uppercase;
 }
 #panel-collapse{
   background:none;border:none;color:rgba(255,255,255,0.25);
@@ -129,6 +128,9 @@ canvas.measure-mode{cursor:crosshair}
 }
 .glass-panel input[type=checkbox]{accent-color:#5b8def}
 .glass-panel h2{font-size:13px;color:rgba(255,255,255,0.65);margin-bottom:6px}
+
+/* ─── Panel Navigation (compact header) ─── */
+.panel-nav{padding:6px 10px 4px;flex-shrink:0}
 
 /* ─── View Buttons (inline pills) ─── */
 .view-btn-row{display:flex;gap:2px}
@@ -637,14 +639,14 @@ button.add-btn:active{transform:scale(0.98)}
   </div>
 
   <!-- Always visible: view buttons + room pills -->
-  <div class="panel-section" style="padding-bottom:2px">
+  <div class="panel-nav">
     <div class="view-btn-row">
       <button class="view-btn" onclick="setTopDown()" data-view="top">Ovenfra</button>
       <button class="view-btn" onclick="set3DView()" data-view="3d">3D</button>
       <button class="view-btn" onclick="setFrontView()" data-view="front">Front</button>
       <button class="view-btn" onclick="setSideView()" data-view="side">Side</button>
     </div>
-    <div class="vis-pills room-nav-pills" id="room-nav-pills" style="margin-top:5px;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap"></div>
+    <div class="vis-pills room-nav-pills" id="room-nav-pills" style="margin-top:4px;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap"></div>
   </div>
 
   <!-- Tab bar -->
@@ -670,7 +672,7 @@ button.add-btn:active{transform:scale(0.98)}
     <div class="panel-section" id="properties-section" style="display:none">
       <div id="properties-panel" class="properties-panel"></div>
     </div>
-    <div class="panel-section collapsible" id="history-section">
+    <div class="panel-section collapsible" id="history-section" style="display:none">
       <h3>Historikk</h3>
       <div class="section-body">
         <div id="history-list" class="history-list">
@@ -678,7 +680,7 @@ button.add-btn:active{transform:scale(0.98)}
         </div>
       </div>
     </div>
-    <div class="panel-section collapsible" id="calibration-section">
+    <div class="panel-section collapsible" id="calibration-section" style="display:none">
       <h3>Kalibrering</h3>
       <div class="section-body">
         <div id="room-calibration"></div>

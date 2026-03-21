@@ -201,10 +201,14 @@ function renderHistory() {
   if (!container) return;
 
   const entries = getEntries();
+  const section = document.getElementById('history-section');
   if (entries.length === 0) {
     container.innerHTML = '<div class="history-empty">Ingen endringer ennå</div>';
+    if (section) section.style.display = 'none';
     return;
   }
+  // Show history section when there are entries
+  if (section) section.style.display = '';
 
   const pointer = getPointer();
   const fullEntries = getFullEntries();
@@ -259,7 +263,6 @@ function renderHistory() {
   });
 
   // Auto-open section when history exists
-  const section = document.getElementById('history-section');
   if (section && !section.classList.contains('open') && entries.length > 0) {
     section.classList.add('open');
   }
