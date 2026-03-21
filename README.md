@@ -4,6 +4,8 @@
 
 Et generisk rammeverk for å bygge nøyaktige 3D-modeller av boliger — fra plantegning til interaktiv modell med møbler, materialer og VR-støtte.
 
+**[Live demo →](https://chaerem.github.io/eidos/)**
+
 ## Visjon
 
 Eidos er et **config-drevet rammeverk** for 3D-modellering av boliger. Målet er at hvem som helst skal kunne gå fra en plantegning til en komplett, interaktiv 3D-modell:
