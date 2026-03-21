@@ -59,13 +59,12 @@ canvas.measure-mode{cursor:crosshair}
 /* ─── Panel Header / Tabs ─── */
 #panel-header{
   display:flex;align-items:center;justify-content:space-between;
-  padding:10px 8px 8px 14px;flex-shrink:0;
-  border-bottom:1px solid rgba(255,255,255,0.04);
-  background:rgba(255,255,255,0.015);
+  padding:8px 8px 6px 14px;flex-shrink:0;
+  border-bottom:1px solid rgba(255,255,255,0.03);
 }
 #panel-title{
-  font-size:13px;font-weight:700;letter-spacing:0.06em;
-  color:rgba(255,255,255,0.5);text-transform:uppercase;
+  font-size:12px;font-weight:700;letter-spacing:0.08em;
+  color:rgba(255,255,255,0.3);text-transform:uppercase;
 }
 #panel-collapse{
   background:none;border:none;color:rgba(255,255,255,0.25);
@@ -82,11 +81,11 @@ canvas.measure-mode{cursor:crosshair}
 .tab-content::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.15)}
 
 /* ─── Panel Sections ─── */
-.panel-section{margin-bottom:14px}
+.panel-section{margin-bottom:10px}
 .panel-section:last-child{margin-bottom:0}
 .panel-section h3{
-  font-size:9.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
-  color:rgba(255,255,255,0.28);margin-bottom:8px;
+  font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;
+  color:rgba(255,255,255,0.2);margin-bottom:6px;
   padding-left:1px;cursor:default;
 }
 
@@ -132,16 +131,16 @@ canvas.measure-mode{cursor:crosshair}
 .glass-panel h2{font-size:13px;color:rgba(255,255,255,0.65);margin-bottom:6px}
 
 /* ─── View Buttons (inline pills) ─── */
-.view-btn-row{display:flex;gap:3px}
+.view-btn-row{display:flex;gap:2px}
 button.view-btn{
-  flex:1;padding:6px 0;font-size:10.5px;font-weight:500;cursor:pointer;
-  border:1px solid rgba(255,255,255,0.06);border-radius:6px;
-  background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.45);
-  transition:all 0.18s ease;letter-spacing:0.01em;
+  flex:1;padding:5px 0;font-size:10px;font-weight:500;cursor:pointer;
+  border:1px solid rgba(255,255,255,0.05);border-radius:5px;
+  background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.35);
+  transition:all 0.15s ease;letter-spacing:0.01em;
 }
-button.view-btn:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.9);border-color:rgba(255,255,255,0.12)}
+button.view-btn:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.8);border-color:rgba(255,255,255,0.1)}
 button.view-btn:active{transform:scale(0.97)}
-button.view-btn.active{background:rgba(91,141,239,0.12);border-color:rgba(91,141,239,0.25);color:#8bb4ff}
+button.view-btn.active{background:rgba(91,141,239,0.1);border-color:rgba(91,141,239,0.2);color:#8bb4ff}
 
 /* ─── Measure Mode ─── */
 canvas.measure-mode{cursor:crosshair !important}
@@ -167,31 +166,34 @@ canvas.measure-mode{cursor:crosshair !important}
 
 /* ─── Panel Tabs ─── */
 .panel-tabs{
-  display:flex;gap:0;padding:0 10px;flex-shrink:0;
-  border-bottom:1px solid rgba(255,255,255,0.05);
+  display:flex;gap:0;padding:0 12px;flex-shrink:0;
+  border-bottom:1px solid rgba(255,255,255,0.04);
 }
 .panel-tab{
-  flex:1;padding:10px 0;font-size:11px;font-weight:600;
-  text-transform:uppercase;letter-spacing:0.06em;
+  flex:1;padding:8px 0;font-size:10px;font-weight:600;
+  text-transform:uppercase;letter-spacing:0.08em;
   background:none;border:none;border-bottom:2px solid transparent;
-  color:rgba(255,255,255,0.28);cursor:pointer;transition:all 0.18s ease;
+  color:rgba(255,255,255,0.22);cursor:pointer;transition:all 0.15s ease;
   font-family:'Inter',system-ui,sans-serif;
 }
-.panel-tab:hover{color:rgba(255,255,255,0.55)}
-.panel-tab.active{color:#8bb4ff;border-bottom-color:rgba(91,141,239,0.6)}
-.tab-panel{display:none;flex:1;overflow-y:auto;min-height:0}
+.panel-tab:hover{color:rgba(255,255,255,0.45)}
+.panel-tab.active{color:rgba(139,180,255,0.8);border-bottom-color:rgba(91,141,239,0.4)}
+.tab-panel{display:none;flex:1;overflow-y:auto;min-height:0;padding:10px 12px 16px}
 .tab-panel.active{display:flex;flex-direction:column}
+.tab-panel::-webkit-scrollbar{width:2px}
+.tab-panel::-webkit-scrollbar-track{background:transparent}
+.tab-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.06);border-radius:2px}
 
 /* ─── Properties Panel ─── */
-.properties-panel{font-size:12px}
-.prop-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.prop-type{font-weight:700;color:rgba(255,255,255,0.7);font-size:11px;text-transform:uppercase;letter-spacing:0.06em}
-.prop-id{font-weight:500;color:rgba(91,141,239,0.8);font-size:12px}
-.prop-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:center}
-.prop-grid .prop-label{font-size:11px;color:rgba(255,255,255,0.4);white-space:nowrap}
+.properties-panel{font-size:11px}
+.prop-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.04)}
+.prop-type{font-weight:600;color:rgba(255,255,255,0.5);font-size:10px;text-transform:uppercase;letter-spacing:0.06em}
+.prop-id{font-weight:500;color:rgba(91,141,239,0.6);font-size:10px}
+.prop-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 8px;align-items:center}
+.prop-grid .prop-label{font-size:10px;color:rgba(255,255,255,0.3);white-space:nowrap}
 .prop-grid .prop-value{
-  font-size:12px;color:rgba(255,255,255,0.85);background:rgba(255,255,255,0.04);
-  border:1px solid rgba(255,255,255,0.08);border-radius:5px;padding:4px 8px;
+  font-size:11px;color:rgba(255,255,255,0.8);background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.06);border-radius:4px;padding:3px 6px;
   font-family:'Inter',system-ui,sans-serif;width:100%;
 }
 .prop-grid .prop-value:focus{border-color:rgba(91,141,239,0.5);outline:none;background:rgba(91,141,239,0.06)}
@@ -374,19 +376,19 @@ button.add-btn:active{transform:scale(0.98)}
 .history-entry .h-diff-count{font-size:8px;background:rgba(91,141,239,0.15);color:rgba(255,255,255,0.35);padding:1px 5px;border-radius:6px;flex-shrink:0;font-family:'SF Mono',ui-monospace,monospace}
 
 /* ─── Visibility Toggles ─── */
-.vis-group{margin-bottom:10px}
+.vis-group{margin-bottom:6px}
 .vis-group:last-child{margin-bottom:0}
-.vis-label{font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.2);margin-bottom:5px}
-.vis-pills{display:flex;flex-wrap:wrap;gap:3px}
+.vis-label{display:none}
+.vis-pills{display:flex;flex-wrap:wrap;gap:2px}
 .vis-pill{
-  display:block;padding:5px 10px;font-size:11px;font-weight:500;cursor:pointer;
-  background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);
-  border-radius:6px;transition:all 0.15s ease;
-  color:rgba(255,255,255,0.3);user-select:none;
+  display:block;padding:4px 9px;font-size:10px;font-weight:500;cursor:pointer;
+  background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);
+  border-radius:5px;transition:all 0.15s ease;
+  color:rgba(255,255,255,0.25);user-select:none;
 }
 .vis-pill:hover{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.5)}
-.vis-pill.on{background:rgba(91,141,239,0.10);border-color:rgba(91,141,239,0.28);color:rgba(255,255,255,0.82)}
-.vis-pill.on:hover{background:rgba(91,141,239,0.15)}
+.vis-pill.on{background:rgba(91,141,239,0.08);border-color:rgba(91,141,239,0.2);color:rgba(255,255,255,0.7)}
+.vis-pill.on:hover{background:rgba(91,141,239,0.12)}
 
 /* ─── Dimension Floating Input ─── */
 .dim-floating-input{
@@ -413,13 +415,13 @@ button.add-btn:active{transform:scale(0.98)}
 .room-nav-pills::-webkit-scrollbar{height:0}
 .room-nav-pills .room-pill{
   position:relative;display:flex;align-items:center;gap:2px;
-  padding:5px 10px;font-size:10px;font-weight:500;cursor:pointer;
-  border:1px solid rgba(255,255,255,0.06);border-radius:6px;
-  background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.4);
-  transition:all 0.18s ease;white-space:nowrap;flex-shrink:0;
+  padding:4px 8px;font-size:9.5px;font-weight:500;cursor:pointer;
+  border:none;border-radius:4px;
+  background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.3);
+  transition:all 0.15s ease;white-space:nowrap;flex-shrink:0;
 }
-.room-nav-pills .room-pill:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.8)}
-.room-nav-pills .room-pill.active{background:rgba(91,141,239,0.12);border-color:rgba(91,141,239,0.25);color:#8bb4ff}
+.room-nav-pills .room-pill:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.7)}
+.room-nav-pills .room-pill.active{background:rgba(91,141,239,0.1);color:#8bb4ff}
 .room-pill .eye-toggle{
   display:none;font-size:8px;line-height:1;cursor:pointer;
   opacity:0.4;transition:opacity 0.15s;margin-left:2px;
@@ -514,40 +516,34 @@ button.add-btn:active{transform:scale(0.98)}
 }
 .toolbar-group{display:flex;align-items:center;gap:2px}
 .toolbar-btn{
-  display:flex;align-items:center;gap:6px;
-  padding:8px 14px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  padding:8px 12px;border-radius:8px;
   background:transparent;border:none;
-  color:rgba(255,255,255,0.4);font-size:12px;font-weight:500;
+  color:rgba(255,255,255,0.35);font-size:12px;font-weight:500;
   cursor:pointer;transition:all 0.15s ease;
   font-family:inherit;white-space:nowrap;
 }
-.toolbar-btn:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.75)}
-.toolbar-btn.active{background:rgba(91,141,239,0.15);color:#8bb4ff}
-.toolbar-btn.active:hover{background:rgba(91,141,239,0.22)}
+.toolbar-btn:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7)}
+.toolbar-btn.active{background:rgba(91,141,239,0.12);color:#8bb4ff}
+.toolbar-btn.active:hover{background:rgba(91,141,239,0.18)}
 .toolbar-btn svg{width:16px;height:16px;flex-shrink:0}
-.toolbar-btn kbd{
-  font-size:9px;padding:1px 4px;border-radius:3px;
-  background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);
-  color:rgba(255,255,255,0.25);font-family:inherit;margin-left:1px;
-}
-.toolbar-btn.icon-only{padding:8px 10px}
-.toolbar-btn.icon-only kbd{display:none}
-.toolbar-divider{width:1px;height:24px;background:rgba(255,255,255,0.08);margin:0 3px;flex-shrink:0}
+.toolbar-btn .tb-label,.toolbar-btn kbd{display:none}
+.toolbar-divider{width:1px;height:20px;background:rgba(255,255,255,0.06);margin:0 2px;flex-shrink:0}
 .toolbar-btn[disabled]{opacity:0.2;cursor:default;pointer-events:none}
 
 /* ─── Viewport Mode Indicator ─── */
 #canvas-wrap.mode-edit{box-shadow:inset 0 0 0 2px rgba(91,141,239,0.25)}
 #canvas-wrap.mode-measure{box-shadow:inset 0 0 0 2px rgba(255,221,68,0.25)}
 .mode-badge{
-  position:absolute;top:12px;left:60px;
-  padding:3px 10px;border-radius:5px;
-  font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;
+  position:absolute;top:10px;left:56px;
+  padding:2px 8px;border-radius:4px;
+  font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;
   pointer-events:none;z-index:10;opacity:0;transition:opacity 0.2s ease;
   font-family:'Inter',system-ui,sans-serif;
 }
-.mode-badge.visible{opacity:1}
-.mode-badge.edit{background:rgba(91,141,239,0.12);color:rgba(139,180,255,0.8);border:1px solid rgba(91,141,239,0.15)}
-.mode-badge.measure{background:rgba(255,221,68,0.1);color:rgba(255,221,68,0.8);border:1px solid rgba(255,221,68,0.15)}
+.mode-badge.visible{opacity:0.7}
+.mode-badge.edit{background:rgba(91,141,239,0.08);color:rgba(139,180,255,0.7);border:1px solid rgba(91,141,239,0.1)}
+.mode-badge.measure{background:rgba(255,221,68,0.06);color:rgba(255,221,68,0.7);border:1px solid rgba(255,221,68,0.1)}
 
 /* ─── Responsive: Tablet (≤1024px) ─── */
 @media (max-width:1024px){
@@ -671,9 +667,7 @@ button.add-btn:active{transform:scale(0.98)}
         </div>
       </div>
     </div>
-    <div id="apartment-summary" class="apartment-summary"></div>
     <div class="panel-section" id="properties-section" style="display:none">
-      <h3>Egenskaper</h3>
       <div id="properties-panel" class="properties-panel"></div>
     </div>
     <div class="panel-section collapsible" id="history-section">
