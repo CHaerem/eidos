@@ -15,7 +15,7 @@ Eidos skal bli et rammeverk der nye boliger kan modelleres ved a:
 **Arkitekturprinsipp**: All romgeometri skal vaere config-drevet. Ingen hardkoding av romstorrelser, veggposisjoner eller takgeometri i JS-kode. Nye moduler skal folge dette prinsippet.
 
 ## Teknisk stack
-- Modulaer ES-modul-arkitektur (`js/` med 14 moduler + entry point)
+- Modulaer ES-modul-arkitektur (`js/` med 15 moduler inkl. entry point)
 - Three.js v0.162.0 via CDN importmap (native ES modules, ingen bundler)
 - OBJ-modell lastes med OBJLoader — skala og posisjon fra config
 - Leilighetskonfig i `config/apartment.json` — komplett boligbeskrivelse
@@ -317,16 +317,16 @@ Denne pipelinen gjores na manuelt med Claude, men malet er:
 npm test          # Kjor alle tester (vitest)
 npx vitest        # Watch-modus
 ```
-Testfiler i `tests/` (84 tester totalt):
+Testfiler i `tests/` (106 tester totalt):
 - `history.test.js` — Undo/redo snapshot-logikk, jumpTo, labels (20 tester)
 - `solver.test.js` — Constraint solver, adjacency, height unknowns (10 tester)
 - `config-elements.test.js` — Protrusjoner, vinduer, dører, auto-ID, update_element (17 tester)
 - `terrace-visibility.test.js` — Terrassetrinn, vegg-rom-adjacency, historikk-ikoner (21 tester)
 - `history-diff.test.js` — Config-diffing, endringskategorisering, label-generering (16 tester)
+- `calibration-wizard.test.js` — Wizard-steg, målingslagring, guide-posisjonering, drag-constraints (22 tester)
 
 ## Kjore lokalt
 ```bash
-cd /Users/christopherhaerem/Privat/GolfSim
 python3 server.py
 # Apne http://localhost:8765/index.html
 # server.py har dynamisk cache-busting — filendringer reflekteres ved refresh

@@ -4,6 +4,8 @@
 
 Et generisk rammeverk for å bygge nøyaktige 3D-modeller av boliger — fra plantegning til interaktiv modell med møbler, materialer og VR-støtte.
 
+**[Live demo →](https://chaerem.github.io/eidos/)**
+
 ## Visjon
 
 Eidos er et **config-drevet rammeverk** for 3D-modellering av boliger. Målet er at hvem som helst skal kunne gå fra en plantegning til en komplett, interaktiv 3D-modell:
@@ -62,7 +64,7 @@ Nøyaktig 3D-modell med møbler
 
 | Fase | Status | Beskrivelse |
 |------|--------|-------------|
-| 1. Modularisering | ✅ Ferdig | Monolitt → 9 ES-moduler + leilighetskonfig JSON |
+| 1. Modularisering | ✅ Ferdig | Monolitt → 15 ES-moduler + leilighetskonfig JSON |
 | 2. PBR + Skygger | ✅ Ferdig | MeshStandardMaterial, shadow mapping, tone mapping, bedre belysning |
 | 3. Romdetaljer | ✅ Ferdig | Vinduer, dørkarmer, fotlister, ugjennomsiktig tak |
 | 4. Generisk rammeverk | ✅ Ferdig | Config-drevet rombygging, per-rom takzoner, rooms-definisjon |
@@ -90,7 +92,12 @@ Nøyaktig 3D-modell med møbler
 - Kameravisning med aktiv-state (ovenfra, 3D, front, side)
 - Tikhonov-regularisert kalibrering med kompakte rom-kort og interaktive dimensjonslinjer
 - Undo/redo (⌘Z / ⌘⇧Z) med visuell historikk-tidslinje, jump-to og 3D-diff
+- Kontrollmål: klikk vegg + Shift+klikk for vinkelrett avstand i 3D
+- Rom-pills for rask navigasjon mellom rom
+- Touch-vennlig: responsivt layout for iPad og iPhone
+- Smooth kamera-animasjoner med cursor-feedback
 - MCP-server for AI-assistert modellmanipulering (vinduer, dører, vegger, protrusjoner)
+- Plantegning-ekstraksjon fra bilder/PDF (Python-verktøy)
 - Dynamisk cache-busting dev-server (filendringer reflekteres ved refresh)
 - Leilighetskonfig via JSON — gjenbrukbart for andre bygg
 
@@ -127,7 +134,9 @@ eidos/
     apartment.json        Leilighetskonfigurasjon (komplett boligbeskrivelse)
   server.py               Dev-server med dynamisk cache-busting for ES-moduler
   mcp_server.py           MCP-server for AI-verktøy (les/skriv config, CRUD elementer)
-  tests/                  Vitest enhetstester (84 tester: solver, history, config-elements, diff)
+  extract_floorplan.py    Plantegning-ekstraksjon fra bilder/PDF
+  analyze_openings.py     Dør/vindu-åpnings-analyse fra plantegning
+  tests/                  Vitest enhetstester (106 tester: solver, history, config-elements, diff, calibration)
 ```
 
 ## Teknologi
