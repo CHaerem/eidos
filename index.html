@@ -532,6 +532,34 @@ body.xr-active #status { display: none !important; }
 #ar-place:hover{background:rgba(91,141,239,1)}
 #ar-cancel{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.15)}
 #ar-cancel:hover{background:rgba(255,255,255,0.15)}
+#ar-model-viewer-wrap{width:100%;max-width:500px;margin:0 auto}
+#ar-model-viewer-wrap model-viewer{border-radius:16px;overflow:hidden}
+
+/* model-viewer AR button (slot) */
+.mv-ar-button{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:14px 32px;border-radius:12px;border:none;
+  background:rgba(91,141,239,0.9);color:#fff;
+  font-size:16px;font-weight:600;cursor:pointer;
+  font-family:'Inter',system-ui,sans-serif;
+  box-shadow:0 4px 16px rgba(0,0,0,0.3);
+  transition:all 0.15s ease;
+  position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  white-space:nowrap;
+}
+.mv-ar-button:hover{background:rgba(91,141,239,1);box-shadow:0 6px 24px rgba(0,0,0,0.4)}
+
+/* AR furniture picker grid */
+.ar-furniture-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:4px;
+}
+.ar-furniture-item{
+  padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);
+  background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.65);
+  font-size:11px;font-weight:500;cursor:pointer;transition:all 0.15s;
+  font-family:inherit;text-align:left;
+}
+.ar-furniture-item:hover{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.9)}
 
 /* ─── Floating Toolbar ─── */
 #floating-toolbar{
@@ -821,7 +849,7 @@ body.xr-active #status { display: none !important; }
   <div id="ar-status">Pek telefonen mot gulvet</div>
   <div id="ar-controls">
     <button id="ar-place" onclick="window._arPlace && window._arPlace()">Plasser</button>
-    <button id="ar-cancel" onclick="window._arCancel && window._arCancel()">Avbryt</button>
+    <button id="ar-cancel" onclick="window._arCancel && window._arCancel()">Lukk</button>
   </div>
   <div id="ar-model-viewer-wrap"></div>
 </div>
@@ -833,15 +861,18 @@ body.xr-active #status { display: none !important; }
     <button class="popover-close" onclick="document.getElementById('ar-popover').classList.remove('visible')">&times;</button>
   </div>
   <div class="panel-section" style="padding:8px">
-    <button class="popover-action-btn" id="ar-furniture-btn" onclick="window._startARFurniture && window._startARFurniture()" disabled>
-      <span>📱</span> Plasser møbel i AR
-    </button>
-    <button class="popover-action-btn" id="ar-table-btn" onclick="window._startARTableModel && window._startARTableModel()" disabled>
-      <span>🏠</span> Vis bordmodell i AR
-    </button>
-    <button class="popover-action-btn" id="ar-vr-btn" onclick="window._startVRSession && window._startVRSession()" disabled>
-      <span>🥽</span> VR Walkthrough
-    </button>
+    <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:6px">Møbler i AR</div>
+    <div id="ar-furniture-picker" class="ar-furniture-grid"></div>
+    <div style="margin-top:8px">
+      <button class="popover-action-btn" id="ar-table-btn" onclick="window._startARTableModel && window._startARTableModel()" disabled>
+        <span>🏠</span> Vis hele leiligheten som bordmodell
+      </button>
+    </div>
+    <div style="border-top:1px solid rgba(255,255,255,0.06);margin-top:8px;padding-top:8px">
+      <button class="popover-action-btn" id="ar-vr-btn" onclick="window._startVRSession && window._startVRSession()" disabled>
+        <span>🥽</span> VR Walkthrough
+      </button>
+    </div>
   </div>
 </div>
 
@@ -853,6 +884,9 @@ body.xr-active #status { display: none !important; }
   }
 }
 </script>
+
+<!-- model-viewer for iOS AR Quick Look fallback -->
+<script type="module" src="https://unpkg.com/@google/model-viewer@3/dist/model-viewer.min.js"></script>
 
 <script type="module" src="js/main.js"></script>
 <script>
