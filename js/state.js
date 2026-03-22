@@ -44,6 +44,9 @@ export const state = {
   // Edit mode — when false, only orbit navigation works (no selection/drag)
   editMode: false,
 
+  // Measure mode — click-to-measure without needing Shift
+  measureMode: false,
+
   // XR mode — null | 'vr' | 'ar-furniture' | 'ar-table'
   xrMode: null,
 
@@ -120,9 +123,26 @@ export function setXRMode(mode) {
   }
 }
 
+// ─── Measure Mode ───
+
+const _measureModeListeners = [];
+
+export function onMeasureModeChange(callback) {
+  _measureModeListeners.push(callback);
+}
+
+export function setMeasureMode(enabled) {
+  if (state.measureMode === enabled) return;
+  state.measureMode = enabled;
+  for (const cb of _measureModeListeners) {
+    try { cb(enabled); } catch (e) { console.warn('Measure mode listener error:', e); }
+  }
+}
+
 /** Clear all listeners — used in tests for isolation. */
 export function clearAllListeners() {
   _selectionListeners.length = 0;
   _editModeListeners.length = 0;
   _xrModeListeners.length = 0;
+  _measureModeListeners.length = 0;
 }

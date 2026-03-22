@@ -427,6 +427,11 @@ button.add-btn:active{transform:scale(0.98)}
 .room-pill .eye-toggle:hover{opacity:1}
 .room-pill.walls-hidden{opacity:0.5}
 .room-pill.walls-hidden .eye-toggle{display:inline;opacity:0.6}
+.room-pill-status{display:inline-block;width:5px;height:5px;border-radius:50%;margin-left:4px;vertical-align:middle}
+.room-pill-status.none{background:rgba(255,255,255,0.1)}
+.room-pill-status.partial{background:#fbbf24}
+.room-pill-status.complete{background:#4ade80}
+.room-pill-status.error{background:#f87171}
 
 /* ─── Apartment Summary (compact one-liner) ─── */
 .apartment-summary{
@@ -788,6 +793,9 @@ body.xr-active #status { display: none !important; }
       <span class="lbl">Boks:</span><span class="val" id="simBox">&ndash;</span>
     </div>
     <a id="enclosureLink" href="#" target="_blank" rel="noopener" style="display:none;font-size:10px;color:rgba(91,141,239,0.7);margin-top:4px;text-decoration:none">Produkt &rarr;</a>
+    <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;cursor:pointer">
+      <input type="checkbox" id="clearanceOverlay" checked style="accent-color:#5b8def"> Vis klaringslinjer
+    </label>
   </div>
 </div>
 
@@ -833,7 +841,7 @@ body.xr-active #status { display: none !important; }
   <div class="toolbar-group">
     <button class="toolbar-btn icon-only" id="toolbar-furniture" title="Møbler">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 6h10v5H3z"/><path d="M2 8v4h1V8zM13 8v4h1V8z"/><path d="M5 6V5a3 3 0 0 1 6 0v1"/><path d="M4 13v-2M12 13v-2"/>
+        <path d="M2 7h12v4H2z"/><path d="M1 9v3h1V9zM14 9v3h1V9z"/><path d="M3 7V6h10v1"/><path d="M3 13v-2M13 13v-2"/>
       </svg>
     </button>
     <button class="toolbar-btn icon-only" id="toolbar-simulator" title="Golfsimulator">
@@ -844,6 +852,11 @@ body.xr-active #status { display: none !important; }
     <button class="toolbar-btn icon-only" id="toolbar-views" title="Visninger &amp; rom">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="8" cy="8" r="2"/><path d="M1 8c2-3.5 4-5 7-5s5 1.5 7 5c-2 3.5-4 5-7 5S3 11.5 1 8z"/>
+      </svg>
+    </button>
+    <button class="toolbar-btn icon-only" id="toolbar-photos" title="Foto">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="1" y="3" width="14" height="10" rx="1"/><circle cx="8" cy="8" r="2"/><path d="M4 3l1-2h6l1 2"/>
       </svg>
     </button>
   </div>
@@ -899,6 +912,26 @@ body.xr-active #status { display: none !important; }
         <span>🥽</span> VR Walkthrough
       </button>
     </div>
+  </div>
+</div>
+
+<!-- ─── Photos Popover ─── -->
+<div id="photos-popover" class="toolbar-popover" style="min-width:260px;max-width:340px">
+  <div class="popover-header">
+    <span class="popover-title">Sammenlign med foto</span>
+    <button class="popover-close" onclick="document.getElementById('photos-popover').classList.remove('visible')">&times;</button>
+  </div>
+  <div id="photo-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:8px;max-height:300px;overflow-y:auto"></div>
+  <div style="padding:0 8px 8px;font-size:10px;color:rgba(255,255,255,0.3)">Klikk et bilde for å overlegge på 3D-visningen</div>
+</div>
+
+<!-- ─── Photo Overlay ─── -->
+<div id="photo-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:40;pointer-events:none">
+  <img id="photo-overlay-img" style="width:100%;height:100%;object-fit:contain;opacity:0.5">
+  <div id="photo-overlay-controls" style="position:absolute;bottom:80px;left:50%;transform:translateX(-50%);pointer-events:auto;display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.7);padding:8px 16px;border-radius:8px;backdrop-filter:blur(8px)">
+    <span style="font-size:11px;color:rgba(255,255,255,0.5)">Gjennomsiktighet</span>
+    <input type="range" id="photo-opacity" min="0" max="100" value="50" style="width:120px;accent-color:#5b8def">
+    <button id="photo-overlay-close" style="background:rgba(255,255,255,0.1);border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px">Lukk</button>
   </div>
 </div>
 

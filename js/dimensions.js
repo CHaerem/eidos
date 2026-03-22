@@ -245,6 +245,8 @@ export function initDimensionClick() {
   document.addEventListener('pointerup', onGuidePointerUp);
   // Invalidate rect cache on resize
   window.addEventListener('resize', () => { cachedRect = null; });
+  // Measure mode hover preview
+  canvas.addEventListener('pointermove', onMeasureHover);
 
   // Close floating input on camera move
   if (state.controls) {
@@ -256,6 +258,7 @@ export function initDimensionClick() {
     () => canvas.removeEventListener('pointerdown', onGuidePointerDown, true),
     () => document.removeEventListener('pointermove', onGuideDrag),
     () => document.removeEventListener('pointerup', onGuidePointerUp),
+    () => canvas.removeEventListener('pointermove', onMeasureHover),
   );
   clickListenerAdded = true;
 }
@@ -910,7 +913,7 @@ function createMarker(point) {
 
 // ─── Shift+click handler (registered on canvas in initDimensionClick) ───
 export function onShiftClickMeasure(event) {
-  if (!event.shiftKey) return;
+  if (!event.shiftKey && !state.measureMode) return;
   if (event.target.closest('.glass-panel')) return;
 
   initControlMeasurements();
@@ -981,6 +984,84 @@ export function onShiftClickMeasure(event) {
       measureFirstMarker = null;
     }
   }
+}
+
+// ─── Measure mode hover preview ───
+let _previewMarker = null;
+let _previewLine = null;
+let _previewLabel = null;
+
+export function onMeasureHover(event) {
+  if (!state.measureMode) {
+    cleanupPreview();
+    return;
+  }
+
+  const hit = measureRaycast(event);
+  if (!hit) {
+    cleanupPreview();
+    return;
+  }
+
+  initControlMeasurements(); // ensure controlGroup exists
+
+  // Show preview marker at hover point
+  if (!_previewMarker) {
+    _previewMarker = createMarker(hit.point);
+    _previewMarker.traverse(c => { if (c.material) { c.material.opacity = 0.4; c.material.transparent = true; } });
+    controlGroup.add(_previewMarker);
+  }
+  _previewMarker.position.copy(hit.point);
+
+  // If first point exists, show preview line with distance
+  if (measureFirstPoint || selectedWall1) {
+    const p1 = measureFirstPoint || selectedWall1.point;
+    const p2 = hit.point;
+
+    // Remove old preview line
+    if (_previewLine) { controlGroup.remove(_previewLine); _previewLine.geometry?.dispose(); _previewLine.material?.dispose(); }
+    if (_previewLabel) { controlGroup.remove(_previewLabel); _previewLabel.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) { if (c.material.map) c.material.map.dispose(); c.material.dispose(); } }); }
+
+    const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+    _previewLine = new THREE.Line(geo, new THREE.LineDashedMaterial({ color: MEASURE_COLOR, dashSize: 0.05, gapSize: 0.03, depthTest: false, transparent: true, opacity: 0.6 }));
+    _previewLine.computeLineDistances();
+    _previewLine.renderOrder = 998;
+    controlGroup.add(_previewLine);
+
+    // Distance label
+    const dist = p1.distanceTo(p2);
+    const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+    mid.y += 0.15;
+    const canvas2d = document.createElement('canvas');
+    canvas2d.width = 200; canvas2d.height = 48;
+    const ctx = canvas2d.getContext('2d');
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.roundRect(0, 0, 200, 48, 6); ctx.fill();
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 22px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(dist.toFixed(3) + 'm', 100, 32);
+    const tex = new THREE.CanvasTexture(canvas2d);
+    const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true, opacity: 0.8 });
+    _previewLabel = new THREE.Sprite(spriteMat);
+    _previewLabel.position.copy(mid);
+    _previewLabel.scale.set(0.5, 0.12, 1);
+    _previewLabel.renderOrder = 999;
+    controlGroup.add(_previewLabel);
+  }
+}
+
+export function cleanupPreview() {
+  if (_previewMarker) { controlGroup?.remove(_previewMarker); _previewMarker = null; }
+  if (_previewLine) { controlGroup?.remove(_previewLine); _previewLine.geometry?.dispose(); _previewLine.material?.dispose(); _previewLine = null; }
+  if (_previewLabel) { controlGroup?.remove(_previewLabel); _previewLabel.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) { if (c.material.map) c.material.map.dispose(); c.material.dispose(); } }); _previewLabel = null; }
+}
+
+function removePreview() {
+  cleanupPreview();
+  // Also clean up the old module-level preview vars
+  if (previewLine) { controlGroup?.remove(previewLine); previewLine = null; }
+  if (previewLabel) { controlGroup?.remove(previewLabel); previewLabel = null; }
 }
 
 function selectWall(hit, axis) {

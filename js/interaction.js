@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { state, notifySelectionChange, onEditModeChange, setEditMode } from './state.js';
+import { state, notifySelectionChange, onEditModeChange, setEditMode, setMeasureMode, onMeasureModeChange } from './state.js';
 import { FURNITURE_CATALOG, createFurnitureMesh, saveFurnitureToConfig } from './furniture.js';
 import { BOUNDS, disposeObject3D } from './room.js';
 import { undo, redo, pushSnapshot } from './history.js';
-import { hideDimensions, exitMeasureMode } from './dimensions.js';
+import { hideDimensions, exitMeasureMode, cleanupPreview } from './dimensions.js';
 import { lookup, getInteractables, getMesh, register } from './entity-registry.js';
 
 // ─── DRAG & DROP STATE ───
@@ -372,33 +372,48 @@ export function initInteraction() {
     }
   });
 
+  // When measure mode changes, update toolbar + viewport
+  onMeasureModeChange((enabled) => {
+    // Update toolbar mode buttons
+    document.querySelectorAll('#floating-toolbar .toolbar-btn[data-mode]').forEach(btn => {
+      if (enabled) {
+        btn.classList.toggle('active', btn.dataset.mode === 'measure');
+      } else if (!state.editMode) {
+        btn.classList.toggle('active', btn.dataset.mode === 'navigate');
+      }
+    });
+    // Update viewport mode indicator
+    const wrap = document.getElementById('canvas-wrap');
+    const badge = document.getElementById('mode-badge');
+    if (enabled) {
+      if (wrap) { wrap.classList.remove('mode-edit'); wrap.classList.add('mode-measure'); }
+      if (badge) { badge.textContent = 'MÅL'; badge.className = 'mode-badge measure visible'; }
+      canvas.style.cursor = 'crosshair';
+      if (window.eidos?.toast) {
+        window.eidos.toast('Klikk to vegger for avstand, eller to punkter. ESC for å avslutte.', 'info', 4000);
+      }
+    } else {
+      if (wrap) wrap.classList.remove('mode-measure');
+      if (badge && !state.editMode) badge.classList.remove('visible');
+      canvas.style.cursor = '';
+      exitMeasureMode();
+      cleanupPreview();
+    }
+  });
+
   // Wire floating toolbar buttons
   document.querySelectorAll('#floating-toolbar .toolbar-btn[data-mode]').forEach(btn => {
     btn.addEventListener('click', () => {
       const mode = btn.dataset.mode;
       if (mode === 'navigate') {
         setEditMode(false);
-        exitMeasureMode();
+        setMeasureMode(false);
       } else if (mode === 'edit') {
         setEditMode(true);
-        exitMeasureMode();
+        setMeasureMode(false);
       } else if (mode === 'measure') {
         setEditMode(false);
-        // Toggle measure mode visual state
-        const wrap = document.getElementById('canvas-wrap');
-        const badge = document.getElementById('mode-badge');
-        const isActive = btn.classList.contains('active');
-        document.querySelectorAll('#floating-toolbar .toolbar-btn[data-mode]').forEach(b => b.classList.remove('active'));
-        if (isActive) {
-          btn.parentElement.querySelector('[data-mode="navigate"]').classList.add('active');
-          if (wrap) wrap.classList.remove('mode-measure');
-          if (badge) badge.classList.remove('visible');
-          exitMeasureMode();
-        } else {
-          btn.classList.add('active');
-          if (wrap) { wrap.classList.remove('mode-edit'); wrap.classList.add('mode-measure'); }
-          if (badge) { badge.textContent = 'MÅL'; badge.className = 'mode-badge measure visible'; }
-        }
+        setMeasureMode(true);
       }
     });
   });
@@ -594,6 +609,10 @@ export function initInteraction() {
     }
 
     if (e.key === 'Escape') {
+      if (state.measureMode) {
+        setMeasureMode(false);
+        return;
+      }
       if (state.editMode) {
         selectEntity(null, null);
       }
@@ -610,20 +629,12 @@ export function initInteraction() {
     // N key — navigate mode
     if (e.key === 'n' || e.key === 'N') {
       setEditMode(false);
-      exitMeasureMode();
-      // Update toolbar
-      document.querySelectorAll('#floating-toolbar .toolbar-btn[data-mode]').forEach(b => b.classList.remove('active'));
-      document.querySelector('#floating-toolbar .toolbar-btn[data-mode="navigate"]')?.classList.add('active');
-      const wrap = document.getElementById('canvas-wrap');
-      const badge = document.getElementById('mode-badge');
-      if (wrap) { wrap.classList.remove('mode-edit', 'mode-measure'); }
-      if (badge) badge.classList.remove('visible');
+      setMeasureMode(false);
       return;
     }
     // M key — toggle measure mode
     if (e.key === 'm' || e.key === 'M') {
-      const measureBtn = document.querySelector('#floating-toolbar .toolbar-btn[data-mode="measure"]');
-      if (measureBtn) measureBtn.click();
+      setMeasureMode(!state.measureMode);
       return;
     }
 

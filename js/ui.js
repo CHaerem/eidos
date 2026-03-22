@@ -1,6 +1,7 @@
 import { state, onSelectionChange, onXRModeChange, setEditMode } from './state.js';
 import { onFurnitureChange, onCalibrationNeeded } from './interaction.js';
 import { setRoomFocus, clearRoomFocus } from './room-focus.js';
+import { showDimensions } from './dimensions.js';
 // Note: selectEntity imported dynamically in handlePropertyChange to avoid direct coupling
 // interaction.js imports from ui.js, and ui.js uses selectEntity only in property change handlers
 
@@ -79,6 +80,22 @@ function populateRoomNavPills() {
     nameSpan.textContent = room.name || room.id;
     pill.appendChild(nameSpan);
 
+    // Measurement status dot
+    const entries = cfg.measurements?.entries || [];
+    const ct = room.ceilingType || 'flat';
+    const totalDims = 2 + (ct === 'slope' ? 2 : 1); // width + depth + height(s)
+    const measuredDims = entries.filter(e => e.room === room.id).length;
+    const statusDot = document.createElement('span');
+    statusDot.className = 'room-pill-status';
+    if (measuredDims === 0) {
+      statusDot.classList.add('none');
+    } else if (measuredDims >= totalDims) {
+      statusDot.classList.add('complete');
+    } else {
+      statusDot.classList.add('partial');
+    }
+    pill.appendChild(statusDot);
+
     // Eye toggle for wall visibility
     const eye = document.createElement('span');
     eye.className = 'eye-toggle';
@@ -93,7 +110,7 @@ function populateRoomNavPills() {
     });
     pill.appendChild(eye);
 
-    // Click: fly to room
+    // Click: fly to room and show dimensions
     pill.addEventListener('click', (e) => {
       if (e.shiftKey) {
         // Shift+click still works as shortcut
@@ -107,6 +124,7 @@ function populateRoomNavPills() {
         container.querySelectorAll('.room-pill').forEach(p => p.classList.remove('active'));
         pill.classList.add('active');
         document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        showDimensions(room.id, room.floor);
       }
     });
 
@@ -176,6 +194,7 @@ function initToolbarPopovers() {
     'toolbar-furniture': 'furniture-popover',
     'toolbar-simulator': 'simulator-popover',
     'toolbar-views': 'views-popover',
+    'toolbar-photos': 'photos-popover',
     'toolbar-ar': 'ar-popover',
   };
 
@@ -252,6 +271,82 @@ function initXRModeListener() {
   });
 }
 
+// ─── PHOTO COMPARISON ───
+
+function initPhotoPanel() {
+  const grid = document.getElementById('photo-grid');
+  if (!grid) return;
+
+  // Hardcoded file list (these are the actual files in finn_photos/)
+  const photos = [
+    '2f096254-4697-4384-b055-3fbac17923c0.jpg',
+    '31bfa2cc-df8f-4c49-9cec-6fa013862402.jpg',
+    '3a428a2b-8af5-47fe-801f-39a21e4c2f53.jpg',
+    '4cb83d06-21b8-40b0-a4b3-3ad11cc79ebf.jpg',
+    '6059cc2f-e4fb-4411-bbcd-20b84d83d972.jpg',
+    '95b317c4-9f0f-4de9-9fba-fbcd4f8fcb54.jpg',
+    'aed5cea3-49ba-4a2f-b65e-d0a3d2879dd5.jpg',
+    'b00f1102-fc35-49df-8c4f-34f9129a23a2.jpg',
+    'b530af73-b9aa-4432-9e0e-6d25e9da32ec.jpg',
+    'c00c43e8-80c6-4d3c-af87-dc79443d4130.jpg',
+    'd1c76019-74da-4e43-b524-76c397b422dc.jpg',
+    'dfe81945-b8cb-4d56-babd-c9e8b24cc098.jpg',
+    'ee530e17-a013-4f4e-a503-1a0a34ecc770.jpg',
+    'f68df7e3-912a-49b5-a625-d70ad871b4f9.jpg',
+    'fdbc80fa-d0a5-4ae6-ba86-574140206285.jpg'
+  ];
+
+  photos.forEach((file, i) => {
+    const img = document.createElement('img');
+    img.src = `finn_photos/${file}`;
+    img.alt = `Foto ${i + 1}`;
+    img.style.cssText = 'width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px;cursor:pointer;opacity:0.7;transition:opacity 0.15s';
+    img.addEventListener('mouseenter', () => img.style.opacity = '1');
+    img.addEventListener('mouseleave', () => { if (!img.classList.contains('active')) img.style.opacity = '0.7'; });
+    img.addEventListener('click', () => {
+      // Toggle active state
+      grid.querySelectorAll('img').forEach(i2 => { i2.classList.remove('active'); i2.style.opacity = '0.7'; });
+      img.classList.add('active');
+      img.style.opacity = '1';
+      openPhotoOverlay(`finn_photos/${file}`);
+    });
+    grid.appendChild(img);
+  });
+
+  // Wire overlay controls
+  const opacitySlider = document.getElementById('photo-opacity');
+  const overlayImg = document.getElementById('photo-overlay-img');
+  const closeBtn = document.getElementById('photo-overlay-close');
+
+  if (opacitySlider && overlayImg) {
+    opacitySlider.addEventListener('input', () => {
+      overlayImg.style.opacity = opacitySlider.value / 100;
+    });
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closePhotoOverlay);
+  }
+}
+
+function openPhotoOverlay(src) {
+  const overlay = document.getElementById('photo-overlay');
+  const img = document.getElementById('photo-overlay-img');
+  const slider = document.getElementById('photo-opacity');
+  if (!overlay || !img) return;
+  img.src = src;
+  img.style.opacity = (slider?.value || 50) / 100;
+  overlay.style.display = 'block';
+}
+
+function closePhotoOverlay() {
+  const overlay = document.getElementById('photo-overlay');
+  if (overlay) overlay.style.display = 'none';
+  // Clear active state on thumbnails
+  const grid = document.getElementById('photo-grid');
+  if (grid) grid.querySelectorAll('img').forEach(i => { i.classList.remove('active'); i.style.opacity = '0.7'; });
+}
+
 // ─── INIT UI ───
 
 export function initUI() {
@@ -262,6 +357,7 @@ export function initUI() {
   initToolbarPopovers();
   initPropertiesCard();
   initXRModeListener();
+  initPhotoPanel();
 
   // Register decoupled callbacks from interaction.js
   onFurnitureChange(() => renderFurnitureList());

@@ -149,6 +149,8 @@ export function initSimulator() {
   document.querySelectorAll('input[name="dir"]').forEach(r => r.addEventListener('change', updateSimulator));
   document.getElementById('simXSlider').addEventListener('input', updateSimulator);
   document.getElementById('simZSlider').addEventListener('input', updateSimulator);
+  const clearanceToggle = document.getElementById('clearanceOverlay');
+  if (clearanceToggle) clearanceToggle.addEventListener('change', updateSimulator);
 }
 
 function setVal(id, val, unit) {
@@ -425,4 +427,135 @@ export function updateSimulator() {
       linkEl.style.display = 'none';
     }
   }
+
+  // ─── Clearance overlay ───
+  updateClearanceOverlay(golferX, golferZ, sH, sideL, sideR, ceilH, dir, screenDist);
+}
+
+// ─── CLEARANCE OVERLAY ───
+
+function clearanceColor(dist) {
+  if (dist > 0.30) return '#4ade80'; // green
+  if (dist > 0.10) return '#fbbf24'; // yellow
+  return '#f87171';                   // red
+}
+
+function makeClearanceSprite(text, color) {
+  const w = 160, h = 40;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.roundRect(0, 0, w, h, 6);
+  ctx.fill();
+  ctx.fillStyle = color;
+  ctx.font = 'bold 22px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, w / 2, h / 2);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(0.3, 0.075, 1);
+  sprite.renderOrder = 999;
+  return sprite;
+}
+
+function makeClearanceLine(from, to, color) {
+  const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
+  const mat = new THREE.LineBasicMaterial({
+    color: new THREE.Color(color),
+    depthTest: false,
+    linewidth: 2
+  });
+  const line = new THREE.Line(geo, mat);
+  line.renderOrder = 998;
+  return line;
+}
+
+function updateClearanceOverlay(golferX, golferZ, swingH, sideL, sideR, ceilH, dir, screenDist) {
+  const simGroup = state.simGroup;
+  if (!simGroup) return;
+
+  // Find or create the overlay group
+  let overlay = simGroup.getObjectByName('ClearanceOverlay');
+  if (!overlay) {
+    overlay = new THREE.Group();
+    overlay.name = 'ClearanceOverlay';
+    simGroup.add(overlay);
+  }
+
+  // Clear previous children
+  while (overlay.children.length) {
+    const c = overlay.children[0];
+    overlay.remove(c);
+    if (c.geometry) c.geometry.dispose();
+    if (c.material) {
+      if (c.material.map) c.material.map.dispose();
+      c.material.dispose();
+    }
+  }
+
+  // Check toggle
+  const toggle = document.getElementById('clearanceOverlay');
+  if (toggle && !toggle.checked) {
+    overlay.visible = false;
+    return;
+  }
+  overlay.visible = true;
+
+  const lineY = 1.0; // lines at ~1m height
+
+  // ─── Horizontal distance lines ───
+
+  // Left: golfer → west wall (BOUNDS.minX)
+  const leftFrom = new THREE.Vector3(golferX, lineY, golferZ);
+  const leftTo = new THREE.Vector3(BOUNDS.minX, lineY, golferZ);
+  const leftColor = clearanceColor(sideL);
+  overlay.add(makeClearanceLine(leftFrom, leftTo, leftColor));
+  const leftLabel = makeClearanceSprite(sideL.toFixed(2) + 'm', leftColor);
+  leftLabel.position.set((golferX + BOUNDS.minX) / 2, lineY + 0.12, golferZ);
+  overlay.add(leftLabel);
+
+  // Right: golfer → east wall (BOUNDS.maxX)
+  const rightFrom = new THREE.Vector3(golferX, lineY, golferZ);
+  const rightTo = new THREE.Vector3(BOUNDS.maxX, lineY, golferZ);
+  const rightColor = clearanceColor(sideR);
+  overlay.add(makeClearanceLine(rightFrom, rightTo, rightColor));
+  const rightLabel = makeClearanceSprite(sideR.toFixed(2) + 'm', rightColor);
+  rightLabel.position.set((golferX + BOUNDS.maxX) / 2, lineY + 0.12, golferZ);
+  overlay.add(rightLabel);
+
+  // Front: golfer → south wall (BOUNDS.minZ)
+  const frontDist = golferZ - BOUNDS.minZ;
+  const frontFrom = new THREE.Vector3(golferX, lineY, golferZ);
+  const frontTo = new THREE.Vector3(golferX, lineY, BOUNDS.minZ);
+  const frontColor = clearanceColor(frontDist);
+  overlay.add(makeClearanceLine(frontFrom, frontTo, frontColor));
+  const frontLabel = makeClearanceSprite(frontDist.toFixed(2) + 'm', frontColor);
+  frontLabel.position.set(golferX, lineY + 0.12, (golferZ + BOUNDS.minZ) / 2);
+  overlay.add(frontLabel);
+
+  // Back: golfer → north wall (BOUNDS.maxZ)
+  const backDist = BOUNDS.maxZ - golferZ;
+  const backFrom = new THREE.Vector3(golferX, lineY, golferZ);
+  const backTo = new THREE.Vector3(golferX, lineY, BOUNDS.maxZ);
+  const backColor = clearanceColor(backDist);
+  overlay.add(makeClearanceLine(backFrom, backTo, backColor));
+  const backLabel = makeClearanceSprite(backDist.toFixed(2) + 'm', backColor);
+  backLabel.position.set(golferX, lineY + 0.12, (golferZ + BOUNDS.maxZ) / 2);
+  overlay.add(backLabel);
+
+  // ─── Vertical ceiling clearance line ───
+  const ceilClearance = ceilH - swingH;
+  const vertFrom = new THREE.Vector3(golferX, swingH, golferZ);
+  const vertTo = new THREE.Vector3(golferX, ceilH, golferZ);
+  const vertColor = clearanceColor(ceilClearance);
+  overlay.add(makeClearanceLine(vertFrom, vertTo, vertColor));
+  const vertLabel = makeClearanceSprite(ceilClearance.toFixed(2) + 'm', vertColor);
+  vertLabel.position.set(golferX + 0.15, (swingH + ceilH) / 2, golferZ);
+  overlay.add(vertLabel);
 }
