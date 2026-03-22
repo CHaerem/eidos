@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { state } from './state.js';
-import { CEIL, BOUNDS, ceilAt } from './room.js';
+import { BOUNDS, ceilAt } from './room.js';
 import { register } from './entity-registry.js';
 
 // ─── ROOM DETAILS: windows, door frames, baseboards, interior walls ───
@@ -45,7 +45,7 @@ function buildWindows(parent) {
   const windowGroup = new THREE.Group();
   windowGroup.name = 'Windows';
 
-  const z = CEIL.windowZ;
+  const z = BOUNDS.minZ;
   const frameDepth = 0.06;
   const frameWidth = 0.05;
 
@@ -74,7 +74,7 @@ function buildWindows(parent) {
 
     if (win.wall === 'west') {
       // West wall window — oriented along Z axis
-      const x = CEIL.roomMinX;
+      const x = BOUNDS.minX;
       const w = win.z2 - win.z1;
       const cz = (win.z1 + win.z2) / 2;
 
