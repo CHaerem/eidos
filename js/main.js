@@ -8,6 +8,7 @@ import { initUI } from './ui.js';
 import { initEidosAPI } from './eidos-api.js';
 import { initDimensionClick } from './dimensions.js';
 import { loadFurnitureFromConfig } from './furniture.js';
+import { initAR } from './ar.js';
 
 async function init() {
   initScene();
@@ -29,6 +30,9 @@ async function init() {
 
   // Enable click-to-edit on dimension labels in 3D viewport
   initDimensionClick();
+
+  // Initialize AR capabilities and wire AR toolbar buttons
+  initAR();
 
   // Default view: fly to stue (largest room, most useful starting point)
   const stue = state.apartmentConfig?.rooms?.find(r => r.id === 'stue');

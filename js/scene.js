@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { state } from './state.js';
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+import { state, setXRMode } from './state.js';
 import { BOUNDS } from './room.js';
 import { clearRoomFocus } from './room-focus.js';
 import { updateDimensionPulse } from './dimensions.js';
+import { updateAR } from './ar.js';
 
 // ─── THREE.JS SCENE SETUP ───
 
@@ -24,6 +26,7 @@ export function initScene() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.2;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.xr.enabled = true;
   wrap.appendChild(renderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -70,27 +73,264 @@ export function initScene() {
   // Compass rotation element (updated each frame)
   const compassRing = document.getElementById('compass-ring');
 
-  // Animation loop
-  function animate() {
-    requestAnimationFrame(animate);
+  // ─── WebXR / VR Setup ───
+
+  // VR camera rig — a group we can move around (teleport)
+  const vrRig = new THREE.Group();
+  vrRig.position.set(0, 0, 0);
+  scene.add(vrRig);
+  vrRig.add(camera);
+  state.vrRig = vrRig;
+
+  // Controllers
+  const controllerModelFactory = new XRControllerModelFactory();
+
+  const controller0 = renderer.xr.getController(0);
+  vrRig.add(controller0);
+  const controller1 = renderer.xr.getController(1);
+  vrRig.add(controller1);
+
+  const grip0 = renderer.xr.getControllerGrip(0);
+  grip0.add(controllerModelFactory.createControllerModel(grip0));
+  vrRig.add(grip0);
+  const grip1 = renderer.xr.getControllerGrip(1);
+  grip1.add(controllerModelFactory.createControllerModel(grip1));
+  vrRig.add(grip1);
+
+  // Teleport ray — visible line from controller
+  const teleportLineGeom = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0, 0, -5)
+  ]);
+  const teleportLineMat = new THREE.LineBasicMaterial({ color: 0x4488ff, linewidth: 2 });
+  const teleportLine = new THREE.Line(teleportLineGeom, teleportLineMat);
+  teleportLine.visible = false;
+  controller0.add(teleportLine);
+
+  // Teleport target marker
+  const teleportMarker = new THREE.Mesh(
+    new THREE.RingGeometry(0.15, 0.25, 32).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0x4488ff, transparent: true, opacity: 0.6 })
+  );
+  teleportMarker.visible = false;
+  scene.add(teleportMarker);
+
+  // Raycaster for teleport
+  const vrRaycaster = new THREE.Raycaster();
+  const tempMatrix = new THREE.Matrix4();
+  let teleportTarget = null;
+
+  // Find floor mesh for raycasting (WholeFloor or any horizontal surface at y≈0)
+  function getFloorMeshes() {
+    const floors = [];
+    scene.traverse(obj => {
+      if (obj.isMesh && obj.name && (obj.name.includes('Floor') || obj.name.includes('floor'))) {
+        floors.push(obj);
+      }
+    });
+    // Fallback: invisible floor plane for raycasting
+    if (floors.length === 0) {
+      const floorPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(30, 30).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      floorPlane.position.y = BOUNDS.floorY || 0;
+      scene.add(floorPlane);
+      floors.push(floorPlane);
+    }
+    return floors;
+  }
+
+  // Squeeze button (grip) = teleport aim
+  controller0.addEventListener('squeezestart', () => {
+    if (!renderer.xr.isPresenting) return;
+    teleportLine.visible = true;
+  });
+
+  controller0.addEventListener('squeezeend', () => {
+    if (!renderer.xr.isPresenting) return;
+    teleportLine.visible = false;
+    teleportMarker.visible = false;
+    if (teleportTarget) {
+      vrRig.position.x = teleportTarget.x;
+      vrRig.position.z = teleportTarget.z;
+      teleportTarget = null;
+    }
+  });
+
+  // Thumbstick smooth locomotion
+  const vrSpeed = 2.0; // m/s
+  const vrRotSpeed = 1.5; // rad/s
+
+  // Store pre-XR camera state for clean restore
+  let preXRCameraPos = null;
+  let preXRTarget = null;
+
+  // Programmatic VR session start (called from toolbar button)
+  window._startVRSession = async function() {
+    if (!navigator.xr) return;
+    try {
+      const session = await navigator.xr.requestSession('immersive-vr', {
+        optionalFeatures: ['local-floor', 'bounded-floor']
+      });
+      renderer.xr.setSession(session);
+    } catch (e) {
+      console.warn('VR session failed:', e);
+    }
+  };
+
+  // Track XR session state
+  renderer.xr.addEventListener('sessionstart', () => {
+    // Save camera state for clean restore
+    preXRCameraPos = camera.position.clone();
+    preXRTarget = controls.target.clone();
+
+    // Position player in the living room at standing height
+    const cx = (BOUNDS.minX + BOUNDS.maxX) / 2;
+    const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2;
+    vrRig.position.set(cx, BOUNDS.floorY || 0, cz);
+
+    // Detach camera from orbit controls during VR
+    controls.enabled = false;
+
+    // Notify state system + hide UI
+    setXRMode('vr');
+    document.body.classList.add('xr-active');
+  });
+
+  renderer.xr.addEventListener('sessionend', () => {
+    // Restore orbit controls
+    vrRig.position.set(0, 0, 0);
+    vrRig.remove(camera);
+
+    // Restore pre-VR camera position
+    if (preXRCameraPos) {
+      camera.position.copy(preXRCameraPos);
+      controls.target.copy(preXRTarget);
+    } else {
+      camera.position.set(8, 6, 10);
+      controls.target.set(0, 1, 0);
+    }
+
+    controls.enabled = true;
+    vrRig.add(camera);
     controls.update();
+
+    // Notify state system + restore UI
+    setXRMode(null);
+    document.body.classList.remove('xr-active');
+    preXRCameraPos = null;
+    preXRTarget = null;
+  });
+
+  // Check VR support and configure toolbar button
+  async function initVRButton() {
+    const vrBtn = document.getElementById('toolbar-vr');
+    if (!vrBtn) return;
+    if (navigator.xr) {
+      const supported = await navigator.xr.isSessionSupported('immersive-vr');
+      if (supported) {
+        vrBtn.disabled = false;
+        vrBtn.title = 'VR Walkthrough (V)';
+        vrBtn.addEventListener('click', () => window._startVRSession());
+      } else {
+        vrBtn.disabled = true;
+        vrBtn.title = 'VR ikke støttet';
+      }
+    } else {
+      vrBtn.disabled = true;
+      vrBtn.title = 'WebXR ikke tilgjengelig';
+    }
+  }
+  initVRButton();
+
+  // Animation loop — must use setAnimationLoop for WebXR
+  const clock = new THREE.Clock();
+
+  renderer.setAnimationLoop(function xrAnimate(timestamp, frame) {
+    const dt = clock.getDelta();
+
+    if (renderer.xr.isPresenting) {
+      const session = renderer.xr.getSession();
+
+      // AR hit-test update (furniture/table placement)
+      if (state.xrMode === 'ar-furniture' || state.xrMode === 'ar-table') {
+        updateAR(frame);
+      }
+
+      // Thumbstick smooth locomotion
+      if (session && session.inputSources) {
+        for (const source of session.inputSources) {
+          if (source.gamepad && source.gamepad.axes.length >= 4) {
+            const axes = source.gamepad.axes;
+
+            // Determine which hand: right hand = move, left hand = rotate
+            if (source.handedness === 'right') {
+              // Right thumbstick: forward/back (axes[3]) and strafe (axes[2])
+              const forward = -axes[3]; // push up = forward
+              const strafe = axes[2];   // push right = strafe right
+
+              if (Math.abs(forward) > 0.15 || Math.abs(strafe) > 0.15) {
+                // Get camera forward direction (horizontal only)
+                const dir = new THREE.Vector3();
+                camera.getWorldDirection(dir);
+                dir.y = 0;
+                dir.normalize();
+
+                // Strafe direction (perpendicular)
+                const right = new THREE.Vector3();
+                right.crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
+
+                vrRig.position.addScaledVector(dir, forward * vrSpeed * dt);
+                vrRig.position.addScaledVector(right, strafe * vrSpeed * dt);
+              }
+            } else if (source.handedness === 'left') {
+              // Left thumbstick horizontal: snap-turn rotation
+              const rotate = axes[2];
+              if (Math.abs(rotate) > 0.15) {
+                vrRig.rotateY(-rotate * vrRotSpeed * dt);
+              }
+            }
+          }
+        }
+      }
+
+      // Teleport ray update
+      if (teleportLine.visible) {
+        tempMatrix.identity().extractRotation(controller0.matrixWorld);
+        vrRaycaster.ray.origin.setFromMatrixPosition(controller0.matrixWorld);
+        vrRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+        const floors = getFloorMeshes();
+        const hits = vrRaycaster.intersectObjects(floors, true);
+        if (hits.length > 0) {
+          teleportTarget = hits[0].point.clone();
+          teleportMarker.position.copy(teleportTarget);
+          teleportMarker.position.y += 0.02;
+          teleportMarker.visible = true;
+        } else {
+          teleportTarget = null;
+          teleportMarker.visible = false;
+        }
+      }
+    } else {
+      controls.update();
+    }
+
     updateDimensionPulse();
     renderer.render(scene, camera);
 
-    // Rotate compass: project world north (+Z) onto screen to find angle
-    if (compassRing) {
+    // Rotate compass (only outside VR)
+    if (!renderer.xr.isPresenting && compassRing) {
       const t = controls.target;
       const origin = t.clone().project(camera);
       const north = new THREE.Vector3(t.x, t.y, t.z + 1).project(camera);
-      // Screen-space delta (Y is inverted: screen Y goes down)
       const sx = north.x - origin.x;
       const sy = -(north.y - origin.y);
-      // Angle from screen-up (-Y) to north direction; compass SVG has N at top (0°)
       const angle = Math.atan2(sx, -sy) * (180 / Math.PI);
       compassRing.setAttribute('transform', `rotate(${angle}, 50, 50)`);
     }
-  }
-  animate();
+  });
 
   // Resize handler
   window.addEventListener('resize', () => {

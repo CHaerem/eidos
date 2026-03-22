@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { state, onSelectionChange } from './state.js';
+import { state, onSelectionChange, onXRModeChange, setEditMode } from './state.js';
 import { FURNITURE_CATALOG } from './furniture.js';
 import { BOUNDS, ceilAt } from './room.js';
 import { solveConstraints, applyToConfig } from './solver.js';
@@ -66,7 +66,6 @@ function populateFurnitureSelect() {
 // ─── APARTMENT INFO ───
 
 function populateApartmentInfo() {
-  // Compact summary line (replaces full info-grid section)
   const summary = document.getElementById('apartment-summary');
   if (!summary) return;
 
@@ -81,7 +80,8 @@ function populateApartmentInfo() {
   const totalRooms = roomCount + upperRoomCount;
   const floors = cfg.upperFloor ? 2 : 1;
 
-  summary.textContent = `${cfg.name || 'Bolig'} · ${width}×${depth}m · ${floors} etg · ${totalRooms} rom`;
+  const shortName = (cfg.name || 'Bolig').replace(/,.*$/, '');
+  summary.textContent = `${shortName} \u00b7 ${width}\u00d7${depth}m \u00b7 ${totalRooms} rom`;
 }
 
 // ─── VIEW BUTTON ACTIVE STATE ───
@@ -99,80 +99,6 @@ function initViewButtons() {
 
 // ─── PANEL COLLAPSE / EXPAND ───
 
-function initPanelToggle() {
-  const panel = document.getElementById('panel');
-  const collapseBtn = document.getElementById('panel-collapse');
-  const toggleBtn = document.getElementById('panel-toggle');
-
-  if (collapseBtn) {
-    collapseBtn.addEventListener('click', () => {
-      panel.classList.add('collapsed');
-      if (toggleBtn) toggleBtn.style.display = 'flex';
-    });
-  }
-
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', () => {
-      panel.classList.remove('collapsed');
-      toggleBtn.style.display = 'none';
-    });
-  }
-}
-
-// ─── MOBILE PANEL SWIPE ───
-
-function initMobilePanel() {
-  const panel = document.getElementById('panel');
-  if (!panel) return;
-
-  // Detect mobile viewport
-  const isMobile = () => window.innerWidth <= 768;
-  if (!isMobile()) return;
-
-  const header = document.getElementById('panel-header');
-  if (!header) return;
-
-  let startY = 0;
-  let startTransform = 0;
-  let dragging = false;
-
-  header.addEventListener('touchstart', (e) => {
-    if (!isMobile()) return;
-    startY = e.touches[0].clientY;
-    const expanded = panel.classList.contains('mobile-expanded');
-    startTransform = expanded ? 0 : panel.offsetHeight - 52;
-    dragging = true;
-    panel.style.transition = 'none';
-  }, { passive: true });
-
-  header.addEventListener('touchmove', (e) => {
-    if (!dragging || !isMobile()) return;
-    const dy = e.touches[0].clientY - startY;
-    const newY = Math.max(0, startTransform + dy);
-    panel.style.transform = `translateY(${newY}px)`;
-  }, { passive: true });
-
-  header.addEventListener('touchend', (e) => {
-    if (!dragging || !isMobile()) return;
-    dragging = false;
-    panel.style.transition = '';
-    const dy = e.changedTouches[0].clientY - startY;
-    if (dy > 60) {
-      // Swipe down → collapse
-      panel.classList.remove('mobile-expanded');
-    } else if (dy < -60) {
-      // Swipe up → expand
-      panel.classList.add('mobile-expanded');
-    }
-    panel.style.transform = '';
-  });
-
-  // Tap header to toggle
-  header.addEventListener('click', () => {
-    if (!isMobile()) return;
-    panel.classList.toggle('mobile-expanded');
-  });
-}
 
 // ─── HISTORY PANEL ───
 
@@ -417,13 +343,12 @@ function toggleRoomWalls(roomId, bounds, visible) {
 
 export function initUI() {
   initViewButtons();
-  initPanelToggle();
-  initPanelTabs();
-  initCollapsible();
   initVisibilityToggles();
   initHistoryPanel();
-  initMobilePanel();
   initPropertiesPanel();
+  initToolbarPopovers();
+  initPropertiesCard();
+  initXRModeListener();
 
   // Populate apartment info, calibration, and room pills once config is loaded
   if (state.apartmentConfig) {
@@ -453,49 +378,88 @@ export function initUI() {
   }
 }
 
-function initPanelTabs() {
-  const tabs = document.querySelectorAll('.panel-tab');
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const targetId = tab.dataset.tab;
-      // Deactivate all tabs and panels
-      tabs.forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-      // Activate clicked tab and its panel
-      tab.classList.add('active');
-      const panel = document.getElementById(targetId);
-      if (panel) panel.classList.add('active');
-    });
-  });
-}
+function initToolbarPopovers() {
+  const popoverMap = {
+    'toolbar-furniture': 'furniture-popover',
+    'toolbar-simulator': 'simulator-popover',
+    'toolbar-views': 'views-popover',
+    'toolbar-ar': 'ar-popover',
+  };
 
-function initCollapsible() {
-  // Accordion behavior — only one section open at a time
-  document.querySelectorAll('.panel-section.collapsible h3').forEach(h3 => {
-    h3.addEventListener('click', () => {
-      const section = h3.parentElement;
-      const wasOpen = section.classList.contains('open');
-      // Close all collapsible sections
-      document.querySelectorAll('.panel-section.collapsible.open').forEach(s => {
-        s.classList.remove('open');
-      });
-      // Toggle the clicked one (if it was closed, open it)
-      if (!wasOpen) section.classList.add('open');
-    });
-  });
-
-  // ? button → shortcuts tooltip
-  const helpBtn = document.getElementById('shortcutsHelp');
-  const tooltip = document.getElementById('shortcuts-tooltip');
-  if (helpBtn && tooltip) {
-    helpBtn.addEventListener('click', () => tooltip.classList.toggle('visible'));
-    document.addEventListener('click', (e) => {
-      if (!tooltip.contains(e.target) && e.target !== helpBtn) {
-        tooltip.classList.remove('visible');
-      }
-    });
+  function togglePopover(popover, btn) {
+    const wasVisible = popover.classList.contains('visible');
+    closeAllPopovers();
+    if (!wasVisible) {
+      popover.classList.add('visible');
+      btn.classList.add('popover-active');
+      // Position popover centered above its button
+      const rect = btn.getBoundingClientRect();
+      const popW = popover.offsetWidth;
+      popover.style.left = Math.max(10, Math.min(window.innerWidth - popW - 10, rect.left + rect.width / 2 - popW / 2)) + 'px';
+    }
   }
+
+  for (const [btnId, popId] of Object.entries(popoverMap)) {
+    const btn = document.getElementById(btnId);
+    const pop = document.getElementById(popId);
+    if (btn && pop) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePopover(pop, btn);
+      });
+    }
+  }
+
+  // Close popovers on outside click
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.toolbar-popover') && !e.target.closest('#floating-toolbar')) {
+      closeAllPopovers();
+    }
+  });
 }
+
+function closeAllPopovers() {
+  document.querySelectorAll('.toolbar-popover').forEach(p => p.classList.remove('visible'));
+  document.querySelectorAll('.toolbar-btn').forEach(b => b.classList.remove('popover-active'));
+}
+
+
+// ─── XR MODE LISTENER ───
+
+function initXRModeListener() {
+  onXRModeChange((mode) => {
+    // Close all popovers when entering XR
+    closeAllPopovers();
+
+    if (mode) {
+      // Entering XR — exit edit/measure mode, clear selection
+      setEditMode(false);
+
+      // Exit measure mode if active
+      const measureBtn = document.querySelector('#floating-toolbar .toolbar-btn[data-mode="measure"]');
+      if (measureBtn && measureBtn.classList.contains('active')) {
+        const navBtn = document.querySelector('#floating-toolbar .toolbar-btn[data-mode="navigate"]');
+        measureBtn.classList.remove('active');
+        if (navBtn) navBtn.classList.add('active');
+        const wrap = document.getElementById('canvas-wrap');
+        if (wrap) wrap.classList.remove('mode-measure');
+        const badge = document.getElementById('mode-badge');
+        if (badge) badge.classList.remove('visible');
+      }
+
+      // Hide properties panel
+      const propSection = document.getElementById('properties-section');
+      if (propSection) propSection.style.display = 'none';
+    }
+
+    // Update VR/AR toolbar button active states
+    const vrBtn = document.getElementById('toolbar-vr');
+    const arBtn = document.getElementById('toolbar-ar');
+    if (vrBtn) vrBtn.classList.toggle('active', mode === 'vr');
+    if (arBtn) arBtn.classList.toggle('active', mode === 'ar-furniture' || mode === 'ar-table');
+  });
+}
+
 
 // ─── ROOM CALIBRATION (Tikhonov solver) ───
 
@@ -785,10 +749,8 @@ function countSharedWalls(room, allRooms, cfg) {
 }
 
 function setCalibrationFocusMode(active) {
-  // Hide/show all non-essential panel sections during calibration
-  const panel = document.getElementById('panel');
-  if (!panel) return;
-  panel.classList.toggle('cal-focus', active);
+  const calCard = document.getElementById('calibration-card');
+  if (calCard) calCard.style.display = active ? '' : 'none';
 
   // Hide/show 3D distractions (furniture, simulator, compass)
   if (!state.scene) return;
@@ -1154,18 +1116,30 @@ function initPropertiesPanel() {
   });
 }
 
+function initPropertiesCard() {
+  const closeBtn = document.getElementById('properties-card-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      const card = document.getElementById('properties-card');
+      if (card) card.style.display = 'none';
+      // Clear selection
+      if (window.eidos) window.eidos.selectEntity(null, null);
+    });
+  }
+}
+
 function renderProperties(entity) {
-  const section = document.getElementById('properties-section');
+  const card = document.getElementById('properties-card');
   const panel = document.getElementById('properties-panel');
-  if (!section || !panel) return;
+  if (!card || !panel) return;
 
   if (!entity) {
-    section.style.display = 'none';
+    card.style.display = 'none';
     panel.innerHTML = '';
     return;
   }
 
-  section.style.display = '';
+  card.style.display = '';
   const cfg = state.apartmentConfig;
   if (!cfg) return;
 

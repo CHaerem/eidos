@@ -44,6 +44,12 @@ export const state = {
   // Edit mode — when false, only orbit navigation works (no selection/drag)
   editMode: false,
 
+  // XR mode — null | 'vr' | 'ar-furniture' | 'ar-table'
+  xrMode: null,
+
+  // VR rig (set by scene.js)
+  vrRig: null,
+
   // Simulator state (managed by simulator.js)
   simGroup: null,
   arcMesh: null,
@@ -88,5 +94,28 @@ export function setEditMode(enabled) {
   state.editMode = enabled;
   for (const cb of _editModeListeners) {
     try { cb(enabled); } catch (e) { console.warn('Edit mode listener error:', e); }
+  }
+}
+
+// ─── XR Mode (VR/AR) ───
+
+const _xrModeListeners = [];
+
+/**
+ * Register a listener for XR mode changes.
+ * Callback receives (mode: null | 'vr' | 'ar-furniture' | 'ar-table').
+ */
+export function onXRModeChange(callback) {
+  _xrModeListeners.push(callback);
+}
+
+/**
+ * Set XR mode, notifying all listeners.
+ */
+export function setXRMode(mode) {
+  if (state.xrMode === mode) return;
+  state.xrMode = mode;
+  for (const cb of _xrModeListeners) {
+    try { cb(mode); } catch (e) { console.warn('XR mode listener error:', e); }
   }
 }
