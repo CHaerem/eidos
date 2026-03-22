@@ -1,10 +1,90 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+// ─── GLB LOADER (singleton) ───
+const _gltfLoader = new GLTFLoader();
+const _dracoLoader = new DRACOLoader();
+_dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+_dracoLoader.setDecoderConfig({ type: 'js' });
+_gltfLoader.setDRACOLoader(_dracoLoader);
+
+// Cache loaded GLB scenes to avoid re-fetching
+const _glbCache = new Map();
+
+/**
+ * Load a GLB file and return a cloned scene group.
+ * Caches the original for fast re-use.
+ * @param {string} url - Path to .glb file (e.g. 'models/furniture/besta.glb')
+ * @param {object} opts - { scale, rotateY } for fitting the model
+ * @returns {Promise<THREE.Group>}
+ */
+export async function loadGLB(url, opts = {}) {
+  let original = _glbCache.get(url);
+
+  if (!original) {
+    const gltf = await new Promise((resolve, reject) => {
+      _gltfLoader.load(url, resolve, undefined, reject);
+    });
+    original = gltf.scene;
+    _glbCache.set(url, original);
+  }
+
+  const clone = original.clone(true);
+
+  // Clone materials to avoid cross-contamination
+  clone.traverse(obj => {
+    if (obj.isMesh && obj.material) {
+      obj.material = Array.isArray(obj.material)
+        ? obj.material.map(m => m.clone())
+        : obj.material.clone();
+    }
+  });
+
+  // Apply scale
+  if (opts.scale) {
+    clone.scale.setScalar(opts.scale);
+  }
+
+  // Apply Y rotation (degrees)
+  if (opts.rotateY) {
+    clone.rotation.y = opts.rotateY * Math.PI / 180;
+  }
+
+  // Normalize: put base at Y=0 and center on XZ
+  const box = new THREE.Box3().setFromObject(clone);
+  if (!box.isEmpty()) {
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+
+    // Shift so bottom sits at Y=0, centered on XZ
+    clone.position.set(-center.x, -box.min.y, -center.z);
+
+    // Wrap in group so position offset is internal
+    const wrapper = new THREE.Group();
+    wrapper.add(clone);
+    wrapper.userData._glbSize = { w: size.x, h: size.y, d: size.z };
+    return wrapper;
+  }
+
+  return clone;
+}
 
 // ─── FURNITURE CATALOG ───
+// Items with 'glb' property will load real 3D models.
+// Items without 'glb' use the built-in box/custom mesh as fallback.
 export const FURNITURE_CATALOG = {
+  // ─── IKEA GLB models (real 3D from IKEA's CDN) ───
+  kallax:      { name: 'KALLAX Hylle (2×2)', w: 0.77, h: 0.77, d: 0.39, color: 0xFFFFFF, glb: 'models/furniture/kallax.glb', ikea: '20275814' },
+  kallax_2x4:  { name: 'KALLAX Hylle (2×4)', w: 0.77, h: 1.47, d: 0.39, color: 0xFFFFFF, glb: 'models/furniture/kallax-2x4.glb', ikea: '40346924' },
+  billy:       { name: 'BILLY Bokhylle', w: 0.80, h: 2.02, d: 0.28, color: 0xFFFFFF, glb: 'models/furniture/billy-bokhylle.glb', ikea: '00263850' },
+
+  // ─── Custom-built models (detailed geometry in code) ───
   besta_3x:    { name: 'BESTÅ skap (3×)', w: 1.80, h: 1.92, d: 0.40, color: 0x3B3B3B, custom: 'besta' },
   soderhamn:   { name: 'Söderhamn hjørne 3-s', w: 1.92, h: 0.83, d: 1.92, color: 0x8B8B8B, custom: 'soderhamn' },
   cana_tv:     { name: 'Bolia Cana + Frame TV', w: 1.28, h: 1.11, d: 0.40, color: 0xC4A87C, custom: 'cana_tv' },
+
+  // ─── Generic fallbacks (box geometry with correct dimensions) ───
   sofa_3:      { name: 'Sofa (3-seter)', w: 2.1, h: 0.85, d: 0.9, color: 0x6B4C3B },
   sofa_2:      { name: 'Sofa (2-seter)', w: 1.5, h: 0.85, d: 0.9, color: 0x6B4C3B },
   stol:        { name: 'Lenestol', w: 0.85, h: 0.85, d: 0.85, color: 0x7B5C4B },
@@ -343,8 +423,14 @@ function createCanaTv(group) {
 }
 
 // ─── FACTORY ───
+
+/**
+ * Create furniture mesh synchronously (fallback/box geometry).
+ * Used when GLB is not available or for immediate placement.
+ */
 export function createFurnitureMesh(type) {
   const cat = FURNITURE_CATALOG[type];
+  if (!cat) return null;
   const group = new THREE.Group();
 
   if (cat.custom === 'besta') {
@@ -375,6 +461,44 @@ export function createFurnitureMesh(type) {
   return group;
 }
 
+/**
+ * Create furniture mesh — loads GLB if available, falls back to box geometry.
+ * Always returns a THREE.Group with correct position/scale.
+ */
+export async function createFurnitureMeshAsync(type) {
+  const cat = FURNITURE_CATALOG[type];
+  if (!cat) return null;
+
+  // Try GLB first
+  if (cat.glb) {
+    try {
+      const group = await loadGLB(cat.glb, {
+        scale: cat.glbScale || 1,
+        rotateY: cat.glbRotateY || 0,
+      });
+      addLabel(cat.name, cat.h, group);
+      enableShadows(group);
+      group.userData.type = type;
+      group.userData.entityType = 'furniture';
+      group.userData.isGLB = true;
+      return group;
+    } catch (e) {
+      console.warn(`GLB load failed for ${type} (${cat.glb}), using fallback:`, e.message);
+    }
+  }
+
+  // Fallback to built-in mesh
+  return createFurnitureMesh(type);
+}
+
+/**
+ * Add a new furniture type to the catalog at runtime.
+ * Used by the Claude skill to add IKEA models.
+ */
+export function addToCatalog(id, entry) {
+  FURNITURE_CATALOG[id] = entry;
+}
+
 // ─── PERSISTENCE ───
 
 import { state } from './state.js';
@@ -384,15 +508,19 @@ import { register } from './entity-registry.js';
  * Load furniture placements from config and recreate meshes.
  * Called once at startup from main.js.
  */
-export function loadFurnitureFromConfig() {
+export async function loadFurnitureFromConfig() {
   const cfg = state.apartmentConfig;
   if (!cfg?.furniture?.length) return;
 
-  for (const entry of cfg.furniture) {
+  // Load all furniture in parallel (GLB models load async)
+  const loadPromises = cfg.furniture.map(async (entry) => {
     const cat = FURNITURE_CATALOG[entry.type];
-    if (!cat) continue;
+    if (!cat) return;
 
-    const mesh = createFurnitureMesh(entry.type);
+    // Use async loader (tries GLB first, falls back to box)
+    const mesh = await createFurnitureMeshAsync(entry.type);
+    if (!mesh) return;
+
     const x = entry.x ?? 0;
     const z = entry.z ?? 0;
     const rotation = entry.rotation ?? 0;
@@ -409,7 +537,9 @@ export function loadFurnitureFromConfig() {
     register('furniture', String(id), mesh);
 
     state.placedItems.push({ id, type: entry.type, x, z, rotation, mesh });
-  }
+  });
+
+  await Promise.all(loadPromises);
 }
 
 /**

@@ -20,7 +20,8 @@ async function init() {
   updateSimulator();
 
   // Load furniture placements from config (must be after initInteraction + initUI)
-  loadFurnitureFromConfig();
+  // Async: GLB models load in parallel, box fallbacks are instant
+  await loadFurnitureFromConfig();
 
   // Expose state for debugging (accessible via window._state.scene etc.)
   window._state = state;
