@@ -13,6 +13,29 @@ import { setRoomFocus, clearRoomFocus } from './room-focus.js';
 import { pushSnapshot, undo, redo, canUndo, canRedo, getHistorySize, getEntries, jumpTo } from './history.js';
 import { clear as clearEntityRegistry, getMesh, lookup, getAllOfType } from './entity-registry.js';
 
+// ─── Toast Notification System ───
+
+/**
+ * Show a toast notification.
+ * @param {string} message - Text to display
+ * @param {'info'|'success'|'error'} type - Toast type
+ * @param {number} duration - Duration in ms (default 3000)
+ */
+export function showToast(message, type = 'info', duration = 3000) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add('fade-out');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
 // ─── JSON path helpers ───
 
 function getByPath(obj, path) {
@@ -287,5 +310,21 @@ const eidos = {
 
 export function initEidosAPI() {
   window.eidos = eidos;
+  window.eidos.toast = showToast;
+
+  // Wire undo/redo with toast feedback
+  window._undo = () => {
+    undo(async () => {
+      await eidos.rebuild();
+      showToast('Angret', 'info', 1500);
+    });
+  };
+  window._redo = () => {
+    redo(async () => {
+      await eidos.rebuild();
+      showToast('Gjort om', 'info', 1500);
+    });
+  };
+
   console.log('Eidos API ready — use window.eidos.*');
 }

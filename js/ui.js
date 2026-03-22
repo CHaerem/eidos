@@ -7,7 +7,8 @@ import { showDimensions, showSingleDimension, hideDimensions, toggleMeasureMode,
 import { setRoomFocus, clearRoomFocus } from './room-focus.js';
 import { pushSnapshot, getEntries, getPointer, getFullEntries, jumpTo, setHistoryChangeListener } from './history.js';
 import { showHistoryDiff, clearHistoryDiff, computeDiff, getDiffSummary } from './history-diff.js';
-// Note: selectEntity is imported dynamically in handlePropertyChange to avoid circular dependency
+import { onFurnitureChange, onCalibrationNeeded } from './interaction.js';
+// Note: selectEntity imported dynamically in handlePropertyChange to avoid direct coupling
 // interaction.js imports from ui.js, and ui.js uses selectEntity only in property change handlers
 
 // ─── FURNITURE LIST RENDERING ───
@@ -349,6 +350,10 @@ export function initUI() {
   initToolbarPopovers();
   initPropertiesCard();
   initXRModeListener();
+
+  // Register decoupled callbacks from interaction.js
+  onFurnitureChange(() => renderFurnitureList());
+  onCalibrationNeeded(() => populateCalibration());
 
   // Populate apartment info, calibration, and room pills once config is loaded
   if (state.apartmentConfig) {
@@ -1251,6 +1256,7 @@ function renderProperties(entity) {
 }
 
 async function handlePropertyChange(e) {
+  if (!state.editMode) return; // Guard: no edits outside edit mode
   const input = e.target;
   const entityType = input.dataset.entity;
   const entityId = input.dataset.id;

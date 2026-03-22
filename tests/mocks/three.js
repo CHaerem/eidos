@@ -110,11 +110,39 @@ class LineSegments extends Object3D {
   }
 }
 
+class CylinderGeometry extends BufferGeometry {
+  constructor() { super(); }
+}
+
 class Shape {
   constructor() { this.points = []; }
   moveTo() {}
   lineTo() {}
   getPoints() { return []; }
+}
+
+class CanvasTexture {
+  constructor() {}
+}
+
+class SpriteMaterial extends Material {
+  constructor(params = {}) { super(); Object.assign(this, params); }
+}
+
+class Sprite extends Object3D {
+  constructor(material) {
+    super();
+    this.material = material;
+    this.scale = new Vector3(1, 1, 1);
+  }
+}
+
+class Box3 {
+  constructor() { this.min = new Vector3(); this.max = new Vector3(); }
+  setFromObject() { return this; }
+  isEmpty() { return true; }
+  getCenter(target) { return target || new Vector3(); }
+  getSize(target) { return target || new Vector3(); }
 }
 
 const DoubleSide = 2;
@@ -126,6 +154,7 @@ export {
   EdgesGeometry,
   PlaneGeometry,
   BoxGeometry,
+  CylinderGeometry,
   LineBasicMaterial,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -136,5 +165,9 @@ export {
   Line,
   LineSegments,
   Shape,
+  CanvasTexture,
+  SpriteMaterial,
+  Sprite,
+  Box3,
   DoubleSide,
 };

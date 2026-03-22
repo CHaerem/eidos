@@ -1,10 +1,8 @@
 import * as THREE from 'three';
 import { state, notifySelectionChange, onEditModeChange, setEditMode } from './state.js';
 import { FURNITURE_CATALOG, createFurnitureMesh, saveFurnitureToConfig } from './furniture.js';
-import { BOUNDS } from './room.js';
-import { renderFurnitureList, populateCalibration } from './ui.js';
-import { undo, redo } from './history.js';
-import { pushSnapshot } from './history.js';
+import { BOUNDS, disposeObject3D } from './room.js';
+import { undo, redo, pushSnapshot } from './history.js';
 import { hideDimensions, exitMeasureMode } from './dimensions.js';
 import { lookup, getInteractables, getMesh, register } from './entity-registry.js';
 
@@ -15,6 +13,22 @@ const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 let dragging = null;      // { item, offset } for furniture, { entity, dragType, ... } for architecture
 let didDrag = false;
 const SNAP_DIST = 0.15;
+
+// ─── UI CALLBACKS (decoupled from ui.js to avoid tight coupling) ───
+const _furnitureChangeCallbacks = [];
+const _calibrationCallbacks = [];
+
+/** Register a callback for furniture list changes (called by ui.js) */
+export function onFurnitureChange(cb) { _furnitureChangeCallbacks.push(cb); }
+/** Register a callback for calibration updates (called by ui.js) */
+export function onCalibrationNeeded(cb) { _calibrationCallbacks.push(cb); }
+
+function renderFurnitureList() {
+  for (const cb of _furnitureChangeCallbacks) { try { cb(); } catch(e) { /* ignore */ } }
+}
+function populateCalibration() {
+  for (const cb of _calibrationCallbacks) { try { cb(); } catch(e) { /* ignore */ } }
+}
 
 // ─── HIGHLIGHT STATE ───
 const HOVER_EMISSIVE = 0x333333;
@@ -240,6 +254,7 @@ export function addFurniture(type) {
 export function removeFurniture(id) {
   const idx = state.placedItems.findIndex(i => i.id === id);
   if (idx === -1) return;
+  disposeObject3D(state.placedItems[idx].mesh);
   state.scene.remove(state.placedItems[idx].mesh);
   state.placedItems.splice(idx, 1);
   if (state.selectedItemId === id) selectEntity(null, null);
@@ -530,7 +545,10 @@ export function initInteraction() {
       if (panel) panel.style.pointerEvents = '';
 
       if (dragging.type === 'furniture') {
-        if (didDrag) saveFurnitureToConfig();
+        if (didDrag) {
+          pushSnapshot('Flytt møbel');
+          saveFurnitureToConfig();
+        }
       } else if (dragging.type === 'architecture' && didDrag) {
         // Commit architecture drag to config
         commitArchitectureDrag(dragging);

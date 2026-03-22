@@ -62,19 +62,37 @@ export function ceilAt(x, z) {
   return defaultCeilingHeight;
 }
 
+/** Recursively dispose all geometries and materials in a Three.js object tree. */
+export function disposeObject3D(obj) {
+  obj.traverse(child => {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) {
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      for (const mat of materials) {
+        if (mat.map) mat.map.dispose();
+        if (mat.normalMap) mat.normalMap.dispose();
+        if (mat.roughnessMap) mat.roughnessMap.dispose();
+        if (mat.metalnessMap) mat.metalnessMap.dispose();
+        if (mat.emissiveMap) mat.emissiveMap.dispose();
+        mat.dispose();
+      }
+    }
+  });
+}
+
 // ─── CLEAR ROOM GEOMETRY ───
 export function clearRoomGeometry() {
   const { scene } = state;
   ['Ceiling', 'UpperFloor', 'Staircase', 'Terrace', 'RoomBoundaries'].forEach(name => {
     const obj = scene.getObjectByName(name);
-    if (obj) { scene.remove(obj); }
+    if (obj) { disposeObject3D(obj); scene.remove(obj); }
   });
   // Remove OBJ model meshes (loaded by loadOBJ)
   const toRemove = [];
   scene.traverse(child => {
     if (child.userData && child.userData.isOBJ) toRemove.push(child);
   });
-  toRemove.forEach(obj => scene.remove(obj));
+  toRemove.forEach(obj => { disposeObject3D(obj); scene.remove(obj); });
 }
 
 // ─── INIT ROOM ───

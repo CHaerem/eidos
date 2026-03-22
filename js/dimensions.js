@@ -17,6 +17,7 @@ let hitBoxes = [];       // flat array of all hitBox meshes (for fast raycast)
 let pulseObjects = [];   // flat array of meshes with pulse animation
 let floatingInput = null;
 let clickListenerAdded = false;
+let _cleanupFns = [];
 let dragState = null;    // { guide, startPos, dragPlane }
 let isDragging = false;
 const clock = new THREE.Clock();
@@ -249,7 +250,20 @@ export function initDimensionClick() {
   if (state.controls) {
     state.controls.addEventListener('start', () => removeFloatingInput());
   }
+  _cleanupFns.push(
+    () => canvas.removeEventListener('click', onDimClick),
+    () => canvas.removeEventListener('click', onShiftClickMeasure),
+    () => canvas.removeEventListener('pointerdown', onGuidePointerDown, true),
+    () => document.removeEventListener('pointermove', onGuideDrag),
+    () => document.removeEventListener('pointerup', onGuidePointerUp),
+  );
   clickListenerAdded = true;
+}
+
+export function cleanupDimensionListeners() {
+  for (const fn of _cleanupFns) fn();
+  _cleanupFns = [];
+  clickListenerAdded = false;
 }
 
 // ─── DRAG HANDLERS ───

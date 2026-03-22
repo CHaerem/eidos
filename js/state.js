@@ -119,3 +119,10 @@ export function setXRMode(mode) {
     try { cb(mode); } catch (e) { console.warn('XR mode listener error:', e); }
   }
 }
+
+/** Clear all listeners — used in tests for isolation. */
+export function clearAllListeners() {
+  _selectionListeners.length = 0;
+  _editModeListeners.length = 0;
+  _xrModeListeners.length = 0;
+}
