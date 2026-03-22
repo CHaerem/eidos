@@ -683,10 +683,10 @@ body.xr-active #status { display: none !important; }
     <button class="popover-close" onclick="document.getElementById('views-popover').classList.remove('visible')">&times;</button>
   </div>
   <div class="view-btn-row" style="margin-bottom:8px">
-    <button class="view-btn" onclick="setTopDown()" data-view="top">Ovenfra</button>
-    <button class="view-btn" onclick="set3DView()" data-view="3d">3D</button>
-    <button class="view-btn" onclick="setFrontView()" data-view="front">Front</button>
-    <button class="view-btn" onclick="setSideView()" data-view="side">Side</button>
+    <button class="view-btn" onclick="window._hideDims?.();setTopDown()" data-view="top">Ovenfra</button>
+    <button class="view-btn" onclick="window._hideDims?.();set3DView()" data-view="3d">3D</button>
+    <button class="view-btn" onclick="window._hideDims?.();setFrontView()" data-view="front">Front</button>
+    <button class="view-btn" onclick="window._hideDims?.();setSideView()" data-view="side">Side</button>
   </div>
   <div class="popover-section-label">Rom</div>
   <div class="room-nav-pills" id="room-nav-pills"></div>

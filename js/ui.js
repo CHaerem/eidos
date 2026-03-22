@@ -1,7 +1,7 @@
 import { state, onSelectionChange, onXRModeChange, setEditMode } from './state.js';
 import { onFurnitureChange, onCalibrationNeeded } from './interaction.js';
 import { setRoomFocus, clearRoomFocus } from './room-focus.js';
-import { showDimensions } from './dimensions.js';
+import { showDimensions, hideDimensions } from './dimensions.js';
 // Note: selectEntity imported dynamically in handlePropertyChange to avoid direct coupling
 // interaction.js imports from ui.js, and ui.js uses selectEntity only in property change handlers
 
@@ -358,6 +358,8 @@ export function initUI() {
   initPropertiesCard();
   initXRModeListener();
   initPhotoPanel();
+  // Expose hideDimensions for inline onclick in view buttons
+  window._hideDims = hideDimensions;
 
   // Register decoupled callbacks from interaction.js
   onFurnitureChange(() => renderFurnitureList());
