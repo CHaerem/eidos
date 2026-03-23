@@ -106,89 +106,228 @@ export function initSimulator() {
   screenMesh.add(new THREE.LineSegments(borderGeo, new THREE.LineBasicMaterial({ color: 0x111111, linewidth: 2 })));
   simGroup.add(screenMesh);
 
-  // ─── Hitting mat — realistic golf turf ───
+  // ─── Full simulator flooring system ───
   const matW = 1.5, matD = 1.2;
-  // Multi-layer mat: rubber base + turf top
-  const matBase = new THREE.Mesh(
-    new THREE.BoxGeometry(matW + 0.04, 0.015, matD + 0.04),
-    new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9, metalness: 0.0 })
+
+  // Shared turf texture generator
+  function makeTurfTex(baseColor, bladeCount, size) {
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(0, 0, size, size);
+    for (let i = 0; i < bladeCount; i++) {
+      const gx = Math.random() * size;
+      const gy = Math.random() * size;
+      const shade = 25 + Math.random() * 55;
+      ctx.strokeStyle = `rgba(${shade}, ${70 + Math.random() * 70}, ${shade}, 0.35)`;
+      ctx.lineWidth = 0.5 + Math.random();
+      ctx.beginPath();
+      ctx.moveTo(gx, gy);
+      ctx.lineTo(gx + (Math.random() - 0.5) * 3, gy - 2 - Math.random() * 4);
+      ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  // 1. Landing zone / ball-catcher pad (in front of hitting mat, towards screen)
+  const landTex = makeTurfTex('#1B5E1B', 2000, 256);
+  landTex.repeat.set(2, 3);
+  const landPad = new THREE.Mesh(
+    new THREE.BoxGeometry(matW + 0.2, 0.008, 0.6),
+    new THREE.MeshStandardMaterial({ map: landTex, roughness: 0.95, metalness: 0.0 })
   );
+  landPad.position.y = 0.004;
+  simGroup.add(landPad);
+  // Position updated in updateSimulator along with matMesh
+
+  // 2. Rubber base layer
+  const rubberMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.92, metalness: 0.0 });
+  const matBase = new THREE.Mesh(new THREE.BoxGeometry(matW + 0.04, 0.015, matD + 0.04), rubberMat);
   matBase.position.y = 0.0075;
   simGroup.add(matBase);
-  // Turf layer — textured green with canvas-generated grass pattern
-  const turfCanvas = document.createElement('canvas');
-  turfCanvas.width = 256; turfCanvas.height = 256;
-  const tCtx = turfCanvas.getContext('2d');
-  tCtx.fillStyle = '#2B6E2B';
-  tCtx.fillRect(0, 0, 256, 256);
-  // Grass blades
-  for (let i = 0; i < 3000; i++) {
-    const gx = Math.random() * 256;
-    const gy = Math.random() * 256;
-    const shade = 30 + Math.random() * 50;
-    tCtx.strokeStyle = `rgba(${shade}, ${80 + Math.random() * 60}, ${shade}, 0.4)`;
-    tCtx.lineWidth = 0.5 + Math.random();
-    tCtx.beginPath();
-    tCtx.moveTo(gx, gy);
-    tCtx.lineTo(gx + (Math.random() - 0.5) * 3, gy - 2 - Math.random() * 4);
-    tCtx.stroke();
-  }
-  const turfTex = new THREE.CanvasTexture(turfCanvas);
-  turfTex.wrapS = THREE.RepeatWrapping;
-  turfTex.wrapT = THREE.RepeatWrapping;
-  turfTex.repeat.set(3, 3);
+
+  // 3. Hitting mat (fairway turf) — slightly raised, brighter green
+  const hitTex = makeTurfTex('#2B7A2B', 4000, 256);
+  hitTex.repeat.set(3, 3);
   matMesh = new THREE.Mesh(
-    new THREE.BoxGeometry(matW, 0.018, matD),
-    new THREE.MeshStandardMaterial({ map: turfTex, roughness: 0.95, metalness: 0.0 })
+    new THREE.BoxGeometry(matW, 0.022, matD),
+    new THREE.MeshStandardMaterial({ map: hitTex, roughness: 0.9, metalness: 0.0 })
   );
-  matMesh.position.y = 0.024;
+  matMesh.position.y = 0.026;
   simGroup.add(matMesh);
 
-  // ─── Golfer figure — more detailed humanoid ───
+  // 4. Tee marker (small rubber circle on the mat)
+  const teeMat = new THREE.MeshStandardMaterial({ color: 0xCC0000, roughness: 0.6, metalness: 0.0 });
+  const teeMarker = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.005, 12), teeMat);
+  teeMarker.position.y = 0.04;
+  simGroup.add(teeMarker);
+
+  // 5. Stance mat (behind hitting area) — darker, thicker padding
+  const stanceTex = makeTurfTex('#1E5E1E', 2500, 256);
+  stanceTex.repeat.set(3, 2);
+  const stanceMat = new THREE.Mesh(
+    new THREE.BoxGeometry(matW + 0.1, 0.018, 0.8),
+    new THREE.MeshStandardMaterial({ map: stanceTex, roughness: 0.95, metalness: 0.0 })
+  );
+  stanceMat.position.y = 0.009;
+  simGroup.add(stanceMat);
+
+  // Store extra floor pieces for position updates
+  state._simFloorPieces = { landPad, matBase, stanceMat, teeMarker };
+
+  // ─── Golfer figure — realistic proportioned humanoid ───
   golferGroup = new THREE.Group();
-  const skinMat = new THREE.MeshStandardMaterial({ color: 0xD4A574, roughness: 0.8, metalness: 0.0 });
-  const shirtMat = new THREE.MeshStandardMaterial({ color: 0x2244AA, roughness: 0.7, metalness: 0.0 });
-  const pantsMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.6, metalness: 0.0 });
-  const shoeMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.1 });
-  // Shoes
+  const skinMat = new THREE.MeshStandardMaterial({ color: 0xD4A574, roughness: 0.7, metalness: 0.0 });
+  const hairMat = new THREE.MeshStandardMaterial({ color: 0x3B2510, roughness: 0.9, metalness: 0.0 });
+  const shirtMat = new THREE.MeshStandardMaterial({ color: 0x1E3A6E, roughness: 0.65, metalness: 0.0 });
+  const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2C2C2C, roughness: 0.55, metalness: 0.0 });
+  const shoeMat = new THREE.MeshStandardMaterial({ color: 0xF0F0F0, roughness: 0.4, metalness: 0.1 });
+  const gloveMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.5, metalness: 0.0 });
+  const clubMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.2, metalness: 0.8 });
+  const gripMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9, metalness: 0.0 });
+
+  // Golf shoes — white with cleats
   for (const sx of [-0.08, 0.08]) {
-    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.04, 0.14), shoeMat);
-    shoe.position.set(sx, 0.02, 0.02);
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.05, 0.16), shoeMat);
+    shoe.position.set(sx, 0.025, 0.02);
     golferGroup.add(shoe);
+    // Sole detail
+    const sole = new THREE.Mesh(
+      new THREE.BoxGeometry(0.10, 0.008, 0.16),
+      new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.9, metalness: 0.0 })
+    );
+    sole.position.set(sx, 0.004, 0.02);
+    golferGroup.add(sole);
   }
-  // Legs
-  for (const sx of [-0.06, 0.06]) {
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.45, 8), pantsMat);
-    leg.position.set(sx, 0.27, 0);
-    golferGroup.add(leg);
+
+  // Legs — tapered, slightly bent at address
+  for (const [sx, rot] of [[-0.065, 0.03], [0.065, -0.03]]) {
+    // Thigh
+    const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.25, 8), pantsMat);
+    thigh.position.set(sx, 0.38, 0);
+    thigh.rotation.z = rot;
+    golferGroup.add(thigh);
+    // Shin
+    const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.25, 8), pantsMat);
+    shin.position.set(sx, 0.15, 0);
+    golferGroup.add(shin);
   }
-  // Torso
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.45, 8), shirtMat);
-  torso.position.y = 0.72;
+
+  // Belt
+  const belt = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.12, 0.12, 0.03, 12),
+    new THREE.MeshStandardMaterial({ color: 0x2A2A2A, roughness: 0.4, metalness: 0.3 })
+  );
+  belt.position.y = 0.51;
+  golferGroup.add(belt);
+
+  // Torso — polo shirt, slightly forward lean (address position)
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.40, 10), shirtMat);
+  torso.position.set(0, 0.73, -0.02);
+  torso.rotation.x = 0.08; // slight forward lean
   golferGroup.add(torso);
-  // Arms
-  for (const sx of [-0.14, 0.14]) {
-    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.35, 6), shirtMat);
-    arm.position.set(sx, 0.70, -0.05);
-    arm.rotation.x = 0.2;
-    golferGroup.add(arm);
-  }
+
+  // Shoulders (wider than torso)
+  const shoulders = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.06, 10), shirtMat);
+  shoulders.position.set(0, 0.94, -0.02);
+  golferGroup.add(shoulders);
+
+  // Arms — in address position, hanging down towards club
+  // Left arm (lead arm for right-handed golfer)
+  const leftUpperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.22, 6), shirtMat);
+  leftUpperArm.position.set(-0.15, 0.82, -0.06);
+  leftUpperArm.rotation.x = 0.4;
+  leftUpperArm.rotation.z = 0.15;
+  golferGroup.add(leftUpperArm);
+  const leftForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.20, 6), skinMat);
+  leftForearm.position.set(-0.14, 0.65, -0.12);
+  leftForearm.rotation.x = 0.6;
+  golferGroup.add(leftForearm);
+  // Left glove
+  const leftGlove = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 6), gloveMat);
+  leftGlove.position.set(-0.13, 0.55, -0.16);
+  golferGroup.add(leftGlove);
+
+  // Right arm
+  const rightUpperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.22, 6), shirtMat);
+  rightUpperArm.position.set(0.15, 0.82, -0.06);
+  rightUpperArm.rotation.x = 0.4;
+  rightUpperArm.rotation.z = -0.15;
+  golferGroup.add(rightUpperArm);
+  const rightForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.20, 6), skinMat);
+  rightForearm.position.set(0.14, 0.65, -0.12);
+  rightForearm.rotation.x = 0.6;
+  golferGroup.add(rightForearm);
+  // Right hand (bare)
+  const rightHand = new THREE.Mesh(new THREE.SphereGeometry(0.023, 8, 6), skinMat);
+  rightHand.position.set(0.13, 0.55, -0.16);
+  golferGroup.add(rightHand);
+
   // Neck
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.08, 6), skinMat);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.07, 8), skinMat);
   neck.position.y = 0.99;
   golferGroup.add(neck);
-  // Head
-  const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), skinMat);
-  headMesh.position.y = 1.10;
+
+  // Head — slightly looking down at ball
+  const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 12), skinMat);
+  headMesh.position.set(0, 1.09, -0.01);
   golferGroup.add(headMesh);
-  // Cap
-  const capMat = new THREE.MeshStandardMaterial({ color: 0x1a3366, roughness: 0.6, metalness: 0.0 });
-  const capBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.015, 12), capMat);
-  capBrim.position.set(0, 1.15, -0.03);
-  golferGroup.add(capBrim);
-  const capTop = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), capMat);
-  capTop.position.y = 1.155;
+  // Hair (back of head)
+  const hair = new THREE.Mesh(
+    new THREE.SphereGeometry(0.085, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.6),
+    hairMat
+  );
+  hair.position.set(0, 1.11, 0.01);
+  golferGroup.add(hair);
+
+  // Cap — golf visor style
+  const capMat = new THREE.MeshStandardMaterial({ color: 0x1a3366, roughness: 0.55, metalness: 0.0 });
+  const capTop = new THREE.Mesh(
+    new THREE.SphereGeometry(0.092, 14, 6, 0, Math.PI * 2, 0, Math.PI * 0.45),
+    capMat
+  );
+  capTop.position.set(0, 1.12, -0.01);
   golferGroup.add(capTop);
+  // Visor brim
+  const brimShape = new THREE.Shape();
+  brimShape.absarc(0, 0, 0.10, -Math.PI * 0.6, Math.PI * 0.6, false);
+  brimShape.lineTo(0, 0);
+  const brimGeo = new THREE.ExtrudeGeometry(brimShape, { depth: 0.004, bevelEnabled: false });
+  const brim = new THREE.Mesh(brimGeo, capMat);
+  brim.position.set(0, 1.105, -0.09);
+  brim.rotation.x = -0.15;
+  golferGroup.add(brim);
+
+  // Golf club at address position — shaft from hands to ball
+  const shaftLen = 0.70;
+  const shaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.005, 0.005, shaftLen, 6),
+    clubMat
+  );
+  shaft.position.set(0, 0.35, -0.22);
+  shaft.rotation.x = 0.25;
+  golferGroup.add(shaft);
+  // Grip (top of shaft)
+  const grip = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.008, 0.007, 0.18, 6),
+    gripMat
+  );
+  grip.position.set(0, 0.60, -0.16);
+  grip.rotation.x = 0.25;
+  golferGroup.add(grip);
+  // Club head
+  const clubHead = new THREE.Mesh(
+    new THREE.BoxGeometry(0.06, 0.015, 0.04),
+    clubMat
+  );
+  clubHead.position.set(0, 0.04, -0.28);
+  golferGroup.add(clubHead);
+
   simGroup.add(golferGroup);
 
   // ─── Swing arc materials — semi-transparent with glow ───
@@ -343,9 +482,19 @@ export function updateSimulator() {
 
   golferGroup.position.set(golferX, 0, golferZ);
   golferGroup.scale.y = heightM / 1.80;
-  matMesh.position.set(golferX, 0.01, golferZ);
+  matMesh.position.set(golferX, 0.026, golferZ);
   screenMesh.position.set(screenX, 2.0 / 2 + 0.1, screenZ);
   screenMesh.rotation.y = screenRotY;
+
+  // Update extra floor pieces to follow golfer position
+  const fp = state._simFloorPieces;
+  if (fp) {
+    const matDepth = 1.2; // hitting mat depth
+    fp.matBase.position.set(golferX, 0.0075, golferZ);
+    fp.landPad.position.set(golferX, 0.004, golferZ - matDepth / 2 - 0.35);
+    fp.stanceMat.position.set(golferX, 0.009, golferZ + matDepth / 2 + 0.35);
+    fp.teeMarker.position.set(golferX, 0.04, golferZ - matDepth / 2 + 0.15);
+  }
 
   const ceilH = ceilAt(golferZ);
   const ceilClearance = ceilH - sH;
@@ -525,35 +674,28 @@ export function updateSimulator() {
     const frontH = Math.min(boxH, ceilAt(cx, frontZ) - 0.05);
     const backH = Math.min(boxH, ceilAt(cx, backZ) - 0.05);
 
-    // ─── Frame poles (variable height at each corner) ───
+    // ─── Frame poles (front corners only — open back) ───
     const poleR = 0.025; // 2.5cm radius
-    const cornerDefs = [
+    const frontCorners = [
       { x: cx - halfW, z: frontZ, h: frontH },
       { x: cx + halfW, z: frontZ, h: frontH },
-      { x: cx - halfW, z: backZ,  h: backH },
-      { x: cx + halfW, z: backZ,  h: backH },
     ];
-    for (const c of cornerDefs) {
-      const poleGeo = new THREE.CylinderGeometry(poleR, poleR, c.h, 6);
+    for (const c of frontCorners) {
+      const poleGeo = new THREE.CylinderGeometry(poleR, poleR, c.h, 8);
       const pole = new THREE.Mesh(poleGeo, frameMat);
       pole.position.set(c.x, c.h / 2, c.z);
       enclosureGroup.add(pole);
     }
 
-    // Horizontal top rails — front rail at frontH, back rail at backH
+    // Horizontal top rail — front only
     const railR = poleR * 0.7;
     const railGeoW = new THREE.CylinderGeometry(railR, railR, w, 6);
-    // Front top rail
     const frontRail = new THREE.Mesh(railGeoW, frameMat);
     frontRail.rotation.z = Math.PI / 2;
     frontRail.position.set(cx, frontH, frontZ);
     enclosureGroup.add(frontRail);
-    // Back top rail
-    const backRail = new THREE.Mesh(railGeoW, frameMat);
-    backRail.rotation.z = Math.PI / 2;
-    backRail.position.set(cx, backH, backZ);
-    enclosureGroup.add(backRail);
-    // Side top rails (angled from frontH to backH)
+
+    // Side top rails — run from front pole to back edge (angled for slope)
     for (const sx of [-halfW, halfW]) {
       const sideLen = Math.sqrt(d * d + (backH - frontH) ** 2);
       const sideRailGeo = new THREE.CylinderGeometry(railR, railR, sideLen, 6);
@@ -563,6 +705,15 @@ export function updateSimulator() {
       sideRail.rotation.x = Math.PI / 2 - angle;
       sideRail.position.set(cx + sx, midY, cz);
       enclosureGroup.add(sideRail);
+    }
+
+    // Bottom rails on ground (side edges)
+    for (const sx of [-halfW, halfW]) {
+      const bottomRailGeo = new THREE.CylinderGeometry(railR, railR, d, 6);
+      const bottomRail = new THREE.Mesh(bottomRailGeo, frameMat);
+      bottomRail.rotation.x = Math.PI / 2;
+      bottomRail.position.set(cx + sx, railR, cz);
+      enclosureGroup.add(bottomRail);
     }
 
     // ─── Panels (slant-roof aware, built with BufferGeometry) ───
@@ -598,19 +749,7 @@ export function updateSimulator() {
     const topPanel = new THREE.Mesh(topGeo, panelMat);
     enclosureGroup.add(topPanel);
 
-    // Back panel (behind golfer, at backH)
-    const backVerts = new Float32Array([
-      cx - halfW, 0,     backZ,
-      cx + halfW, 0,     backZ,
-      cx + halfW, backH, backZ,
-      cx - halfW, backH, backZ,
-    ]);
-    const backGeo = new THREE.BufferGeometry();
-    backGeo.setAttribute('position', new THREE.BufferAttribute(backVerts, 3));
-    backGeo.setIndex([0, 1, 2, 0, 2, 3]);
-    backGeo.computeVertexNormals();
-    const backPanel = new THREE.Mesh(backGeo, panelMat);
-    enclosureGroup.add(backPanel);
+    // Back panel removed — open behind golfer for entry/exit
 
     enclosureGroup.visible = true;
   } else if (enclosureGroup) {
