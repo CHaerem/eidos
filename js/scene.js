@@ -24,20 +24,47 @@ export function initScene() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.2;
+  renderer.toneMappingExposure = 1.1;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.xr.enabled = true;
   wrap.appendChild(renderer.domElement);
+
+  // Generate procedural environment map for realistic reflections
+  const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  pmremGenerator.compileEquirectangularShader();
+
+  const envScene = new THREE.Scene();
+  const envGeo = new THREE.SphereGeometry(50, 32, 16);
+  const envCanvas = document.createElement('canvas');
+  envCanvas.width = 512;
+  envCanvas.height = 256;
+  const envCtx = envCanvas.getContext('2d');
+  const grad = envCtx.createLinearGradient(0, 0, 0, 256);
+  grad.addColorStop(0, '#87CEEB');    // sky blue at top
+  grad.addColorStop(0.4, '#E8D5B7'); // warm horizon
+  grad.addColorStop(0.5, '#FFF8F0'); // bright horizon line
+  grad.addColorStop(0.6, '#D4C8B8'); // ground reflection
+  grad.addColorStop(1, '#8B7355');   // dark ground
+  envCtx.fillStyle = grad;
+  envCtx.fillRect(0, 0, 512, 256);
+  const envTex = new THREE.CanvasTexture(envCanvas);
+  envTex.mapping = THREE.EquirectangularReflectionMapping;
+  const envMat = new THREE.MeshBasicMaterial({ map: envTex, side: THREE.BackSide });
+  envScene.add(new THREE.Mesh(envGeo, envMat));
+  const envMap = pmremGenerator.fromScene(envScene, 0.04).texture;
+  scene.environment = envMap;
+  pmremGenerator.dispose();
+  envScene.clear();
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
 
-  // Hemisphere light (warm sky, cool ground) — increased for interior visibility
-  scene.add(new THREE.HemisphereLight(0xffeedd, 0x8899aa, 0.8));
+  // Hemisphere light (warm sky, cool ground)
+  scene.add(new THREE.HemisphereLight(0xfff0e0, 0x8090a0, 0.7));
 
-  // Ambient light for interior fill
-  scene.add(new THREE.AmbientLight(0xffffff, 0.15));
+  // Ambient light for interior fill (warm)
+  scene.add(new THREE.AmbientLight(0xfff8f0, 0.2));
 
   // Main directional light with shadows
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
@@ -54,8 +81,8 @@ export function initScene() {
   dirLight.shadow.bias = -0.001;
   scene.add(dirLight);
 
-  // Fill light (softer, from opposite side)
-  const fillLight = new THREE.DirectionalLight(0xccddff, 0.3);
+  // Fill light (softer, from opposite side — warm blue tint)
+  const fillLight = new THREE.DirectionalLight(0xdde4ff, 0.35);
   fillLight.position.set(-4, 6, -3);
   scene.add(fillLight);
 

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { state } from './state.js';
 import { ceilingZones } from './room.js';
+import { getCeilingTexture } from './textures.js';
 
 // ─── BUILD CEILING/ROOF GEOMETRY ───
 
@@ -11,7 +12,8 @@ export function buildCeiling() {
 
   const ceilMat = new THREE.MeshStandardMaterial({
     color: 0xF5F5F0, side: THREE.FrontSide,
-    roughness: 0.95, metalness: 0.0
+    roughness: 0.95, metalness: 0.0,
+    map: getCeilingTexture(),
   });
 
   for (const zone of ceilingZones) {

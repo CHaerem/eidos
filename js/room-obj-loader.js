@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { state } from './state.js';
+import { getFloorTexture } from './textures.js';
 
 // ─── OBJ LOADING ───
 
@@ -73,7 +74,8 @@ export function loadOBJ(objPath, scale, yShift) {
             if (name.startsWith('WholeFloor')) {
               child.material = new THREE.MeshStandardMaterial({
                 color: 0xD4C8B8, side: THREE.DoubleSide,
-                roughness: 0.7, metalness: 0.0
+                roughness: 0.7, metalness: 0.0,
+                map: getFloorTexture(),
               });
               child.receiveShadow = true;
             } else if (name.startsWith('ExternalWalls')) {

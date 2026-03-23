@@ -1,7 +1,11 @@
 import * as THREE from 'three';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { state } from './state.js';
 import { BOUNDS, ceilAt } from './room.js';
 import { register } from './entity-registry.js';
+
+// Initialize RectAreaLight uniforms once at module level
+RectAreaLightUniformsLib.init();
 
 // ─── ROOM DETAILS: windows, door frames, baseboards, interior walls ───
 
@@ -52,9 +56,15 @@ function buildWindows(parent) {
   const frameMat = new THREE.MeshStandardMaterial({
     color: 0xE8E8E8, roughness: 0.4, metalness: 0.1
   });
-  const glassMat = new THREE.MeshStandardMaterial({
-    color: 0x88BBDD, transparent: true, opacity: 0.25,
-    roughness: 0.05, metalness: 0.1, side: THREE.DoubleSide
+  const glassMat = new THREE.MeshPhysicalMaterial({
+    color: 0xFFFFFF,
+    transmission: 0.85,
+    roughness: 0.05,
+    metalness: 0.0,
+    ior: 1.5,
+    thickness: 0.006,
+    transparent: true,
+    side: THREE.DoubleSide,
   });
   const sillMat = new THREE.MeshStandardMaterial({
     color: 0xF0F0F0, roughness: 0.3, metalness: 0.0
@@ -172,6 +182,24 @@ function buildWindows(parent) {
       sill.castShadow = true;
       sill.receiveShadow = true;
       winGroup.add(sill);
+    }
+
+    // Add RectAreaLight for daylight effect on south and west windows
+    if (win.wall === 'south') {
+      const w = win.x2 - win.x1;
+      const cx = (win.x1 + win.x2) / 2;
+      const windowLight = new THREE.RectAreaLight(0xFFF4E0, 3.0, w, h);
+      windowLight.position.set(cx, sillY + h / 2, z + 0.05);
+      windowLight.lookAt(cx, sillY + h / 2, z + 2);
+      state.scene.add(windowLight);
+    } else if (win.wall === 'west') {
+      const w = win.z2 - win.z1;
+      const cz = (win.z1 + win.z2) / 2;
+      const x = BOUNDS.minX;
+      const windowLight = new THREE.RectAreaLight(0xFFF4E0, 1.5, w, h);
+      windowLight.position.set(x + 0.05, sillY + h / 2, cz);
+      windowLight.lookAt(x + 2, sillY + h / 2, cz);
+      state.scene.add(windowLight);
     }
 
     // Register window entity for selection/hover

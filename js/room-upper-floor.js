@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { state } from './state.js';
 import { ceilingZones, ceilAt } from './room.js';
+import { getFloorTexture } from './textures.js';
 
 // ─── BUILD UPPER FLOOR (6. ETASJE) GEOMETRY ───
 
@@ -17,7 +18,8 @@ export function buildUpperFloor() {
   // Materials
   const floorMat = new THREE.MeshStandardMaterial({
     color: 0xD4C8B8, side: THREE.DoubleSide,
-    roughness: 0.7, metalness: 0.0
+    roughness: 0.7, metalness: 0.0,
+    map: getFloorTexture(),
   });
   const wallMat = new THREE.MeshStandardMaterial({
     color: 0xF5F5F0, side: THREE.DoubleSide,
