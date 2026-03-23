@@ -929,59 +929,72 @@ export function onShiftClickMeasure(event) {
     const axis = getWallAxis(hit.normal);
 
     if (!selectedWall1) {
-      // First wall
+      // First wall — also auto-find opposite wall and show distance immediately
       clearControlMeasurements();
       selectedWall1 = selectWall(hit, axis);
-    } else if (!selectedWall2) {
-      // Second wall — compute and show distance
-      selectedWall2 = selectWall(hit, axis);
 
-      const axis1 = selectedWall1.axis;
-      const axis2 = selectedWall2.axis;
+      // Auto-measure: raycast from click point through room to find opposite wall
+      const oppositePoint = findOppositeWall(hit.point, hit.normal);
+      if (oppositePoint) {
+        const p1 = hit.point.clone();
+        const p2 = oppositePoint.clone();
+        // Project to perpendicular (shortest) distance along the wall normal axis
+        const measureY = 1.0; // Standard measurement height
+        p1.y = measureY;
+        p2.y = measureY;
+        if (axis === 'x') {
+          p2.z = p1.z; // Align Z so line is purely along X
+        } else {
+          p2.x = p1.x; // Align X so line is purely along Z
+        }
+        const dist = p1.distanceTo(p2);
+        finalizeMeasurement(p1, p2, dist, `${dist.toFixed(3)}m`);
+        selectedWall1 = null; // Reset for next measurement
+      }
+    } else {
+      // Second click on wall — reset and start new measurement
+      clearControlMeasurements();
+      selectedWall1 = selectWall(hit, axis);
 
-      let p1, p2, dist;
-      if (axis1 === axis2) {
-        p1 = selectedWall1.point.clone();
-        p2 = selectedWall2.point.clone();
-        if (axis1 === 'x') {
-          p2.y = p1.y;
+      const oppositePoint = findOppositeWall(hit.point, hit.normal);
+      if (oppositePoint) {
+        const p1 = hit.point.clone();
+        const p2 = oppositePoint.clone();
+        const measureY = 1.0;
+        p1.y = measureY;
+        p2.y = measureY;
+        if (axis === 'x') {
           p2.z = p1.z;
         } else {
-          p2.y = p1.y;
           p2.x = p1.x;
         }
-        dist = p1.distanceTo(p2);
-      } else {
-        p1 = selectedWall1.point.clone();
-        p2 = selectedWall2.point.clone();
-        p2.y = p1.y;
-        dist = p1.distanceTo(p2);
+        const dist = p1.distanceTo(p2);
+        finalizeMeasurement(p1, p2, dist, `${dist.toFixed(3)}m`);
+        selectedWall1 = null;
       }
-
-      finalizeMeasurement(p1, p2, dist, `⊥ ${dist.toFixed(3)}m`);
-    } else {
-      // Already have two walls — reset and start over
-      clearControlMeasurements();
-      selectedWall1 = selectWall(hit, axis);
     }
   } else {
-    // Shift+click on non-wall — point-to-point
+    // Click on non-wall — point-to-point measurement
     if (!measureFirstPoint) {
       clearControlMeasurements();
       measureFirstPoint = hit.point.clone();
       measureFirstMarker = createMarker(hit.point);
       controlGroup.add(measureFirstMarker);
     } else {
-      const p1 = measureFirstPoint;
-      const p2 = hit.point;
-      const dist = p1.distanceTo(p2);
-      const dx = Math.abs(p2.x - p1.x);
-      const dz = Math.abs(p2.z - p1.z);
-      let text = dist.toFixed(3) + 'm';
-      if (dx > 0.05 && dz > 0.05) {
-        text += `  (X:${dx.toFixed(2)} Z:${dz.toFixed(2)})`;
+      const p1 = measureFirstPoint.clone();
+      const p2 = hit.point.clone();
+      // Use horizontal distance (ignore Y) — more useful for room planning
+      const hDist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.z - p1.z) ** 2);
+      const vDist = Math.abs(p2.y - p1.y);
+      // Draw line at consistent height for clarity
+      const lineY = Math.max(p1.y, p2.y);
+      p1.y = lineY;
+      p2.y = lineY;
+      let text = hDist.toFixed(3) + 'm';
+      if (vDist > 0.05) {
+        text += `  (↕${vDist.toFixed(2)})`;
       }
-      finalizeMeasurement(p1, p2, dist, text);
+      finalizeMeasurement(p1, p2, hDist, text);
       measureFirstPoint = null;
       measureFirstMarker = null;
     }
