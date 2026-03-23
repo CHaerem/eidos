@@ -324,7 +324,6 @@ export function updateSimulator() {
     }
 
     // Box centered on golfer
-    const topY = boxH;
     let cx, cz, w, d;
     if (dir === 'window') {
       cx = golferX;
@@ -341,60 +340,81 @@ export function updateSimulator() {
     const halfW = w / 2;
     const halfD = d / 2;
 
-    // ─── Frame poles (vertical corners + horizontal top rails) ───
+    // ─── Slant-roof enclosure: follows ceiling slope ───
+    // Compute ceiling height at front and back edges using ceilAt
+    const frontZ = cz - halfD;
+    const backZ = cz + halfD;
+    const frontH = Math.min(boxH, ceilAt(cx, frontZ) - 0.05);
+    const backH = Math.min(boxH, ceilAt(cx, backZ) - 0.05);
+
+    // ─── Frame poles (variable height at each corner) ───
     const poleR = 0.025; // 2.5cm radius
-    const poleGeo = new THREE.CylinderGeometry(poleR, poleR, topY, 6);
-    const corners = [
-      [cx - halfW, cz - halfD],
-      [cx + halfW, cz - halfD],
-      [cx - halfW, cz + halfD],
-      [cx + halfW, cz + halfD],
+    const cornerDefs = [
+      { x: cx - halfW, z: frontZ, h: frontH },
+      { x: cx + halfW, z: frontZ, h: frontH },
+      { x: cx - halfW, z: backZ,  h: backH },
+      { x: cx + halfW, z: backZ,  h: backH },
     ];
-    for (const [px, pz] of corners) {
+    for (const c of cornerDefs) {
+      const poleGeo = new THREE.CylinderGeometry(poleR, poleR, c.h, 6);
       const pole = new THREE.Mesh(poleGeo, frameMat);
-      pole.position.set(px, topY / 2, pz);
+      pole.position.set(c.x, c.h / 2, c.z);
       enclosureGroup.add(pole);
     }
 
-    // Horizontal top rails
-    const railGeoW = new THREE.CylinderGeometry(poleR * 0.7, poleR * 0.7, w, 6);
-    const railGeoD = new THREE.CylinderGeometry(poleR * 0.7, poleR * 0.7, d, 6);
-    // Front and back top rails (along X)
-    for (const rz of [cz - halfD, cz + halfD]) {
-      const rail = new THREE.Mesh(railGeoW, frameMat);
-      rail.rotation.z = Math.PI / 2;
-      rail.position.set(cx, topY, rz);
-      enclosureGroup.add(rail);
-    }
-    // Left and right top rails (along Z)
-    for (const rx of [cx - halfW, cx + halfW]) {
-      const rail = new THREE.Mesh(railGeoD, frameMat);
-      rail.rotation.x = Math.PI / 2;
-      rail.position.set(rx, topY, cz);
-      enclosureGroup.add(rail);
+    // Horizontal top rails — front rail at frontH, back rail at backH
+    const railR = poleR * 0.7;
+    const railGeoW = new THREE.CylinderGeometry(railR, railR, w, 6);
+    // Front top rail
+    const frontRail = new THREE.Mesh(railGeoW, frameMat);
+    frontRail.rotation.z = Math.PI / 2;
+    frontRail.position.set(cx, frontH, frontZ);
+    enclosureGroup.add(frontRail);
+    // Back top rail
+    const backRail = new THREE.Mesh(railGeoW, frameMat);
+    backRail.rotation.z = Math.PI / 2;
+    backRail.position.set(cx, backH, backZ);
+    enclosureGroup.add(backRail);
+    // Side top rails (angled from frontH to backH)
+    for (const sx of [-halfW, halfW]) {
+      const sideLen = Math.sqrt(d * d + (backH - frontH) ** 2);
+      const sideRailGeo = new THREE.CylinderGeometry(railR, railR, sideLen, 6);
+      const sideRail = new THREE.Mesh(sideRailGeo, frameMat);
+      const midY = (frontH + backH) / 2;
+      const angle = Math.atan2(backH - frontH, d);
+      sideRail.rotation.x = Math.PI / 2 - angle;
+      sideRail.position.set(cx + sx, midY, cz);
+      enclosureGroup.add(sideRail);
     }
 
-    // ─── Panels (velour = opaque sides, open = transparent netting) ───
-    // Side panels (left, right)
-    const sideGeo = new THREE.PlaneGeometry(d, topY);
+    // ─── Panels (slant-roof aware) ───
+    // Side panels — trapezoids (front edge at frontH, back edge at backH)
     for (const sx of [-halfW, halfW]) {
+      const shape = new THREE.Shape();
+      shape.moveTo(0, 0);
+      shape.lineTo(d, 0);
+      shape.lineTo(d, backH);
+      shape.lineTo(0, frontH);
+      shape.closePath();
+      const sideGeo = new THREE.ShapeGeometry(shape);
       const panel = new THREE.Mesh(sideGeo, panelMat);
       panel.rotation.y = Math.PI / 2;
-      panel.position.set(cx + sx, topY / 2, cz);
+      panel.position.set(cx + sx, 0, frontZ);
       enclosureGroup.add(panel);
     }
 
-    // Top panel
-    const topGeo = new THREE.PlaneGeometry(w, d);
+    // Top panel (angled to follow slope)
+    const topGeo = new THREE.PlaneGeometry(w, Math.sqrt(d * d + (backH - frontH) ** 2));
     const topPanel = new THREE.Mesh(topGeo, panelMat);
-    topPanel.rotation.x = -Math.PI / 2;
-    topPanel.position.set(cx, topY, cz);
+    const topAngle = Math.atan2(backH - frontH, d);
+    topPanel.rotation.x = -Math.PI / 2 + topAngle;
+    topPanel.position.set(cx, (frontH + backH) / 2, cz);
     enclosureGroup.add(topPanel);
 
-    // Back panel (behind golfer)
-    const backGeo = new THREE.PlaneGeometry(w, topY);
+    // Back panel (behind golfer, at backH)
+    const backGeo = new THREE.PlaneGeometry(w, backH);
     const backPanel = new THREE.Mesh(backGeo, panelMat);
-    backPanel.position.set(cx, topY / 2, cz + halfD);
+    backPanel.position.set(cx, backH / 2, backZ);
     enclosureGroup.add(backPanel);
 
     enclosureGroup.visible = true;
