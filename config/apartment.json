@@ -640,13 +640,13 @@
     "screenDistance": 0.3,
     "playerHeight": 180,
     "posX": 2.63,
-    "posZ": -0.45,
+    "posZ": -0.5,
     "club": "0.940",
     "direction": "window",
     "enclosure": {
       "preset": "custom",
-      "width": 2.5,
-      "depth": 1.5,
+      "width": 2.4,
+      "depth": 1.8,
       "height": null,
       "visible": true
     }

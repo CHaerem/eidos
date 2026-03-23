@@ -387,34 +387,51 @@ export function updateSimulator() {
       enclosureGroup.add(sideRail);
     }
 
-    // ─── Panels (slant-roof aware) ───
-    // Side panels — trapezoids (front edge at frontH, back edge at backH)
+    // ─── Panels (slant-roof aware, built with BufferGeometry) ───
+    // Side panels — trapezoids with correct 3D vertices
     for (const sx of [-halfW, halfW]) {
-      const shape = new THREE.Shape();
-      shape.moveTo(0, 0);
-      shape.lineTo(d, 0);
-      shape.lineTo(d, backH);
-      shape.lineTo(0, frontH);
-      shape.closePath();
-      const sideGeo = new THREE.ShapeGeometry(shape);
+      const x = cx + sx;
+      const verts = new Float32Array([
+        x, 0,      frontZ,   // bottom-front
+        x, 0,      backZ,    // bottom-back
+        x, backH,  backZ,    // top-back
+        x, frontH, frontZ,   // top-front
+      ]);
+      const indices = [0, 1, 2, 0, 2, 3];
+      const sideGeo = new THREE.BufferGeometry();
+      sideGeo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+      sideGeo.setIndex(indices);
+      sideGeo.computeVertexNormals();
       const panel = new THREE.Mesh(sideGeo, panelMat);
-      panel.rotation.y = Math.PI / 2;
-      panel.position.set(cx + sx, 0, frontZ);
       enclosureGroup.add(panel);
     }
 
-    // Top panel (angled to follow slope)
-    const topGeo = new THREE.PlaneGeometry(w, Math.sqrt(d * d + (backH - frontH) ** 2));
+    // Top panel — quad from front-top to back-top
+    const topVerts = new Float32Array([
+      cx - halfW, frontH, frontZ,
+      cx + halfW, frontH, frontZ,
+      cx + halfW, backH,  backZ,
+      cx - halfW, backH,  backZ,
+    ]);
+    const topGeo = new THREE.BufferGeometry();
+    topGeo.setAttribute('position', new THREE.BufferAttribute(topVerts, 3));
+    topGeo.setIndex([0, 1, 2, 0, 2, 3]);
+    topGeo.computeVertexNormals();
     const topPanel = new THREE.Mesh(topGeo, panelMat);
-    const topAngle = Math.atan2(backH - frontH, d);
-    topPanel.rotation.x = -Math.PI / 2 + topAngle;
-    topPanel.position.set(cx, (frontH + backH) / 2, cz);
     enclosureGroup.add(topPanel);
 
     // Back panel (behind golfer, at backH)
-    const backGeo = new THREE.PlaneGeometry(w, backH);
+    const backVerts = new Float32Array([
+      cx - halfW, 0,     backZ,
+      cx + halfW, 0,     backZ,
+      cx + halfW, backH, backZ,
+      cx - halfW, backH, backZ,
+    ]);
+    const backGeo = new THREE.BufferGeometry();
+    backGeo.setAttribute('position', new THREE.BufferAttribute(backVerts, 3));
+    backGeo.setIndex([0, 1, 2, 0, 2, 3]);
+    backGeo.computeVertexNormals();
     const backPanel = new THREE.Mesh(backGeo, panelMat);
-    backPanel.position.set(cx, backH / 2, backZ);
     enclosureGroup.add(backPanel);
 
     enclosureGroup.visible = true;
