@@ -203,17 +203,47 @@ export function snapToWalls(item) {
   const halfW = (cat.w * cosR + cat.d * sinR) / 2;
   const halfD = (cat.w * sinR + cat.d * cosR) / 2;
 
+  // Use interior wall surface, not exterior bounds
+  const wallT = state.apartmentConfig?.walls?.exterior?.thickness ?? 0.08;
+  const innerMinX = BOUNDS.minX + wallT;
+  const innerMaxX = BOUNDS.maxX - wallT;
+  const innerMinZ = BOUNDS.minZ + wallT;
+  const innerMaxZ = BOUNDS.maxZ - wallT;
+
   let x = item.x, z = item.z;
 
-  // Clamp: can't go through walls (uses config-driven BOUNDS)
-  x = Math.max(BOUNDS.minX + halfW, Math.min(BOUNDS.maxX - halfW, x));
-  z = Math.max(BOUNDS.minZ + halfD, Math.min(BOUNDS.maxZ - halfD, z));
+  // Clamp: can't go through interior wall surface
+  x = Math.max(innerMinX + halfW, Math.min(innerMaxX - halfW, x));
+  z = Math.max(innerMinZ + halfD, Math.min(innerMaxZ - halfD, z));
 
-  // Snap to walls (multiple simultaneously for corners)
-  if (Math.abs((x - halfW) - BOUNDS.minX) < SNAP_DIST) x = BOUNDS.minX + halfW;
-  if (Math.abs((x + halfW) - BOUNDS.maxX) < SNAP_DIST) x = BOUNDS.maxX - halfW;
-  if (Math.abs((z - halfD) - BOUNDS.minZ) < SNAP_DIST) z = BOUNDS.minZ + halfD;
-  if (Math.abs((z + halfD) - BOUNDS.maxZ) < SNAP_DIST) z = BOUNDS.maxZ - halfD;
+  // Snap to interior wall surface (multiple simultaneously for corners)
+  if (Math.abs((x - halfW) - innerMinX) < SNAP_DIST) x = innerMinX + halfW;
+  if (Math.abs((x + halfW) - innerMaxX) < SNAP_DIST) x = innerMaxX - halfW;
+  if (Math.abs((z - halfD) - innerMinZ) < SNAP_DIST) z = innerMinZ + halfD;
+  if (Math.abs((z + halfD) - innerMaxZ) < SNAP_DIST) z = innerMaxZ - halfD;
+
+  // Also snap to interior walls
+  const interiorWalls = state.apartmentConfig?.walls?.interior ?? [];
+  for (const w of interiorWalls) {
+    if (w.axis === 'x') {
+      // Wall runs along Z at fixed X position
+      const wallX = w.pos;
+      // Check if furniture Z-range overlaps wall Z-range
+      if (z + halfD > w.from && z - halfD < w.to) {
+        // Snap to left side of wall
+        if (Math.abs((x + halfW) - wallX) < SNAP_DIST) x = wallX - halfW;
+        // Snap to right side of wall
+        if (Math.abs((x - halfW) - wallX) < SNAP_DIST) x = wallX + halfW;
+      }
+    } else {
+      // Wall runs along X at fixed Z position
+      const wallZ = w.pos;
+      if (x + halfW > w.from && x - halfW < w.to) {
+        if (Math.abs((z + halfD) - wallZ) < SNAP_DIST) z = wallZ - halfD;
+        if (Math.abs((z - halfD) - wallZ) < SNAP_DIST) z = wallZ + halfD;
+      }
+    }
+  }
 
   item.x = x;
   item.z = z;

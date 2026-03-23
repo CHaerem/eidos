@@ -605,6 +605,37 @@ def add_furniture(type: str, x: float = 0.0, z: float = 0.0, rotation: int = 0) 
     config = _load_config()
     items = config.setdefault("furniture", [])
 
+    # Furniture dimensions (subset of catalog for wall-aware placement)
+    CATALOG = {
+        'kallax': {'w': 0.77, 'd': 0.39}, 'kallax_2x4': {'w': 0.77, 'd': 0.39},
+        'billy': {'w': 0.80, 'd': 0.28}, 'besta_3x': {'w': 1.80, 'd': 0.40},
+        'soderhamn': {'w': 1.92, 'd': 1.92}, 'cana_tv': {'w': 1.28, 'd': 0.40},
+        'sofa_3': {'w': 2.1, 'd': 0.9}, 'sofa_2': {'w': 1.5, 'd': 0.9},
+        'stol': {'w': 0.85, 'd': 0.85}, 'sofabord': {'w': 1.2, 'd': 0.6},
+        'spisebord': {'w': 1.6, 'd': 0.9}, 'tv_benk': {'w': 1.8, 'd': 0.4},
+        'bokhylle': {'w': 1.0, 'd': 0.35}, 'gulvlampe': {'w': 0.3, 'd': 0.3},
+        'kjokkenbenk': {'w': 2.5, 'd': 0.6}, 'spisestol': {'w': 0.45, 'd': 0.45},
+    }
+
+    # Wall-aware clamping: use interior surface, not exterior bounds
+    ext = config.get("walls", {}).get("exterior", {})
+    wall_t = ext.get("thickness", 0.08)
+    inner_min_x = ext.get("minX", -4.38) + wall_t
+    inner_max_x = ext.get("maxX", 4.38) - wall_t
+    inner_min_z = ext.get("minZ", -2.5) + wall_t
+    inner_max_z = ext.get("maxZ", 2.5) - wall_t
+
+    cat = CATALOG.get(type, {'w': 0.5, 'd': 0.5})
+    import math
+    rot_rad = rotation * math.pi / 180
+    cos_r, sin_r = abs(math.cos(rot_rad)), abs(math.sin(rot_rad))
+    half_w = (cat['w'] * cos_r + cat['d'] * sin_r) / 2
+    half_d = (cat['w'] * sin_r + cat['d'] * cos_r) / 2
+
+    # Clamp to interior wall surface
+    x = max(inner_min_x + half_w, min(inner_max_x - half_w, x))
+    z = max(inner_min_z + half_d, min(inner_max_z - half_d, z))
+
     # Auto-generate ID
     max_id = max((f.get("id", 0) for f in items), default=0)
     new_id = max_id + 1
