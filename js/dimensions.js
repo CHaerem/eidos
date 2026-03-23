@@ -205,7 +205,7 @@ export function initDimensionClick() {
   canvas.addEventListener('click', onShiftClickMeasure);
   // Shift+right-click to clear measurements
   canvas.addEventListener('contextmenu', (e) => {
-    if (e.shiftKey && (selectedWall1 || selectedWall2 || measureFirstPoint)) {
+    if (state.measureMode && (selectedWall1 || selectedWall2 || measureFirstPoint)) {
       e.preventDefault();
       clearControlMeasurements();
     }
@@ -911,9 +911,11 @@ function createMarker(point) {
   return grp;
 }
 
-// ─── Shift+click handler (registered on canvas in initDimensionClick) ───
+// ─── Measure click handler (registered on canvas in initDimensionClick) ───
+// Only active in measure mode. Shift+click no longer triggers in navigate mode
+// to avoid conflicting with OrbitControls navigation.
 export function onShiftClickMeasure(event) {
-  if (!event.shiftKey && !state.measureMode) return;
+  if (!state.measureMode) return;
   if (event.target.closest('.glass-panel')) return;
 
   initControlMeasurements();
