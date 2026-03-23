@@ -96,39 +96,138 @@ export function initSimulator() {
 
   const screenW = 2.5, screenH = 2.0;
   const screenGeo = new THREE.PlaneGeometry(screenW, screenH);
+  // Impact screen — white projector screen with subtle glow
   screenMesh = new THREE.Mesh(screenGeo, new THREE.MeshStandardMaterial({
-    color: 0xDDDDDD, side: THREE.DoubleSide, roughness: 0.15, metalness: 0.0,
-    emissive: 0x222222, emissiveIntensity: 0.3
+    color: 0xF0F0F0, side: THREE.DoubleSide, roughness: 0.3, metalness: 0.0,
+    emissive: 0x445566, emissiveIntensity: 0.15
   }));
-  screenMesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(screenGeo), new THREE.LineBasicMaterial({ color: 0x444444 })));
+  // Black border frame around screen
+  const borderGeo = new THREE.EdgesGeometry(screenGeo);
+  screenMesh.add(new THREE.LineSegments(borderGeo, new THREE.LineBasicMaterial({ color: 0x111111, linewidth: 2 })));
   simGroup.add(screenMesh);
 
+  // ─── Hitting mat — realistic golf turf ───
   const matW = 1.5, matD = 1.2;
-  matMesh = new THREE.Mesh(
-    new THREE.BoxGeometry(matW, 0.02, matD),
-    new THREE.MeshStandardMaterial({ color: 0x2D7A2D, roughness: 0.8, metalness: 0.0 })
+  // Multi-layer mat: rubber base + turf top
+  const matBase = new THREE.Mesh(
+    new THREE.BoxGeometry(matW + 0.04, 0.015, matD + 0.04),
+    new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9, metalness: 0.0 })
   );
-  matMesh.position.y = 0.01;
+  matBase.position.y = 0.0075;
+  simGroup.add(matBase);
+  // Turf layer — textured green with canvas-generated grass pattern
+  const turfCanvas = document.createElement('canvas');
+  turfCanvas.width = 256; turfCanvas.height = 256;
+  const tCtx = turfCanvas.getContext('2d');
+  tCtx.fillStyle = '#2B6E2B';
+  tCtx.fillRect(0, 0, 256, 256);
+  // Grass blades
+  for (let i = 0; i < 3000; i++) {
+    const gx = Math.random() * 256;
+    const gy = Math.random() * 256;
+    const shade = 30 + Math.random() * 50;
+    tCtx.strokeStyle = `rgba(${shade}, ${80 + Math.random() * 60}, ${shade}, 0.4)`;
+    tCtx.lineWidth = 0.5 + Math.random();
+    tCtx.beginPath();
+    tCtx.moveTo(gx, gy);
+    tCtx.lineTo(gx + (Math.random() - 0.5) * 3, gy - 2 - Math.random() * 4);
+    tCtx.stroke();
+  }
+  const turfTex = new THREE.CanvasTexture(turfCanvas);
+  turfTex.wrapS = THREE.RepeatWrapping;
+  turfTex.wrapT = THREE.RepeatWrapping;
+  turfTex.repeat.set(3, 3);
+  matMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(matW, 0.018, matD),
+    new THREE.MeshStandardMaterial({ map: turfTex, roughness: 0.95, metalness: 0.0 })
+  );
+  matMesh.position.y = 0.024;
   simGroup.add(matMesh);
 
+  // ─── Golfer figure — more detailed humanoid ───
   golferGroup = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4466AA, roughness: 0.6, metalness: 0.0 });
-  const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.10, 0.9, 8), bodyMat);
-  bodyMesh.position.y = 0.9;
-  golferGroup.add(bodyMesh);
-  const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), bodyMat);
-  headMesh.position.y = 1.5;
+  const skinMat = new THREE.MeshStandardMaterial({ color: 0xD4A574, roughness: 0.8, metalness: 0.0 });
+  const shirtMat = new THREE.MeshStandardMaterial({ color: 0x2244AA, roughness: 0.7, metalness: 0.0 });
+  const pantsMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.6, metalness: 0.0 });
+  const shoeMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.1 });
+  // Shoes
+  for (const sx of [-0.08, 0.08]) {
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.04, 0.14), shoeMat);
+    shoe.position.set(sx, 0.02, 0.02);
+    golferGroup.add(shoe);
+  }
+  // Legs
+  for (const sx of [-0.06, 0.06]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.45, 8), pantsMat);
+    leg.position.set(sx, 0.27, 0);
+    golferGroup.add(leg);
+  }
+  // Torso
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.45, 8), shirtMat);
+  torso.position.y = 0.72;
+  golferGroup.add(torso);
+  // Arms
+  for (const sx of [-0.14, 0.14]) {
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.35, 6), shirtMat);
+    arm.position.set(sx, 0.70, -0.05);
+    arm.rotation.x = 0.2;
+    golferGroup.add(arm);
+  }
+  // Neck
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.08, 6), skinMat);
+  neck.position.y = 0.99;
+  golferGroup.add(neck);
+  // Head
+  const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), skinMat);
+  headMesh.position.y = 1.10;
   golferGroup.add(headMesh);
+  // Cap
+  const capMat = new THREE.MeshStandardMaterial({ color: 0x1a3366, roughness: 0.6, metalness: 0.0 });
+  const capBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.015, 12), capMat);
+  capBrim.position.set(0, 1.15, -0.03);
+  golferGroup.add(capBrim);
+  const capTop = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), capMat);
+  capTop.position.y = 1.155;
+  golferGroup.add(capTop);
   simGroup.add(golferGroup);
 
-  arcMatGreen = new THREE.MeshBasicMaterial({ color: 0x00FF66, depthTest: false });
-  arcMatRed = new THREE.MeshBasicMaterial({ color: 0xFF3333, depthTest: false });
-  bsMatOrange = new THREE.MeshBasicMaterial({ color: 0xFFAA00, depthTest: false });
-  bsMatRed = new THREE.MeshBasicMaterial({ color: 0xFF3333, depthTest: false });
+  // ─── Swing arc materials — semi-transparent with glow ───
+  arcMatGreen = new THREE.MeshStandardMaterial({
+    color: 0x00FF66, emissive: 0x00FF66, emissiveIntensity: 0.5,
+    transparent: true, opacity: 0.6, depthTest: false
+  });
+  arcMatRed = new THREE.MeshStandardMaterial({
+    color: 0xFF3333, emissive: 0xFF3333, emissiveIntensity: 0.5,
+    transparent: true, opacity: 0.6, depthTest: false
+  });
+  bsMatOrange = new THREE.MeshStandardMaterial({
+    color: 0xFFAA00, emissive: 0xFFAA00, emissiveIntensity: 0.4,
+    transparent: true, opacity: 0.5, depthTest: false
+  });
+  bsMatRed = new THREE.MeshStandardMaterial({
+    color: 0xFF3333, emissive: 0xFF3333, emissiveIntensity: 0.4,
+    transparent: true, opacity: 0.5, depthTest: false
+  });
 
+  // Golf ball — glossy white with dimple texture
+  const ballCanvas = document.createElement('canvas');
+  ballCanvas.width = 64; ballCanvas.height = 64;
+  const bCtx = ballCanvas.getContext('2d');
+  bCtx.fillStyle = '#FFFFFF';
+  bCtx.fillRect(0, 0, 64, 64);
+  // Dimple pattern
+  for (let i = 0; i < 40; i++) {
+    const dx = Math.random() * 64;
+    const dy = Math.random() * 64;
+    bCtx.beginPath();
+    bCtx.arc(dx, dy, 1.5 + Math.random(), 0, Math.PI * 2);
+    bCtx.fillStyle = 'rgba(220,220,220,0.5)';
+    bCtx.fill();
+  }
+  const ballTex = new THREE.CanvasTexture(ballCanvas);
   ballMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(0.03, 8, 8),
-    new THREE.MeshBasicMaterial({ color: 0xFFFFFF })
+    new THREE.SphereGeometry(0.021, 16, 12),
+    new THREE.MeshStandardMaterial({ map: ballTex, roughness: 0.15, metalness: 0.05 })
   );
   simGroup.add(ballMesh);
 
