@@ -11,6 +11,7 @@ import { loadFurnitureFromConfig } from './furniture.js';
 import { initAR } from './ar.js';
 
 async function init() {
+  try {
   initScene();
   await initRoom();
   await initRoomDetails();
@@ -40,6 +41,9 @@ async function init() {
   if (stue) {
     // Small delay to ensure flyToRoom is available after scene setup
     setTimeout(() => window.flyToRoom?.(stue.bounds, 0), 100);
+  }
+  } catch (e) {
+    console.error('INIT FAILED:', e.message, e.stack);
   }
 }
 

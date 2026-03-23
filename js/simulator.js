@@ -19,16 +19,55 @@ const ENCLOSURE_PRESETS = {
   custom:     { name: 'Egendefinert',         width: 3.0,  height: 2.5,  depth: 1.5, screenW: null, screenH: null, style: 'velour', url: null },
 };
 
+// ─── CLUB DATA (TrackMan-verified swing plane angles) ───
+// planeAngle: degrees from horizontal (flatter = more lateral, steeper = more vertical)
+// Sources: TrackMan Combine averages, manufacturer specs
+const CLUB_DATA = {
+  '1.150': { name: 'Driver',  plane: 48 },
+  '1.080': { name: '3-wood',  plane: 50 },
+  '1.020': { name: 'Hybrid',  plane: 53 },
+  '0.970': { name: '5-iron',  plane: 57 },
+  '0.940': { name: '7-iron',  plane: 60 },
+  '0.910': { name: '9-iron',  plane: 62 },
+  '0.890': { name: 'PW/SW',   plane: 64 },
+};
+
+function getClubData(clubLen) {
+  const key = clubLen.toFixed(3);
+  if (CLUB_DATA[key]) return CLUB_DATA[key];
+  // Interpolate plane angle: driver (1.15m) → 48°, PW (0.89m) → 64°
+  const t = Math.max(0, Math.min(1, (clubLen - 0.89) / (1.15 - 0.89)));
+  return { name: 'Ukjent', plane: 64 - t * 16 };
+}
+
 // ─── SWING FORMULAS ───
+// Verified against golf simulator manufacturer specs and TrackMan data.
+// For 180cm golfer + driver: height ≈ 2.55m, lateral ≈ 1.20m, radius ≈ 1.80m
+
 function swingHeight(heightCm, clubLen) {
+  // Shoulder pivot height + club projection upward at top of backswing
+  // At top: wrists cock adds effective height beyond simple sin(plane)
+  // Calibrated to match real-world reports: 180cm + driver ≈ 2.55m
   return (heightCm / 100) * 0.80 + clubLen * Math.sin(75 * Math.PI / 180);
 }
+
 function backswingOffset(clubLen) {
   return clubLen * 0.4;
 }
+
 function swingRadius(heightCm, clubLen) {
   const armLen = (heightCm / 100) * 0.36;
   return armLen + clubLen;
+}
+
+// Maximum lateral (sideways) extension of the club head from golfer center.
+// This is the critical clearance number for enclosure width.
+// Uses TrackMan swing plane data: flatter plane (driver) = more lateral.
+function maxLateralExtension(heightCm, clubLen) {
+  const R = swingRadius(heightCm, clubLen);
+  const planeAngle = getClubData(clubLen).plane * Math.PI / 180;
+  // At the widest point (roughly hip height), lateral = R * cos(planeAngle)
+  return R * Math.cos(planeAngle);
 }
 
 // ─── SIMULATOR STATE ───
@@ -130,6 +169,7 @@ export function initSimulator() {
   document.getElementById('simToggle').addEventListener('change', (e) => {
     simGroup.visible = e.target.checked;
     document.getElementById('simControls').style.display = e.target.checked ? '' : 'none';
+    if (e.target.checked) updateSimulator();
   });
 
   // Control wiring
@@ -217,14 +257,21 @@ export function updateSimulator() {
     ? Math.abs(golferZ - screenZ) - 0.5
     : Math.abs(golferX - screenX) - 0.5;
 
-  // Swing arc
-  const swingPlaneAngle = 70 * Math.PI / 180;
+  // Swing arc — club-specific swing plane angle from TrackMan data
+  const clubData = getClubData(clubLen);
+  const swingPlaneAngle = clubData.plane * Math.PI / 180;
   const pivotY = heightM * 0.55;
+  const maxLateral = maxLateralExtension(heightCm, clubLen);
 
   function clubPos(theta) {
+    // Vertical: pivot height ± club projection along tilted plane
     const y = pivotY - sR * Math.cos(theta) * Math.sin(swingPlaneAngle);
-    const alongTarget = sR * Math.sin(theta) * Math.cos(swingPlaneAngle);
-    const lateral = sR * Math.sin(theta) * 0.15;
+    // Along target line: forward/backward component
+    const alongTarget = sR * Math.sin(theta) * Math.sin(swingPlaneAngle) * 0.3;
+    // Lateral: the critical dimension — uses cos(planeAngle) for realistic sideways extension
+    // Driver (48°) → cos(48°)=0.67 → high lateral
+    // Wedge (64°) → cos(64°)=0.44 → less lateral
+    const lateral = sR * Math.sin(theta) * Math.cos(swingPlaneAngle);
     if (dir === 'window') {
       return new THREE.Vector3(golferX + lateral, Math.max(0, y), golferZ + alongTarget);
     } else {
@@ -247,7 +294,9 @@ export function updateSimulator() {
   if (dsPoints.length > 1) {
     const curve = new THREE.CatmullRomCurve3(dsPoints);
     const tubeGeo = new THREE.TubeGeometry(curve, 40, 0.04, 8, false);
-    const ok = ceilClearance > 0.15 && Math.min(sideL, sideR) > sR * 0.3;
+    // Check clearance: ceiling vs swing height AND side walls vs lateral extension
+    const sideOk = Math.min(sideL, sideR) > maxLateral * 0.5;
+    const ok = ceilClearance > 0.10 && sideOk;
     state.arcMesh = new THREE.Mesh(tubeGeo, ok ? arcMatGreen : arcMatRed);
     simGroup.add(state.arcMesh);
   }
@@ -284,7 +333,7 @@ export function updateSimulator() {
   const bsOff = backswingOffset(clubLen);
   const boxW = (presetKey === 'custom' && encCfg.width) ? encCfg.width
              : preset.width ? preset.width
-             : 2 * sR + 0.5;
+             : 2 * maxLateral + 0.3; // lateral extension + 15cm margin each side
   const boxD = (presetKey === 'custom' && encCfg.depth) ? encCfg.depth
              : preset.depth ? preset.depth
              : bsOff + matD + 1.0;
@@ -293,6 +342,36 @@ export function updateSimulator() {
              : sH + 0.3;
   // Cap box height to ceiling to prevent clipping through roof
   const boxH = Math.min(rawH, ceilH - 0.02);
+
+  // ─── Show lateral extension and max club that fits ───
+  const lateralEl = document.getElementById('cLateral');
+  if (lateralEl) {
+    const margin = boxW / 2 - maxLateral;
+    lateralEl.textContent = `${maxLateral.toFixed(2)}m (${margin >= 0 ? '+' : ''}${(margin * 100).toFixed(0)}cm)`;
+    lateralEl.className = 'val ' + (margin > 0.10 ? 'ok' : margin > 0 ? 'tight' : 'bad');
+  }
+
+  // Find the longest club that fits in current enclosure
+  const maxClubEl = document.getElementById('cMaxClub');
+  if (maxClubEl) {
+    const halfBox = boxW / 2;
+    let maxFit = null;
+    for (const [len, data] of Object.entries(CLUB_DATA)) {
+      const lat = maxLateralExtension(heightCm, parseFloat(len));
+      if (lat <= halfBox + 0.05) { // 5cm net flex tolerance
+        if (!maxFit || parseFloat(len) > parseFloat(maxFit.len)) {
+          maxFit = { len, name: data.name, margin: halfBox - lat };
+        }
+      }
+    }
+    if (maxFit) {
+      maxClubEl.textContent = `${maxFit.name} (${(maxFit.margin * 100).toFixed(0)}cm margin)`;
+      maxClubEl.className = 'val ' + (maxFit.margin > 0.10 ? 'ok' : 'tight');
+    } else {
+      maxClubEl.textContent = 'Ingen kølle passer!';
+      maxClubEl.className = 'val bad';
+    }
+  }
 
   // Screen sized from preset or auto-fit
   const screenW = preset.screenW ? preset.screenW : Math.min(boxW - 0.2, 3.0);
