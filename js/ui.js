@@ -388,12 +388,15 @@ function switchLayout(layoutKey) {
 
   // Apply simulator overrides
   if (preset.simulator) {
+    cfg.simulator = cfg.simulator || {};
     if (preset.simulator.visible === false) {
-      cfg.simulator = cfg.simulator || {};
+      // Hide entire simulator (golfer, swing arc, mat, enclosure)
+      if (state.simGroup) state.simGroup.visible = false;
       cfg.simulator.enclosure = cfg.simulator.enclosure || {};
       cfg.simulator.enclosure.visible = false;
     } else {
-      cfg.simulator = cfg.simulator || {};
+      // Show simulator and apply position/enclosure overrides
+      if (state.simGroup) state.simGroup.visible = true;
       if (preset.simulator.posX !== undefined) cfg.simulator.posX = preset.simulator.posX;
       if (preset.simulator.posZ !== undefined) cfg.simulator.posZ = preset.simulator.posZ;
       if (preset.simulator.enclosure) {
@@ -406,19 +409,12 @@ function switchLayout(layoutKey) {
   const pills = document.querySelectorAll('#layout-pills .vis-pill');
   pills.forEach(p => p.classList.toggle('on', p.dataset.layout === layoutKey));
 
-  // Rebuild
+  // Single rebuild from updated in-memory config
   if (window.eidos) {
     window.eidos.rebuild(false).then(() => {
       renderFurnitureList();
       populateFurnitureSelect();
     });
-  }
-
-  // Save to disk
-  if (window.eidos?.updateConfig) {
-    window.eidos.updateConfig('layouts.active', layoutKey);
-    window.eidos.updateConfig('furniture', cfg.furniture);
-    window.eidos.updateConfig('simulator', cfg.simulator);
   }
 }
 
