@@ -34,7 +34,8 @@ describe('FURNITURE_CATALOG — structure validation', () => {
     for (const [id, entry] of entries) {
       expect(entry.w, `${id}.w too small`).toBeGreaterThanOrEqual(0.1);
       expect(entry.w, `${id}.w too large`).toBeLessThanOrEqual(5);
-      expect(entry.h, `${id}.h too small`).toBeGreaterThanOrEqual(0.1);
+      const minH = id === 'hitting_mat_portable' ? 0.01 : 0.1; // mat is flat
+      expect(entry.h, `${id}.h too small`).toBeGreaterThanOrEqual(minH);
       expect(entry.h, `${id}.h too large`).toBeLessThanOrEqual(5);
       expect(entry.d, `${id}.d too small`).toBeGreaterThanOrEqual(0.1);
       expect(entry.d, `${id}.d too large`).toBeLessThanOrEqual(5);
@@ -105,7 +106,7 @@ describe('FURNITURE_CATALOG — IKEA entries', () => {
 
 describe('FURNITURE_CATALOG — custom entries', () => {
   const customEntries = Object.entries(FURNITURE_CATALOG).filter(([, e]) => e.custom);
-  const validBuilders = ['besta', 'soderhamn', 'cana_tv'];
+  const validBuilders = ['besta', 'soderhamn', 'cana_tv', 'pax_golfsim', 'retractable_screen', 'portable_enclosure', 'hitting_mat_portable'];
 
   it('at least one custom entry exists', () => {
     expect(customEntries.length).toBeGreaterThan(0);

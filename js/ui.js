@@ -349,6 +349,78 @@ function closePhotoOverlay() {
 
 // ─── INIT UI ───
 
+// ─── Layout switching ───
+function initLayoutPills() {
+  const container = document.getElementById('layout-pills');
+  if (!container) return;
+  const cfg = state.apartmentConfig;
+  if (!cfg?.layouts?.presets) return;
+
+  container.innerHTML = '';
+  const active = cfg.layouts.active || Object.keys(cfg.layouts.presets)[0];
+
+  for (const [key, preset] of Object.entries(cfg.layouts.presets)) {
+    const pill = document.createElement('span');
+    pill.className = 'vis-pill' + (key === active ? ' on' : '');
+    pill.textContent = preset.name || key;
+    pill.dataset.layout = key;
+    pill.addEventListener('click', () => switchLayout(key));
+    container.appendChild(pill);
+  }
+}
+
+function switchLayout(layoutKey) {
+  const cfg = state.apartmentConfig;
+  if (!cfg?.layouts?.presets?.[layoutKey]) return;
+  const preset = cfg.layouts.presets[layoutKey];
+
+  // Update active layout
+  cfg.layouts.active = layoutKey;
+
+  // Swap furniture
+  if (preset.furniture) {
+    cfg.furniture = JSON.parse(JSON.stringify(preset.furniture));
+  }
+
+  // Apply simulator overrides
+  if (preset.simulator) {
+    if (preset.simulator.visible === false) {
+      cfg.simulator = cfg.simulator || {};
+      cfg.simulator.enclosure = cfg.simulator.enclosure || {};
+      cfg.simulator.enclosure.visible = false;
+    } else {
+      cfg.simulator = cfg.simulator || {};
+      if (preset.simulator.posX !== undefined) cfg.simulator.posX = preset.simulator.posX;
+      if (preset.simulator.posZ !== undefined) cfg.simulator.posZ = preset.simulator.posZ;
+      if (preset.simulator.enclosure) {
+        cfg.simulator.enclosure = { ...cfg.simulator.enclosure, ...preset.simulator.enclosure };
+      }
+    }
+  }
+
+  // Update UI pills
+  const pills = document.querySelectorAll('#layout-pills .vis-pill');
+  pills.forEach(p => p.classList.toggle('on', p.dataset.layout === layoutKey));
+
+  // Rebuild
+  if (window.eidos) {
+    window.eidos.rebuild(false).then(() => {
+      renderFurnitureList();
+      populateFurnitureSelect();
+    });
+  }
+
+  // Save to disk
+  if (window.eidos?.updateConfig) {
+    window.eidos.updateConfig('layouts.active', layoutKey);
+    window.eidos.updateConfig('furniture', cfg.furniture);
+    window.eidos.updateConfig('simulator', cfg.simulator);
+  }
+}
+
+// Expose for eidos API
+window.switchLayout = switchLayout;
+
 export function initUI() {
   initViewButtons();
   initVisibilityToggles();
@@ -378,6 +450,7 @@ export function initUI() {
     populateCalibration();
     populateRoomNavPills();
     populateFurnitureSelect();
+    initLayoutPills();
   } else {
     setTimeout(() => {
       const entries = state.apartmentConfig?.measurements?.entries;
@@ -389,6 +462,7 @@ export function initUI() {
       populateCalibration();
       populateRoomNavPills();
       populateFurnitureSelect();
+      initLayoutPills();
     }, 500);
   }
 }

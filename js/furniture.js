@@ -84,6 +84,12 @@ export const FURNITURE_CATALOG = {
   soderhamn:   { name: 'Söderhamn hjørne 3-s', w: 1.92, h: 0.83, d: 1.92, color: 0x8B8B8B, custom: 'soderhamn' },
   cana_tv:     { name: 'Bolia Cana + Frame TV', w: 1.28, h: 1.11, d: 0.40, color: 0xC4A87C, custom: 'cana_tv' },
 
+  // ─── Golf simulator storage + deployment ───
+  pax_golfsim: { name: 'PAX Høyskap (golfsim)', w: 1.00, h: 2.01, d: 0.58, color: 0xE8DCC8, custom: 'pax_golfsim' },
+  retractable_screen: { name: 'Retractable skjerm', w: 2.60, h: 0.12, d: 0.15, color: 0x222222, custom: 'retractable_screen' },
+  portable_enclosure: { name: 'Sammenleggbar enclosure', w: 2.40, h: 2.80, d: 1.80, color: 0x111111, custom: 'portable_enclosure' },
+  hitting_mat_portable: { name: 'Slagmatte (sammenleggbar)', w: 1.50, h: 0.025, d: 1.20, color: 0x2B6E2B, custom: 'hitting_mat_portable' },
+
   // ─── Generic fallbacks (box geometry with correct dimensions) ───
   sofa_3:      { name: 'Sofa (3-seter)', w: 2.1, h: 0.85, d: 0.9, color: 0x6B4C3B },
   sofa_2:      { name: 'Sofa (2-seter)', w: 1.5, h: 0.85, d: 0.9, color: 0x6B4C3B },
@@ -422,6 +428,229 @@ function createCanaTv(group) {
   group.add(new THREE.Line(frameLineGeo, frameBorderMat));
 }
 
+// ─── PAX Høyskap for golfsim-lagring ───
+function createPaxGolfsim(group) {
+  const W = 1.00, H = 2.01, D = 0.58;
+  const woodMat = mat(0xE8DCC8, { roughness: 0.7 }); // Birch-look
+  const doorMat = mat(0xF5EFE0, { roughness: 0.6 });
+  const darkMat = mat(0x333333, { roughness: 0.8 });
+  const greenMat = mat(0x2B6E2B, { roughness: 0.9 });
+  const handleMat = mat(0xAAAAAA, { roughness: 0.3, metalness: 0.7 });
+
+  // Main cabinet body (back + sides + top + bottom)
+  const backPanel = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.015), woodMat);
+  backPanel.position.set(0, H / 2, D / 2 - 0.0075);
+  group.add(backPanel);
+  for (const sx of [-W / 2 + 0.01, W / 2 - 0.01]) {
+    const side = new THREE.Mesh(new THREE.BoxGeometry(0.02, H, D), woodMat);
+    side.position.set(sx, H / 2, 0);
+    group.add(side);
+  }
+  const topB = new THREE.Mesh(new THREE.BoxGeometry(W, 0.02, D), woodMat);
+  topB.position.set(0, H - 0.01, 0);
+  group.add(topB);
+  const bottomB = new THREE.Mesh(new THREE.BoxGeometry(W, 0.02, D), woodMat);
+  bottomB.position.set(0, 0.01, 0);
+  group.add(bottomB);
+
+  // Doors (2 panels, slightly in front)
+  for (const sx of [-W / 4, W / 4]) {
+    const door = new THREE.Mesh(new THREE.BoxGeometry(W / 2 - 0.02, H - 0.04, 0.018), doorMat);
+    door.position.set(sx, H / 2, -D / 2 + 0.009);
+    group.add(door);
+    addEdges(door, group);
+    // Handle
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.12, 6), handleMat);
+    handle.position.set(sx + (sx > 0 ? -0.15 : 0.15), H / 2, -D / 2 - 0.005);
+    group.add(handle);
+  }
+
+  // Interior shelves (visible through slightly open door gap)
+  // Shelf 1: rolled hitting mat
+  const matRoll = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.9, 16), greenMat);
+  matRoll.rotation.z = Math.PI / 2;
+  matRoll.position.set(0, 0.15, 0.05);
+  group.add(matRoll);
+  // Shelf 2: folded net frame
+  const shelf1 = new THREE.Mesh(new THREE.BoxGeometry(W - 0.06, 0.015, D - 0.04), woodMat);
+  shelf1.position.set(0, 0.40, 0);
+  group.add(shelf1);
+  const netBundle = new THREE.Mesh(new THREE.BoxGeometry(0.70, 0.20, 0.30), darkMat);
+  netBundle.position.set(0, 0.52, 0);
+  group.add(netBundle);
+  // Shelf 3: launch monitor + accessories
+  const shelf2 = new THREE.Mesh(new THREE.BoxGeometry(W - 0.06, 0.015, D - 0.04), woodMat);
+  shelf2.position.set(0, 0.75, 0);
+  group.add(shelf2);
+  // Launch monitor (small box like Garmin R10)
+  const lm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.06), mat(0x111111, { roughness: 0.3, metalness: 0.4 }));
+  lm.position.set(-0.20, 0.80, -0.05);
+  group.add(lm);
+  // Projector (compact)
+  const proj = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.10, 0.20), mat(0x222222, { roughness: 0.4, metalness: 0.3 }));
+  proj.position.set(0.10, 0.82, 0);
+  group.add(proj);
+  // Upper half: regular shelves (other storage)
+  for (const sy of [1.10, 1.50]) {
+    const sh = new THREE.Mesh(new THREE.BoxGeometry(W - 0.06, 0.015, D - 0.04), woodMat);
+    sh.position.set(0, sy, 0);
+    group.add(sh);
+  }
+  // Label on top
+  addEdges(backPanel, group);
+}
+
+// ─── Retractable screen (wall/ceiling mounted) ───
+function createRetractableScreen(group) {
+  const W = 2.60, H_case = 0.12, D_case = 0.15;
+  const caseMat = mat(0x222222, { roughness: 0.4, metalness: 0.3 });
+  const screenMat = mat(0xEEEEEE, { roughness: 0.95, metalness: 0.0 });
+
+  // Housing case (roller)
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(W, H_case, D_case), caseMat);
+  housing.position.set(0, H_case / 2, 0);
+  group.add(housing);
+  addEdges(housing, group);
+
+  // Deployed screen hanging down
+  const screenH = 2.0;
+  const screen = new THREE.Mesh(
+    new THREE.PlaneGeometry(W - 0.10, screenH),
+    new THREE.MeshStandardMaterial({
+      color: 0xF8F8F8, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide
+    })
+  );
+  screen.position.set(0, -screenH / 2, 0);
+  group.add(screen);
+
+  // Bottom bar (weight bar)
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, W - 0.08, 8), caseMat);
+  bar.rotation.z = Math.PI / 2;
+  bar.position.set(0, -screenH, 0);
+  group.add(bar);
+
+  // Projected image area (slightly inset, darker rectangle)
+  const imgArea = new THREE.Mesh(
+    new THREE.PlaneGeometry(W - 0.30, screenH - 0.20),
+    new THREE.MeshStandardMaterial({
+      color: 0x1a3322, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide
+    })
+  );
+  imgArea.position.set(0, -screenH / 2, -0.001);
+  group.add(imgArea);
+}
+
+// ─── Portable/foldable enclosure (deployed state) ───
+function createPortableEnclosure(group) {
+  const W = 2.40, H = 2.80, D = 1.80;
+  const frameMat = mat(0x333333, { roughness: 0.3, metalness: 0.7 });
+  const netMat = new THREE.MeshStandardMaterial({
+    color: 0x111111, roughness: 0.9, metalness: 0.0,
+    transparent: true, opacity: 0.3, side: THREE.DoubleSide
+  });
+  const poleR = 0.015;
+
+  // 4 corner poles (front only + 2 mid-side)
+  const corners = [
+    [-W/2, 0, -D/2], [W/2, 0, -D/2],  // front
+    [-W/2, 0, D*0.3], [W/2, 0, D*0.3], // back (shorter, open entry)
+  ];
+  for (const [cx, cy, cz] of corners) {
+    const poleH = cz < 0 ? H : H * 0.7; // Back poles shorter
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(poleR, poleR, poleH, 8), frameMat);
+    pole.position.set(cx, poleH / 2, cz);
+    group.add(pole);
+  }
+
+  // Top frame rails
+  const topRailF = new THREE.Mesh(new THREE.CylinderGeometry(poleR * 0.7, poleR * 0.7, W, 6), frameMat);
+  topRailF.rotation.z = Math.PI / 2;
+  topRailF.position.set(0, H, -D / 2);
+  group.add(topRailF);
+
+  // Side rails
+  for (const sx of [-W/2, W/2]) {
+    const sideD = D * 0.8;
+    const sideRail = new THREE.Mesh(new THREE.CylinderGeometry(poleR * 0.7, poleR * 0.7, sideD, 6), frameMat);
+    sideRail.rotation.x = Math.PI / 2;
+    sideRail.position.set(sx, H * 0.85, -D / 2 + sideD / 2);
+    group.add(sideRail);
+  }
+
+  // Side net panels
+  for (const sx of [-W/2, W/2]) {
+    const sideNet = new THREE.Mesh(new THREE.PlaneGeometry(D * 0.8, H), netMat);
+    sideNet.rotation.y = Math.PI / 2;
+    sideNet.position.set(sx, H / 2, -D / 2 + D * 0.4);
+    group.add(sideNet);
+  }
+
+  // Top net
+  const topNet = new THREE.Mesh(new THREE.PlaneGeometry(W, D * 0.8), netMat);
+  topNet.rotation.x = Math.PI / 2;
+  topNet.position.set(0, H, -D / 2 + D * 0.4);
+  group.add(topNet);
+
+  // Bottom frame rail (front)
+  const bottomRail = new THREE.Mesh(new THREE.CylinderGeometry(poleR * 0.7, poleR * 0.7, W, 6), frameMat);
+  bottomRail.rotation.z = Math.PI / 2;
+  bottomRail.position.set(0, poleR, -D / 2);
+  group.add(bottomRail);
+}
+
+// ─── Portable hitting mat ───
+function createHittingMatPortable(group) {
+  const W = 1.50, D = 1.20, H = 0.025;
+
+  // Rubber base
+  const base = new THREE.Mesh(
+    new THREE.BoxGeometry(W + 0.04, 0.012, D + 0.04),
+    mat(0x1a1a1a, { roughness: 0.92 })
+  );
+  base.position.y = 0.006;
+  group.add(base);
+
+  // Turf layer
+  const turfCanvas = document.createElement('canvas');
+  turfCanvas.width = 256; turfCanvas.height = 256;
+  const ctx = turfCanvas.getContext('2d');
+  ctx.fillStyle = '#2B7A2B';
+  ctx.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 3500; i++) {
+    const gx = Math.random() * 256;
+    const gy = Math.random() * 256;
+    const shade = 25 + Math.random() * 55;
+    ctx.strokeStyle = `rgba(${shade}, ${70 + Math.random() * 70}, ${shade}, 0.4)`;
+    ctx.lineWidth = 0.5 + Math.random();
+    ctx.beginPath();
+    ctx.moveTo(gx, gy);
+    ctx.lineTo(gx + (Math.random() - 0.5) * 3, gy - 2 - Math.random() * 4);
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(turfCanvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(3, 3);
+
+  const turf = new THREE.Mesh(
+    new THREE.BoxGeometry(W, H, D),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0.0 })
+  );
+  turf.position.y = 0.012 + H / 2;
+  group.add(turf);
+
+  // Alignment marks
+  const lineMat = mat(0xFFFFFF, { roughness: 0.5 });
+  const centerLine = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.001, D * 0.6), lineMat);
+  centerLine.position.set(0, H + 0.013, 0);
+  group.add(centerLine);
+
+  // Tee position marker
+  const tee = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.004, 12), mat(0xCC0000));
+  tee.position.set(0, H + 0.014, -D / 4);
+  group.add(tee);
+}
+
 // ─── FACTORY ───
 
 /**
@@ -439,6 +668,14 @@ export function createFurnitureMesh(type) {
     createSoderhamn(group);
   } else if (cat.custom === 'cana_tv') {
     createCanaTv(group);
+  } else if (cat.custom === 'pax_golfsim') {
+    createPaxGolfsim(group);
+  } else if (cat.custom === 'retractable_screen') {
+    createRetractableScreen(group);
+  } else if (cat.custom === 'portable_enclosure') {
+    createPortableEnclosure(group);
+  } else if (cat.custom === 'hitting_mat_portable') {
+    createHittingMatPortable(group);
   } else {
     const geo = new THREE.BoxGeometry(cat.w, cat.h, cat.d);
     const boxMat = new THREE.MeshStandardMaterial({ color: cat.color, roughness: 0.7, metalness: 0.0 });
