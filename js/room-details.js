@@ -13,7 +13,20 @@ let config = null;
 
 export function clearRoomDetails() {
   const obj = state.scene.getObjectByName('RoomDetails');
-  if (obj) state.scene.remove(obj);
+  if (obj) {
+    // Dispose all geometries and materials to prevent VRAM leak
+    obj.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        for (const m of mats) {
+          if (m.map) m.map.dispose();
+          m.dispose();
+        }
+      }
+    });
+    state.scene.remove(obj);
+  }
 }
 
 export async function initRoomDetails(configOverride) {

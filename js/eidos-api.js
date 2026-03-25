@@ -103,14 +103,36 @@ const eidos = {
       return;
     }
 
-    // Clear existing geometry and entity registry
+    // Clear existing geometry, furniture, and entity registry
     clearEntityRegistry();
     clearRoomGeometry();
     clearRoomDetails();
 
+    // Clear furniture meshes from scene and dispose
+    for (const item of state.placedItems) {
+      if (item.mesh) {
+        item.mesh.traverse(child => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            for (const m of mats) {
+              if (m.map) m.map.dispose();
+              m.dispose();
+            }
+          }
+        });
+        state.scene.remove(item.mesh);
+      }
+    }
+    state.placedItems.length = 0;
+
     // Rebuild from fresh config
     await initRoom(config);
     await initRoomDetails(config);
+
+    // Reload furniture from config
+    const { loadFurnitureFromConfig } = await import('./furniture.js');
+    await loadFurnitureFromConfig();
 
     // Update simulator to match new geometry
     try { updateSimulator(); } catch (e) { /* simulator may not be ready */ }
