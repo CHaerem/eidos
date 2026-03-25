@@ -352,9 +352,10 @@ function closePhotoOverlay() {
 // ─── Layout switching ───
 function initLayoutPills() {
   const container = document.getElementById('layout-pills');
+  const bar = document.getElementById('layout-bar');
   if (!container) return;
   const cfg = state.apartmentConfig;
-  if (!cfg?.layouts?.presets) return;
+  if (!cfg?.layouts?.presets) { if (bar) bar.style.display = 'none'; return; }
 
   container.innerHTML = '';
   const active = cfg.layouts.active || Object.keys(cfg.layouts.presets)[0];
@@ -367,6 +368,9 @@ function initLayoutPills() {
     pill.addEventListener('click', () => switchLayout(key));
     container.appendChild(pill);
   }
+
+  // Show the bar if we have layouts
+  if (bar) bar.style.display = 'block';
 }
 
 function switchLayout(layoutKey) {
