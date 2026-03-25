@@ -89,6 +89,7 @@ export const FURNITURE_CATALOG = {
   retractable_screen: { name: 'Retractable skjerm', w: 2.60, h: 0.12, d: 0.15, color: 0x222222, custom: 'retractable_screen' },
   portable_enclosure: { name: 'Sammenleggbar enclosure', w: 2.40, h: 2.80, d: 1.80, color: 0x111111, custom: 'portable_enclosure' },
   hitting_mat_portable: { name: 'Slagmatte (sammenleggbar)', w: 1.50, h: 0.025, d: 1.20, color: 0x2B6E2B, custom: 'hitting_mat_portable' },
+  vanish_deployed: { name: 'SportScreen Vanish 16', w: 3.90, h: 2.25, d: 3.0, color: 0x222222, custom: 'vanish_deployed' },
 
   // ─── Generic fallbacks (box geometry with correct dimensions) ───
   sofa_3:      { name: 'Sofa (3-seter)', w: 2.1, h: 0.85, d: 0.9, color: 0x6B4C3B },
@@ -651,6 +652,108 @@ function createHittingMatPortable(group) {
   group.add(tee);
 }
 
+// ─── SportScreen Vanish 16 (deployed) ───
+// Ceiling-mounted retractable enclosure. Tubes on kitchen ceiling (2.25m),
+// impact screen + side nets roll down into stue. Open back.
+function createVanishDeployed(group) {
+  const W = 3.90;       // width (kjøkkenåpning)
+  const CEIL_H = 2.25;  // kitchen ceiling height (tube mount)
+  const SCREEN_H = 2.15; // screen hangs from ceiling to ~10cm above floor
+  const D = 3.0;         // depth (screen to back of side nets)
+  const tubeR = 0.06;    // tube radius (~12cm diameter)
+
+  const tubeMat = mat(0x333333, { roughness: 0.3, metalness: 0.6 });
+  const screenMat = new THREE.MeshStandardMaterial({
+    color: 0xF0F0F0, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide
+  });
+  const netMat = new THREE.MeshStandardMaterial({
+    color: 0x111111, roughness: 0.9, metalness: 0.0,
+    transparent: true, opacity: 0.25, side: THREE.DoubleSide
+  });
+  const frameMat = mat(0x444444, { roughness: 0.3, metalness: 0.5 });
+
+  // ─── Ceiling tubes (3 tubes: front screen + 2 side nets) ───
+  // Front tube (holds impact screen)
+  const frontTube = new THREE.Mesh(
+    new THREE.CylinderGeometry(tubeR, tubeR, W, 12),
+    tubeMat
+  );
+  frontTube.rotation.z = Math.PI / 2;
+  frontTube.position.set(0, CEIL_H - tubeR, 0);
+  group.add(frontTube);
+
+  // Side tubes (hold side nets)
+  for (const sx of [-W / 2, W / 2]) {
+    const sideTube = new THREE.Mesh(
+      new THREE.CylinderGeometry(tubeR * 0.8, tubeR * 0.8, D, 10),
+      tubeMat
+    );
+    sideTube.rotation.x = Math.PI / 2;
+    sideTube.position.set(sx, CEIL_H - tubeR, -D / 2);
+    group.add(sideTube);
+  }
+
+  // ─── Impact screen (front, white, hangs from front tube) ───
+  const screen = new THREE.Mesh(
+    new THREE.PlaneGeometry(W - 0.10, SCREEN_H),
+    screenMat
+  );
+  screen.position.set(0, CEIL_H - SCREEN_H / 2 - tubeR * 2, 0);
+  group.add(screen);
+
+  // Projected image area (golf course image placeholder)
+  const imgArea = new THREE.Mesh(
+    new THREE.PlaneGeometry(W - 0.40, SCREEN_H - 0.30),
+    new THREE.MeshStandardMaterial({
+      color: 0x1a4422, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide
+    })
+  );
+  imgArea.position.set(0, CEIL_H - SCREEN_H / 2 - tubeR * 2, -0.001);
+  group.add(imgArea);
+
+  // Bottom weight bar (keeps screen taut)
+  const weightBar = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.015, 0.015, W - 0.08, 8),
+    frameMat
+  );
+  weightBar.rotation.z = Math.PI / 2;
+  weightBar.position.set(0, CEIL_H - SCREEN_H - tubeR * 2 + 0.02, 0);
+  group.add(weightBar);
+
+  // ─── Side nets (semi-transparent, hang from side tubes) ───
+  for (const sx of [-W / 2, W / 2]) {
+    const sideNet = new THREE.Mesh(
+      new THREE.PlaneGeometry(D, SCREEN_H),
+      netMat
+    );
+    sideNet.rotation.y = Math.PI / 2;
+    sideNet.position.set(sx, CEIL_H - SCREEN_H / 2 - tubeR * 2, -D / 2);
+    group.add(sideNet);
+  }
+
+  // ─── Top net (between tubes, prevents upward escape) ───
+  const topNet = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, D),
+    netMat
+  );
+  topNet.rotation.x = Math.PI / 2;
+  topNet.position.set(0, CEIL_H - tubeR * 2, -D / 2);
+  group.add(topNet);
+
+  // ─── Vertical guide wires (thin lines at front corners) ───
+  const wireMat = mat(0x666666, { roughness: 0.3, metalness: 0.5 });
+  for (const sx of [-W / 2 + 0.02, W / 2 - 0.02]) {
+    const wire = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.003, 0.003, SCREEN_H, 4),
+      wireMat
+    );
+    wire.position.set(sx, CEIL_H - SCREEN_H / 2 - tubeR * 2, 0);
+    group.add(wire);
+  }
+
+  // No back panel — open for golfer entry
+}
+
 // ─── FACTORY ───
 
 /**
@@ -676,6 +779,8 @@ export function createFurnitureMesh(type) {
     createPortableEnclosure(group);
   } else if (cat.custom === 'hitting_mat_portable') {
     createHittingMatPortable(group);
+  } else if (cat.custom === 'vanish_deployed') {
+    createVanishDeployed(group);
   } else {
     const geo = new THREE.BoxGeometry(cat.w, cat.h, cat.d);
     const boxMat = new THREE.MeshStandardMaterial({ color: cat.color, roughness: 0.7, metalness: 0.0 });

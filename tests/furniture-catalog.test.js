@@ -106,7 +106,7 @@ describe('FURNITURE_CATALOG — IKEA entries', () => {
 
 describe('FURNITURE_CATALOG — custom entries', () => {
   const customEntries = Object.entries(FURNITURE_CATALOG).filter(([, e]) => e.custom);
-  const validBuilders = ['besta', 'soderhamn', 'cana_tv', 'pax_golfsim', 'retractable_screen', 'portable_enclosure', 'hitting_mat_portable'];
+  const validBuilders = ['besta', 'soderhamn', 'cana_tv', 'pax_golfsim', 'retractable_screen', 'portable_enclosure', 'hitting_mat_portable', 'vanish_deployed'];
 
   it('at least one custom entry exists', () => {
     expect(customEntries.length).toBeGreaterThan(0);

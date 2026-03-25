@@ -376,31 +376,34 @@ function initLayoutPills() {
 function switchLayout(layoutKey) {
   const cfg = state.apartmentConfig;
   if (!cfg?.layouts?.presets?.[layoutKey]) return;
+  if (cfg.layouts.active === layoutKey) return; // Already active
   const preset = cfg.layouts.presets[layoutKey];
 
   // Update active layout
   cfg.layouts.active = layoutKey;
 
-  // Swap furniture
+  // Deep-copy furniture from preset
   if (preset.furniture) {
     cfg.furniture = JSON.parse(JSON.stringify(preset.furniture));
   }
 
-  // Apply simulator overrides
+  // Apply all simulator overrides from preset
   if (preset.simulator) {
     cfg.simulator = cfg.simulator || {};
     if (preset.simulator.visible === false) {
-      // Hide entire simulator (golfer, swing arc, mat, enclosure)
+      // Hide entire simulator
       if (state.simGroup) state.simGroup.visible = false;
       cfg.simulator.enclosure = cfg.simulator.enclosure || {};
       cfg.simulator.enclosure.visible = false;
     } else {
-      // Show simulator and apply position/enclosure overrides
+      // Show simulator and merge all overrides
       if (state.simGroup) state.simGroup.visible = true;
-      if (preset.simulator.posX !== undefined) cfg.simulator.posX = preset.simulator.posX;
-      if (preset.simulator.posZ !== undefined) cfg.simulator.posZ = preset.simulator.posZ;
-      if (preset.simulator.enclosure) {
-        cfg.simulator.enclosure = { ...cfg.simulator.enclosure, ...preset.simulator.enclosure };
+      for (const [key, val] of Object.entries(preset.simulator)) {
+        if (key === 'enclosure') {
+          cfg.simulator.enclosure = { ...(cfg.simulator.enclosure || {}), ...val };
+        } else {
+          cfg.simulator[key] = val;
+        }
       }
     }
   }
@@ -409,11 +412,16 @@ function switchLayout(layoutKey) {
   const pills = document.querySelectorAll('#layout-pills .vis-pill');
   pills.forEach(p => p.classList.toggle('on', p.dataset.layout === layoutKey));
 
-  // Single rebuild from updated in-memory config
+  // Single rebuild from updated in-memory config, then refresh UI
   if (window.eidos) {
     window.eidos.rebuild(false).then(() => {
       renderFurnitureList();
       populateFurnitureSelect();
+      // Re-run simulator with new config
+      try {
+        const { updateSimulator } = window._state;
+        if (typeof window._updateSimulator === 'function') window._updateSimulator();
+      } catch (e) {}
     });
   }
 }

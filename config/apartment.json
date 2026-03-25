@@ -721,7 +721,7 @@
         }
       },
       "golf_sammenleggbar": {
-        "name": "Golf (sammenleggbar)",
+        "name": "Golf (Vanish 16)",
         "furniture": [
           {
             "id": 1,
@@ -745,38 +745,25 @@
             "rotation": 0
           },
           {
-            "id": 4,
-            "type": "pax_golfsim",
-            "x": -1.58,
-            "z": -2.17,
-            "rotation": 180
-          },
-          {
-            "id": 5,
-            "type": "retractable_screen",
-            "x": -0.3,
-            "z": -2.35,
+            "id": 10,
+            "type": "vanish_deployed",
+            "x": 2.44,
+            "z": 2.0,
             "rotation": 0
           },
           {
-            "id": 6,
+            "id": 11,
             "type": "hitting_mat_portable",
-            "x": -0.3,
-            "z": -0.5,
-            "rotation": 0
-          },
-          {
-            "id": 7,
-            "type": "portable_enclosure",
-            "x": -0.3,
-            "z": -0.8,
+            "x": 2.44,
+            "z": -1.0,
             "rotation": 0
           }
         ],
         "simulator": {
           "visible": true,
-          "posX": -0.3,
-          "posZ": -0.5,
+          "posX": 2.44,
+          "posZ": -1.0,
+          "direction": "back",
           "enclosure": {
             "visible": false
           }
