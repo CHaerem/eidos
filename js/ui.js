@@ -124,7 +124,6 @@ function populateRoomNavPills() {
         container.querySelectorAll('.room-pill').forEach(p => p.classList.remove('active'));
         pill.classList.add('active');
         document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-        showDimensions(room.id, room.floor);
       }
     });
 

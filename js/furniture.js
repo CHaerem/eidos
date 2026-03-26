@@ -150,6 +150,8 @@ function addLabel(name, h, group) {
   const sprite = new THREE.Sprite(spriteMat);
   sprite.scale.set(1.6, 0.2, 1);
   sprite.position.y = h + 0.25;
+  sprite.visible = false; // Hidden by default, shown in edit mode
+  sprite.userData.isLabel = true;
   group.add(sprite);
 }
 

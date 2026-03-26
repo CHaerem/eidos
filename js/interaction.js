@@ -400,6 +400,10 @@ export function initInteraction() {
       selectEntity(null, null);
       canvas.style.cursor = '';
     }
+    // Toggle furniture labels visibility
+    state.scene.traverse(obj => {
+      if (obj.userData?.isLabel) obj.visible = enabled;
+    });
   });
 
   // When measure mode changes, update toolbar + viewport
