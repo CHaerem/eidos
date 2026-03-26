@@ -349,85 +349,6 @@ function closePhotoOverlay() {
 
 // ─── INIT UI ───
 
-// ─── Layout switching ───
-function initLayoutPills() {
-  const container = document.getElementById('layout-pills');
-  const bar = document.getElementById('layout-bar');
-  if (!container) return;
-  const cfg = state.apartmentConfig;
-  if (!cfg?.layouts?.presets) { if (bar) bar.style.display = 'none'; return; }
-
-  container.innerHTML = '';
-  const active = cfg.layouts.active || Object.keys(cfg.layouts.presets)[0];
-
-  for (const [key, preset] of Object.entries(cfg.layouts.presets)) {
-    const pill = document.createElement('span');
-    pill.className = 'vis-pill' + (key === active ? ' on' : '');
-    pill.textContent = preset.name || key;
-    pill.dataset.layout = key;
-    pill.addEventListener('click', () => switchLayout(key));
-    container.appendChild(pill);
-  }
-
-  // Show the bar if we have layouts
-  if (bar) bar.style.display = 'block';
-}
-
-function switchLayout(layoutKey) {
-  const cfg = state.apartmentConfig;
-  if (!cfg?.layouts?.presets?.[layoutKey]) return;
-  if (cfg.layouts.active === layoutKey) return; // Already active
-  const preset = cfg.layouts.presets[layoutKey];
-
-  // Update active layout
-  cfg.layouts.active = layoutKey;
-
-  // Deep-copy furniture from preset
-  if (preset.furniture) {
-    cfg.furniture = JSON.parse(JSON.stringify(preset.furniture));
-  }
-
-  // Apply all simulator overrides from preset
-  if (preset.simulator) {
-    cfg.simulator = cfg.simulator || {};
-    if (preset.simulator.visible === false) {
-      // Hide entire simulator
-      if (state.simGroup) state.simGroup.visible = false;
-      cfg.simulator.enclosure = cfg.simulator.enclosure || {};
-      cfg.simulator.enclosure.visible = false;
-    } else {
-      // Show simulator and merge all overrides
-      if (state.simGroup) state.simGroup.visible = true;
-      for (const [key, val] of Object.entries(preset.simulator)) {
-        if (key === 'enclosure') {
-          cfg.simulator.enclosure = { ...(cfg.simulator.enclosure || {}), ...val };
-        } else {
-          cfg.simulator[key] = val;
-        }
-      }
-    }
-  }
-
-  // Update UI pills
-  const pills = document.querySelectorAll('#layout-pills .vis-pill');
-  pills.forEach(p => p.classList.toggle('on', p.dataset.layout === layoutKey));
-
-  // Single rebuild from updated in-memory config, then refresh UI
-  if (window.eidos) {
-    window.eidos.rebuild(false).then(() => {
-      renderFurnitureList();
-      populateFurnitureSelect();
-      // Re-run simulator with new config
-      try {
-        const { updateSimulator } = window._state;
-        if (typeof window._updateSimulator === 'function') window._updateSimulator();
-      } catch (e) {}
-    });
-  }
-}
-
-// Expose for eidos API
-window.switchLayout = switchLayout;
 
 export function initUI() {
   initViewButtons();
@@ -458,7 +379,6 @@ export function initUI() {
     populateCalibration();
     populateRoomNavPills();
     populateFurnitureSelect();
-    initLayoutPills();
   } else {
     setTimeout(() => {
       const entries = state.apartmentConfig?.measurements?.entries;
@@ -470,7 +390,6 @@ export function initUI() {
       populateCalibration();
       populateRoomNavPills();
       populateFurnitureSelect();
-      initLayoutPills();
-    }, 500);
+      }, 500);
   }
 }
