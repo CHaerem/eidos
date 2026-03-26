@@ -359,6 +359,18 @@
         },
         "height": 2.25,
         "note": "Østre kjøkkenstolpe — 13×13cm, 80cm fra kjøkkenvegg øst, 1.81m fra nordvegg, ved trappens ytterkant"
+      },
+      {
+        "id": "P3",
+        "bounds": {
+          "minX": -0.35,
+          "maxX": 0.35,
+          "minZ": 4.7,
+          "maxZ": 5.3
+        },
+        "height": 2.5,
+        "note": "Pipe/skorstein på takterrassen — markert i mørkt på 6. etasje plantegning",
+        "fromY": 2.7
       }
     ]
   },

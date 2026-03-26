@@ -1,7 +1,33 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { state } from './state.js';
 import { ceilingZones, ceilAt } from './room.js';
 import { getFloorTexture } from './textures.js';
+
+/** Safely merge geometries — returns null if array is empty or merge fails */
+function safeMerge(geos) {
+  if (!geos || geos.length === 0) return null;
+  // Normalize: non-indexed, same attributes (position + normal only)
+  const prepared = geos.map(g => {
+    const ng = g.index ? g.toNonIndexed() : g;
+    // Strip UV and other extra attributes to ensure compatibility
+    for (const name of Object.keys(ng.attributes)) {
+      if (name !== 'position' && name !== 'normal') ng.deleteAttribute(name);
+    }
+    if (!ng.attributes.normal) ng.computeVertexNormals();
+    return ng;
+  });
+  try { return mergeGeometries(prepared, false); } catch (e) { return null; }
+}
+
+/** Create mesh from merged geos, add to parent. No-op if merge returns null. */
+function addMergedMesh(parent, geos, material, shadows = true) {
+  const merged = safeMerge(geos);
+  if (!merged) return;
+  const mesh = new THREE.Mesh(merged, material);
+  if (shadows) { mesh.castShadow = true; mesh.receiveShadow = true; }
+  parent.add(mesh);
+}
 
 // ─── BUILD UPPER FLOOR (6. ETASJE) GEOMETRY ───
 
@@ -51,11 +77,23 @@ export function buildUpperFloor() {
   }
 
   // Build edge walls (hemskant/railing) from floor up to roof
+  // Collect railing post geometries across all walls for merging
   const roofZone = ceilingZones.find(z => z.type === 'slope');
   if (uf.walls && roofZone) {
+    const railPostGeos = [];
+    const railTopGeos = [];
+    const railMat = new THREE.MeshStandardMaterial({
+      color: 0xF0F0F0, side: THREE.DoubleSide,
+      roughness: 0.5, metalness: 0.1
+    });
+
     for (const wall of uf.walls) {
-      _buildEdgeWall(floorGroup, wallMat, wall, floorY, roofZone);
+      _buildEdgeWall(floorGroup, wallMat, wall, floorY, roofZone, railPostGeos, railTopGeos);
     }
+
+    // Merge all railing posts and top rails into single meshes
+    addMergedMesh(floorGroup, railPostGeos, railMat);
+    addMergedMesh(floorGroup, railTopGeos, railMat);
   }
 
   // Build staircase geometry (separate group — belongs to ground floor visually)
@@ -134,17 +172,13 @@ function _addFloorQuad(group, mat, xL, xR, zF, zB, y) {
 }
 
 // Build a railing or wall edge from the floor up
-function _buildEdgeWall(group, mat, wallDef, floorY, roofZone) {
+// railPostGeos/railTopGeos: arrays to collect geometries for later merging (railing mode only)
+function _buildEdgeWall(group, mat, wallDef, floorY, roofZone, railPostGeos, railTopGeos) {
   const pos = wallDef.pos;
   const isZAxis = wallDef.axis === 'z';
   const railHeight = wallDef.railHeight || 1.0;
   const isRailing = wallDef.type === 'railing';
   const topY = floorY + railHeight;
-
-  const railMat = new THREE.MeshStandardMaterial({
-    color: 0xF0F0F0, side: THREE.DoubleSide,
-    roughness: 0.5, metalness: 0.1
-  });
 
   if (isRailing) {
     // Build railing: posts + top rail (no bottom panel — matches real apartment photos)
@@ -159,21 +193,17 @@ function _buildEdgeWall(group, mat, wallDef, floorY, roofZone) {
       const length = toX - fromX;
       const numPosts = Math.max(2, Math.ceil(length / postSpacing) + 1);
 
-      // Top rail (wooden handrail)
+      // Top rail (wooden handrail) — collect geometry
       const topGeo = new THREE.BoxGeometry(length, railThick, railThick);
-      const topMesh = new THREE.Mesh(topGeo, railMat);
-      topMesh.position.set((fromX + toX) / 2, topY - railThick / 2, pos);
-      topMesh.castShadow = true;
-      group.add(topMesh);
+      topGeo.translate((fromX + toX) / 2, topY - railThick / 2, pos);
+      railTopGeos.push(topGeo);
 
-      // Vertical posts (balusters)
+      // Vertical posts (balusters) — collect geometries
       for (let i = 0; i < numPosts; i++) {
         const x = fromX + (length * i / (numPosts - 1));
         const postGeo = new THREE.BoxGeometry(postWidth, railHeight, postDepth);
-        const postMesh = new THREE.Mesh(postGeo, railMat);
-        postMesh.position.set(x, floorY + railHeight / 2, pos);
-        postMesh.castShadow = true;
-        group.add(postMesh);
+        postGeo.translate(x, floorY + railHeight / 2, pos);
+        railPostGeos.push(postGeo);
       }
     } else {
       // Railing along Z axis at X = pos
@@ -182,21 +212,17 @@ function _buildEdgeWall(group, mat, wallDef, floorY, roofZone) {
       const length = toZ - fromZ;
       const numPosts = Math.max(2, Math.ceil(length / postSpacing) + 1);
 
-      // Top rail
+      // Top rail — collect geometry
       const topGeo = new THREE.BoxGeometry(railThick, railThick, length);
-      const topMesh = new THREE.Mesh(topGeo, railMat);
-      topMesh.position.set(pos, topY - railThick / 2, (fromZ + toZ) / 2);
-      topMesh.castShadow = true;
-      group.add(topMesh);
+      topGeo.translate(pos, topY - railThick / 2, (fromZ + toZ) / 2);
+      railTopGeos.push(topGeo);
 
-      // Vertical posts
+      // Vertical posts — collect geometries
       for (let i = 0; i < numPosts; i++) {
         const z = fromZ + (length * i / (numPosts - 1));
         const postGeo = new THREE.BoxGeometry(postDepth, railHeight, postWidth);
-        const postMesh = new THREE.Mesh(postGeo, railMat);
-        postMesh.position.set(pos, floorY + railHeight / 2, z);
-        postMesh.castShadow = true;
-        group.add(postMesh);
+        postGeo.translate(pos, floorY + railHeight / 2, z);
+        railPostGeos.push(postGeo);
       }
     }
   } else {
@@ -276,6 +302,14 @@ function _buildQuarterTurnStaircase(group, stairwell, floorY) {
   // Collect handrail points for continuous curve
   const handrailPoints = [];
 
+  // Geometry collection arrays — one per material group
+  const treadGeos = [];       // stepMat
+  const riserGeos = [];       // stringerMat
+  const stringerGeos = [];    // stringerMat
+  const soffitGeos = [];      // stringerMat
+  const balusterGeos = [];    // railMat
+  const handrailGeos = [];    // handrailMat
+
   // Find pivot point from winder run to determine stringer/railing sides
   const winderRun = runs.find(r => r.pivotX !== undefined);
   const pivotX = winderRun ? winderRun.pivotX : 0;
@@ -309,18 +343,16 @@ function _buildQuarterTurnStaircase(group, stairwell, floorY) {
           const zMid = (z + zEnd) / 2;
 
           const treadGeo = new THREE.BoxGeometry(width, risePerTread, Math.abs(treadDepth));
-          const treadMesh = new THREE.Mesh(treadGeo, stepMat);
-          treadMesh.position.set(fromX, y - risePerTread / 2, zMid);
-          treadMesh.castShadow = true;
-          treadMesh.receiveShadow = true;
-          group.add(treadMesh);
+          treadGeo.translate(fromX, y - risePerTread / 2, zMid);
+          treadGeos.push(treadGeo);
 
           // White riser face on the front of each step
           const riserGeo = new THREE.PlaneGeometry(width, risePerTread);
-          const riserMesh = new THREE.Mesh(riserGeo, stringerMat);
-          riserMesh.position.set(fromX, y - risePerTread / 2, z);
-          riserMesh.rotation.y = dirSign > 0 ? Math.PI : 0;
-          group.add(riserMesh);
+          if (dirSign > 0) {
+            riserGeo.rotateY(Math.PI);
+          }
+          riserGeo.translate(fromX, y - risePerTread / 2, z);
+          riserGeos.push(riserGeo);
 
           // Handrail point on outer (railing) side
           const outerX = fromX + railSign * halfW;
@@ -331,18 +363,14 @@ function _buildQuarterTurnStaircase(group, stairwell, floorY) {
           const xMid = (x + xEnd) / 2;
 
           const treadGeo = new THREE.BoxGeometry(Math.abs(treadDepth), risePerTread, width);
-          const treadMesh = new THREE.Mesh(treadGeo, stepMat);
-          treadMesh.position.set(xMid, y - risePerTread / 2, fromZ);
-          treadMesh.castShadow = true;
-          treadMesh.receiveShadow = true;
-          group.add(treadMesh);
+          treadGeo.translate(xMid, y - risePerTread / 2, fromZ);
+          treadGeos.push(treadGeo);
 
           // White riser face on the front of each step
           const riserGeo = new THREE.PlaneGeometry(width, risePerTread);
-          const riserMesh = new THREE.Mesh(riserGeo, stringerMat);
-          riserMesh.position.set(x, y - risePerTread / 2, fromZ);
-          riserMesh.rotation.y = Math.PI / 2 + (dirSign > 0 ? Math.PI : 0);
-          group.add(riserMesh);
+          riserGeo.rotateY(Math.PI / 2 + (dirSign > 0 ? Math.PI : 0));
+          riserGeo.translate(x, y - risePerTread / 2, fromZ);
+          riserGeos.push(riserGeo);
 
           // Handrail point on outer (railing) side
           const outerZ = fromZ + railSign * halfW;
@@ -401,9 +429,7 @@ function _buildQuarterTurnStaircase(group, stairwell, floorY) {
         const stringerGeo = new THREE.BufferGeometry();
         stringerGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
         stringerGeo.computeVertexNormals();
-        const mesh = new THREE.Mesh(stringerGeo, stringerMat);
-        mesh.castShadow = true;
-        group.add(mesh);
+        stringerGeos.push(stringerGeo);
       }
 
       // ── Under-stair soffit (underside panel) ──
@@ -434,10 +460,7 @@ function _buildQuarterTurnStaircase(group, stairwell, floorY) {
           const soffitGeo = new THREE.BufferGeometry();
           soffitGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
           soffitGeo.computeVertexNormals();
-          const soffitMesh = new THREE.Mesh(soffitGeo, stringerMat);
-          soffitMesh.castShadow = true;
-          soffitMesh.receiveShadow = true;
-          group.add(soffitMesh);
+          soffitGeos.push(soffitGeo);
         }
       }
 
@@ -457,18 +480,14 @@ function _buildQuarterTurnStaircase(group, stairwell, floorY) {
             const bx = fromX + railSign * halfW;
             const bz = fromZ + dirSign * runLength * t;
             const postGeo = new THREE.CylinderGeometry(postRadius, postRadius, balH, postSegs);
-            const postMesh = new THREE.Mesh(postGeo, railMat);
-            postMesh.position.set(bx, y + balH / 2, bz);
-            postMesh.castShadow = true;
-            group.add(postMesh);
+            postGeo.translate(bx, y + balH / 2, bz);
+            balusterGeos.push(postGeo);
           } else {
             const bx = fromX + dirSign * runLength * t;
             const bz = fromZ + railSign * halfW;
             const postGeo = new THREE.CylinderGeometry(postRadius, postRadius, balH, postSegs);
-            const postMesh = new THREE.Mesh(postGeo, railMat);
-            postMesh.position.set(bx, y + balH / 2, bz);
-            postMesh.castShadow = true;
-            group.add(postMesh);
+            postGeo.translate(bx, y + balH / 2, bz);
+            balusterGeos.push(postGeo);
           }
         }
       }
@@ -612,38 +631,31 @@ function _buildQuarterTurnStaircase(group, stairwell, floorY) {
         });
         // Rotate so extrusion (local Z) becomes world -Y (downward from tread surface)
         stepGeo.rotateX(-Math.PI / 2);
-        const stepMesh = new THREE.Mesh(stepGeo, stepMat);
-        stepMesh.position.y = y - risePerTread;
-        stepMesh.castShadow = true;
-        stepMesh.receiveShadow = true;
-        group.add(stepMesh);
+        stepGeo.translate(0, y - risePerTread, 0);
+        treadGeos.push(stepGeo);
 
         // White riser face along the leading angular edge (pivot → hit0)
         {
           const edgeLen = Math.sqrt((hit0.x - pivotX) ** 2 + (hit0.z - pivotZ) ** 2);
           const riserGeo = new THREE.PlaneGeometry(edgeLen, risePerTread);
-          const riserMesh = new THREE.Mesh(riserGeo, stringerMat.clone());
-          riserMesh.material.side = THREE.DoubleSide;
-          riserMesh.position.set(
+          const edgeAngle = Math.atan2(hit0.z - pivotZ, hit0.x - pivotX);
+          riserGeo.rotateY(-edgeAngle);
+          riserGeo.translate(
             (pivotX + hit0.x) / 2,
             y - risePerTread / 2,
             (pivotZ + hit0.z) / 2,
           );
-          const edgeAngle = Math.atan2(hit0.z - pivotZ, hit0.x - pivotX);
-          riserMesh.rotation.y = -edgeAngle;
-          group.add(riserMesh);
+          riserGeos.push(riserGeo);
         }
 
         // Railing post at the outer edge midpoint of each winder tread.
         {
-          const midAngle = startAngle + sweep * ((i + 0.5) / run.treads);
-          const midHit = rayHitBox(midAngle);
+          const midAngleVal = startAngle + sweep * ((i + 0.5) / run.treads);
+          const midHit = rayHitBox(midAngleVal);
 
           const postGeo = new THREE.CylinderGeometry(0.015, 0.015, railHeight, 6);
-          const postMesh = new THREE.Mesh(postGeo, railMat);
-          postMesh.position.set(midHit.x, y + railHeight / 2, midHit.z);
-          postMesh.castShadow = true;
-          group.add(postMesh);
+          postGeo.translate(midHit.x, y + railHeight / 2, midHit.z);
+          balusterGeos.push(postGeo);
 
           handrailPoints.push(new THREE.Vector3(midHit.x, y + railHeight, midHit.z));
         }
@@ -655,21 +667,29 @@ function _buildQuarterTurnStaircase(group, stairwell, floorY) {
         const soffitW = boxMaxX - boxMinX;
         const soffitD = boxMaxZ - boxMinZ;
         const soffitGeo = new THREE.PlaneGeometry(soffitW, soffitD);
-        const soffitMesh = new THREE.Mesh(soffitGeo, stringerMat);
-        soffitMesh.rotation.x = -Math.PI / 2;
-        soffitMesh.position.set(
+        soffitGeo.rotateX(-Math.PI / 2);
+        soffitGeo.translate(
           (boxMinX + boxMaxX) / 2,
           soffitY,
           (boxMinZ + boxMaxZ) / 2,
         );
-        soffitMesh.material = stringerMat.clone();
-        soffitMesh.material.side = THREE.DoubleSide;
-        group.add(soffitMesh);
+        soffitGeos.push(soffitGeo);
       }
 
       treadIndex += run.treads;
     }
   }
+
+  // ── Merge all geometries by material and add to group ──
+
+  // Treads (stepMat)
+  addMergedMesh(group, treadGeos, stepMat);
+
+  // Risers + stringers + soffits (stringerMat)
+  addMergedMesh(group, [...riserGeos, ...stringerGeos, ...soffitGeos], stringerMat);
+
+  // Baluster posts (railMat)
+  addMergedMesh(group, balusterGeos, railMat);
 
   // ── Continuous handrail along all runs ──
   if (handrailPoints.length >= 2) {
@@ -683,17 +703,16 @@ function _buildQuarterTurnStaircase(group, stairwell, floorY) {
       if (len < 0.001) continue;
 
       const segGeo = new THREE.CylinderGeometry(0.025, 0.025, len, 6);
-      const segMesh = new THREE.Mesh(segGeo, handrailMat);
-      // Position at midpoint between p0 and p1
-      segMesh.position.set((p0.x + p1.x) / 2, (p0.y + p1.y) / 2, (p0.z + p1.z) / 2);
       // Rotate cylinder to align with direction
       const axis = new THREE.Vector3(0, 1, 0);
       const quat = new THREE.Quaternion().setFromUnitVectors(axis, dir.normalize());
-      segMesh.quaternion.copy(quat);
-      segMesh.castShadow = true;
-      group.add(segMesh);
+      // Apply rotation via geometry (so we can merge)
+      segGeo.applyQuaternion(quat);
+      segGeo.translate((p0.x + p1.x) / 2, (p0.y + p1.y) / 2, (p0.z + p1.z) / 2);
+      handrailGeos.push(segGeo);
     }
 
+    addMergedMesh(group, handrailGeos, handrailMat);
   }
 }
 
@@ -725,6 +744,10 @@ function _buildStaircase(group, stairwell, floorY) {
   poleMesh.castShadow = true;
   group.add(poleMesh);
 
+  // Collect geometries for merging
+  const stepGeos = [];
+  const postGeos = [];
+
   // Build pie-shaped steps
   for (let i = 0; i < numSteps; i++) {
     const y = (floorY / numSteps) * (i + 1);
@@ -755,21 +778,20 @@ function _buildStaircase(group, stairwell, floorY) {
     const stepGeo = new THREE.BufferGeometry();
     stepGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
     stepGeo.computeVertexNormals();
-    const stepMesh = new THREE.Mesh(stepGeo, stepMat);
-    stepMesh.castShadow = true;
-    stepMesh.receiveShadow = true;
-    group.add(stepMesh);
+    stepGeos.push(stepGeo);
 
     // Railing post at outer edge of each step
     const midAngle = (angle + nextAngle) / 2;
     const postX = cx + (outerR + 0.02) * Math.cos(midAngle);
     const postZ = cz + (outerR + 0.02) * Math.sin(midAngle);
     const postGeo = new THREE.CylinderGeometry(0.015, 0.015, 1.0, 6);
-    const postMesh = new THREE.Mesh(postGeo, railMat);
-    postMesh.position.set(postX, y + 0.5, postZ);
-    postMesh.castShadow = true;
-    group.add(postMesh);
+    postGeo.translate(postX, y + 0.5, postZ);
+    postGeos.push(postGeo);
   }
+
+  // Merge step and railing post geometries into single meshes
+  addMergedMesh(group, stepGeos, stepMat);
+  addMergedMesh(group, postGeos, railMat);
 
   // Handrail — curved tube following the outer edge
   const railPoints = [];

@@ -1,5 +1,27 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { state } from './state.js';
+
+function safeMerge(geos) {
+  if (!geos || geos.length === 0) return null;
+  const prepared = geos.map(g => {
+    const ng = g.index ? g.toNonIndexed() : g;
+    for (const name of Object.keys(ng.attributes)) {
+      if (name !== 'position' && name !== 'normal') ng.deleteAttribute(name);
+    }
+    if (!ng.attributes.normal) ng.computeVertexNormals();
+    return ng;
+  });
+  try { return mergeGeometries(prepared, false); } catch (e) { return null; }
+}
+
+function addMergedMesh(parent, geos, material) {
+  const merged = safeMerge(geos);
+  if (!merged) return;
+  const mesh = new THREE.Mesh(merged, material);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  parent.add(mesh);
+}
 
 // ─── TERRACE ───
 
@@ -35,11 +57,17 @@ export function buildTerrace() {
   floorMesh.receiveShadow = true;
   terraceGroup.add(floorMesh);
 
-  // Railings (reuse _buildTerraceRailing railing pattern but at terrace floorY)
+  // Railings — collect all post geometries across all walls, merge into single mesh
   if (tc.walls) {
+    const postGeos = [];
+    const topRailGeos = [];
+
     for (const wall of tc.walls) {
-      _buildTerraceRailing(terraceGroup, railMat, wall, floorY);
+      _collectTerraceRailingGeos(postGeos, topRailGeos, wall, floorY);
     }
+
+    addMergedMesh(terraceGroup, topRailGeos, railMat);
+    addMergedMesh(terraceGroup, postGeos, railMat);
   }
 
   // Steps from upper floor to terrace
@@ -58,6 +86,7 @@ export function buildTerrace() {
       color: 0xD4C8B8, roughness: 0.7, metalness: 0.0
     });
 
+    const stepGeos = [];
     for (let i = 0; i < steps.count; i++) {
       // Step index 0 is nearest the interior (minZ), ascending toward terrace (maxZ)
       const stepIdx = direction === 'fromTerrace' ? (steps.count - 1 - i) : i;
@@ -67,22 +96,21 @@ export function buildTerrace() {
       const stepW = sb.maxX - sb.minX;
 
       const geo = new THREE.BoxGeometry(stepW, totalH, depthPerStep);
-      const mesh = new THREE.Mesh(geo, stepMat);
-      mesh.position.set(
+      geo.translate(
         (sb.minX + sb.maxX) / 2,
         ufFloorY + totalH / 2,
         stepZ + depthPerStep / 2
       );
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      terraceGroup.add(mesh);
+      stepGeos.push(geo);
     }
+
+    addMergedMesh(terraceGroup, stepGeos, stepMat);
   }
 
   scene.add(terraceGroup);
 }
 
-function _buildTerraceRailing(group, mat, wallDef, floorY) {
+function _collectTerraceRailingGeos(postGeos, topRailGeos, wallDef, floorY) {
   const railHeight = wallDef.railHeight || 1.0;
   const topY = floorY + railHeight;
   const postWidth = 0.04;
@@ -100,17 +128,15 @@ function _buildTerraceRailing(group, mat, wallDef, floorY) {
 
     // Top rail
     const topGeo = new THREE.BoxGeometry(length, railThick, railThick);
-    const topMesh = new THREE.Mesh(topGeo, mat);
-    topMesh.position.set((fromX + toX) / 2, topY - railThick / 2, pos);
-    group.add(topMesh);
+    topGeo.translate((fromX + toX) / 2, topY - railThick / 2, pos);
+    topRailGeos.push(topGeo);
 
     // Posts
     for (let i = 0; i < numPosts; i++) {
       const x = fromX + (length * i / (numPosts - 1));
       const postGeo = new THREE.BoxGeometry(postWidth, railHeight, postDepth);
-      const postMesh = new THREE.Mesh(postGeo, mat);
-      postMesh.position.set(x, floorY + railHeight / 2, pos);
-      group.add(postMesh);
+      postGeo.translate(x, floorY + railHeight / 2, pos);
+      postGeos.push(postGeo);
     }
   } else {
     const fromZ = wallDef.fromZ;
@@ -120,17 +146,15 @@ function _buildTerraceRailing(group, mat, wallDef, floorY) {
 
     // Top rail
     const topGeo = new THREE.BoxGeometry(railThick, railThick, Math.abs(length));
-    const topMesh = new THREE.Mesh(topGeo, mat);
-    topMesh.position.set(pos, topY - railThick / 2, (fromZ + toZ) / 2);
-    group.add(topMesh);
+    topGeo.translate(pos, topY - railThick / 2, (fromZ + toZ) / 2);
+    topRailGeos.push(topGeo);
 
     // Posts
     for (let i = 0; i < numPosts; i++) {
       const z = fromZ + (length * i / (numPosts - 1));
       const postGeo = new THREE.BoxGeometry(postDepth, railHeight, postWidth);
-      const postMesh = new THREE.Mesh(postGeo, mat);
-      postMesh.position.set(pos, floorY + railHeight / 2, z);
-      group.add(postMesh);
+      postGeo.translate(pos, floorY + railHeight / 2, z);
+      postGeos.push(postGeo);
     }
   }
 }

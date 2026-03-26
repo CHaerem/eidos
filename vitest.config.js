@@ -7,6 +7,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      'three/addons/utils/BufferGeometryUtils.js': path.resolve(__dirname, 'tests/mocks/BufferGeometryUtils.js'),
       'three/addons/loaders/OBJLoader.js': path.resolve(__dirname, 'tests/mocks/OBJLoader.js'),
       'three/addons/loaders/GLTFLoader.js': path.resolve(__dirname, 'tests/mocks/GLTFLoader.js'),
       'three/addons/loaders/DRACOLoader.js': path.resolve(__dirname, 'tests/mocks/DRACOLoader.js'),
