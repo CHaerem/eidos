@@ -9,15 +9,21 @@ export function loadOBJ(objPath, scale, yShift) {
   return new Promise((resolve, reject) => {
     const loader = new OBJLoader();
 
-    // Clipping plane at upper floor level — prevents OBJ walls from poking through 6th floor
+    // Clipping planes — prevent OBJ walls from poking through floor and 6th floor
     const config = state.apartmentConfig;
+    const floorY = config?.bounds?.floorY ?? 0;
     const upperFloorY = (config && config.upperFloor) ? (config.upperFloor.floorY || 2.25) : null;
-    const clipPlane = upperFloorY
-      ? new THREE.Plane(new THREE.Vector3(0, -1, 0), upperFloorY)
-      : null;
+
+    const clipPlanes = [];
+    // Floor clipping — hide geometry below ground level
+    clipPlanes.push(new THREE.Plane(new THREE.Vector3(0, 1, 0), -floorY));
+    // Upper floor clipping — hide geometry above 6th floor level
+    if (upperFloorY) {
+      clipPlanes.push(new THREE.Plane(new THREE.Vector3(0, -1, 0), upperFloorY));
+    }
 
     // Enable clipping on the renderer
-    if (clipPlane && state.renderer) {
+    if (clipPlanes.length > 0 && state.renderer) {
       state.renderer.localClippingEnabled = true;
     }
 
@@ -83,7 +89,7 @@ export function loadOBJ(objPath, scale, yShift) {
                 color: 0x8899AA, side: THREE.DoubleSide,
                 transparent: true, opacity: 0.4,
                 roughness: 0.9, metalness: 0.0,
-                clippingPlanes: clipPlane ? [clipPlane] : [],
+                clippingPlanes: clipPlanes,
               });
             } else if (name.startsWith('FloorFillerTop')) {
               child.visible = false;
@@ -92,7 +98,7 @@ export function loadOBJ(objPath, scale, yShift) {
                 color: 0xC4B8A8, side: THREE.DoubleSide,
                 transparent: true, opacity: 0.6,
                 roughness: 0.9, metalness: 0.0,
-                clippingPlanes: clipPlane ? [clipPlane] : [],
+                clippingPlanes: clipPlanes,
               });
               child.receiveShadow = true;
             } else {
@@ -100,7 +106,7 @@ export function loadOBJ(objPath, scale, yShift) {
                 color: 0xAAAAAA, side: THREE.DoubleSide,
                 transparent: true, opacity: 0.5,
                 roughness: 0.8, metalness: 0.0,
-                clippingPlanes: clipPlane ? [clipPlane] : [],
+                clippingPlanes: clipPlanes,
               });
             }
           }
